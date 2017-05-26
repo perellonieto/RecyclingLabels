@@ -19,7 +19,7 @@ from experiments.visualizations import plot_heatmap
 from experiments.diary import Diary
 
 
-def analyse_true_labels(load_data, seed=None, verbose=0):
+def analyse_true_labels(X, Y, y, seed=None, verbose=0):
     """ Trains a Feed-fordward neural network using cross-validation
 
     The training and validation is done in the validation set using the true
@@ -27,20 +27,11 @@ def analyse_true_labels(load_data, seed=None, verbose=0):
 
     Parameters
     ----------
-        load_data: function
-            Function that returns a training and validation set on the form
-            X_train: ndarray (n_train_samples, n_features)
-            Z_train: ndarray (n_train_samples, n_classes)
-                Weak labels in binary as a one-hot encoding
-            z_train: ndarray (n_train_samples, )
-                Weak labels as integers
-            X_val: ndarray (n_val_samples, n_features)
-            Z_val: ndarray (n_val_samples, n_classes)
-            z_val: ndarray (n_val_samples, )
-            Y_val: ndarray (n_val_samples, n_classes)
-                True labels in binary as a encoding one-hot encoding
-            y_val: ndarray (n_val_samples, )
-                True labels as integers
+        X: ndarray (n_samples, n_features)
+        Y: ndarray (n_samples, n_classes)
+            True labels in binary as a encoding one-hot encoding
+        y: ndarray (n_samples, )
+            True labels as integers
     """
     # Test performance on validation true labels
     # ## Create a Diary for all the logs and results
@@ -50,12 +41,9 @@ def analyse_true_labels(load_data, seed=None, verbose=0):
     diary.add_notebook('model')
     diary.add_notebook('validation')
 
-    # Test for the validation error with the true labels
-    X_train, Z_train, z_train, X_val, Z_val, z_val, Y_val, y_val = load_data(seed=seed)
-
-    n_s = X_train.shape[0]
-    n_f = X_train.shape[1]
-    n_c = Y_val.shape[1]
+    n_s = X.shape[0]
+    n_f = X.shape[1]
+    n_c = Y.shape[1]
 
     print("Samples = {}\nFeatures = {}\nClasses = {}".format(n_s, n_f, n_c))
     diary.add_entry('dataset', ['n_samples', n_s, 'n_features', n_f,
@@ -63,11 +51,8 @@ def analyse_true_labels(load_data, seed=None, verbose=0):
 
     # If dimension is 2, we draw a scatterplot
     if n_f >= 2:
-        fig = plot_data(X_val, y_val, save=False, title='True labels')
+        fig = plot_data(X, y, save=False, title='True labels')
         diary.save_figure(fig, filename='true_labels')
-
-        fig = plot_data(X_val, z_val, save=False, title='Weak labels')
-        diary.save_figure(fig, filename='weak_labels')
 
     params = {'input_dim': n_f,
               'output_size': n_c,
@@ -97,18 +82,18 @@ def analyse_true_labels(load_data, seed=None, verbose=0):
     fit_arguments = {key: value for key, value in params.iteritems()
                      if key in inspect.getargspec(model.fit)[0]}
 
-    if sparse.issparse(X_val):
-        X_val = X_val.toarray()
+    if sparse.issparse(X):
+        X = X.toarray()
 
-    model.fit(X_val, Y_val, **fit_arguments)
+    model.fit(X, Y, **fit_arguments)
 
-    q = model.predict_proba(X_val)
+    q = model.predict_proba(X)
     y_pred = q.argmax(axis=1)
 
-    acc = accuracy_score(y_val, y_pred)
+    acc = accuracy_score(y, y_pred)
     print("#####")
     print("Accuracy = {}".format(acc))
-    cm = confusion_matrix(y_val, y_pred)
+    cm = confusion_matrix(y, y_pred)
     print("Confusion matrix: \n{}".format(cm))
 
 

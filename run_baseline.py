@@ -6,7 +6,6 @@ from experiments.analysis import analyse_true_labels
 
 import argparse
 
-analysis_functions = {'true_labels': analyse_true_labels}
 dataset_functions = {'toy_example': load_toy_example,
                      'blobs': load_blobs,
                      'webs': load_webs}
@@ -31,21 +30,39 @@ def parse_arguments():
 
 
 def test_1a():
-    analyse_true_labels(load_toy_example, seed=0)
+    training, validation = load_toy_example()
+    X_t, Z_t, z_t = training
+    X_v, Z_v, z_v, Y_v, y_v = validation
+    analyse_true_labels(X_v, Y_v, y_v, seed=0)
 
 
 def test_1b():
-    analyse_true_labels(load_blobs, seed=0)
+    training, validation = load_blobs()
+    X_t, Z_t, z_t = training
+    X_v, Z_v, z_v, Y_v, y_v = validation
+    analyse_true_labels(X_v, Y_v, y_v, seed=0)
 
 
 def test_1c():
-    analyse_true_labels(load_webs, seed=0)
+    training, validation = load_webs()
+    X_t, Z_t, z_t = training
+    X_v, Z_v, z_v, Y_v, y_v = validation
+    analyse_true_labels(X_v, Y_v, y_v, seed=0)
 
 
 def main(test, dataset, seed, verbose):
     print('Main arguments')
     print(locals())
-    analysis_functions[test](dataset_functions[dataset], seed, verbose)
+    if dataset not in dataset_functions.keys():
+        raise ValueError("Dataset not available: %s" % (dataset))
+
+    training, validation = dataset_functions[dataset](seed=seed)
+    X_t, Z_t, z_t = training
+    X_v, Z_v, z_v, Y_v, y_v = validation
+    if test == 'true_labels':
+        analyse_true_labels(X_v, Y_v, y_v, seed=seed, verbose=verbose)
+    else:
+        raise ValueError("Analysis not implemented: %s" % (test))
 
 
 if __name__ == '__main__':
