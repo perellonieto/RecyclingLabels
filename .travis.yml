@@ -1,10 +1,7 @@
 language: python
 python:
   - "2.7"
-matrix:
-  include:
-    - python: 2.7
-      env: KERAS_BACKEND=theano
+    env: KERAS_BACKEND=theano
 cache: apt
 addons:
   # It seems that this avoids problems with scipy
