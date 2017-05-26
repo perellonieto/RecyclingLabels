@@ -19,6 +19,17 @@ class TestUtils(unittest.TestCase):
                              [1, 0, 0, 0]])
         assert_equal(z_bin, expected)
 
+        c = 3
+        z = np.array([7, 3, 1, 0, 6, 5])
+        z_bin = binarize_weak_labels(z, c)
+        expected = np.array([[1, 1, 1],
+                             [0, 1, 1],
+                             [0, 0, 1],
+                             [0, 0, 0],
+                             [1, 1, 0],
+                             [1, 0, 1]])
+        assert_equal(z_bin, expected)
+
 
 def main():
     unittest.main()
