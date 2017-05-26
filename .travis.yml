@@ -1,6 +1,10 @@
 language: python
 python:
   - "2.7"
+matrix:
+  include:
+    - python: 2.7
+      env: KERAS_BACKEND=theano
 cache: apt
 addons:
   # It seems that this avoids problems with scipy
@@ -23,7 +27,14 @@ install:
   - pip install -r requirements.txt
   # Get fab to test fab
   - pip install -e .
+# Command to run tests
 script:
+  # Run keras backend init to initialize backend config
+  - python -c "import keras.backend"
+  # Create dataset directory to avoid concurrent directory creation at runtime
+  - mkdir ~/.keras/datasets
+  # Set up keras backend
+  - sed -i -e 's/"backend":[[:space:]]*"[^"]*/"backend":\ "'$KERAS_BACKEND'/g' ~/.keras/keras.json;
   # Normal tests
   - ./runtests.sh
 after_success:
