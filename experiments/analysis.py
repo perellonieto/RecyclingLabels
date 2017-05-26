@@ -11,7 +11,7 @@ from sklearn.metrics import confusion_matrix
 
 from keras.wrappers.scikit_learn import KerasClassifier
 
-from experiments.utils import create_model
+from experiments.models import create_model
 
 from experiments.visualizations import plot_data
 from experiments.visualizations import plot_heatmap
