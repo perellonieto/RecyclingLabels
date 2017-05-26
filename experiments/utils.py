@@ -9,7 +9,7 @@ from keras.optimizers import SGD
 from functools import partial
 
 
-def binarizeWeakLabels(z, c):
+def binarize_weak_labels(z, c):
     """
     Binarizes the weak labels depending on the method used to generate the weak
     labels.
@@ -88,3 +88,57 @@ def create_model(input_dim=1, output_size=1, optimizer='rmsprop',
     model.compile(loss=loss, optimizer=optimizer,
                   metrics=['acc'])
     return model
+
+
+def w_brier_loss(y_true, y_pred, class_weights):
+    """
+
+    class_weights: array with (c,) dimensions
+    """
+    return T.mean(T.dot(T.square(T.sub(y_pred, y_true)), class_weights),
+                  axis=-1)
+
+
+def uniqueness(df):
+    unique_indices = df.index.unique().shape[0] == df.shape[0]
+    if not unique_indices:
+        where = np.where((itemfreq(df.index.astype('int'))[:, 1] > 1))[0]
+    return unique_indices
+
+
+def brier_score(target, predicted, class_weights, per_class=False):
+    """Brier score between target and predicted
+
+    Parameters
+    ----------
+    target : numpy.ndarray
+        Ground truth of shape (N,C) where N is the number
+        of samples and C is the number of classes
+
+    predicted : numpy.ndarray
+        Predictions of shape (N,C) where N is the number
+        of samples and C is the number of classes
+
+    class_weights : numpy.ndarray, optional
+        Array of weights of shape (C,) indicating the importance
+        of each class prediction
+
+    per_class : bool, optional
+        If true, the error per class is returned in a `ndarray` of size 1xC
+
+    Returns
+    -------
+    bs : float
+        The mean weighted brier score for all the samples
+
+    bs_pc : ndarray, optional
+        Only returned if `per_class` is True.
+        The weighted mean of all the samples per class with shape (C,)
+    """
+    if per_class:
+        return np.squeeze(np.multiply(
+                   np.square(target - predicted).mean(axis=0).reshape(-1, 1),
+                   class_weights.reshape(-1, 1)))
+
+    return np.square(target - predicted).dot(class_weights).mean()
+

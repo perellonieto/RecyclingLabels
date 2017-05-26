@@ -19,7 +19,7 @@ from experiments.visualizations import plot_heatmap
 from experiments.diary import Diary
 
 
-def test_true_labels(load_data, seed=None, verbose=0):
+def analyse_true_labels(load_data, seed=None, verbose=0):
     """ Trains a Feed-fordward neural network using cross-validation
 
     The training and validation is done in the validation set using the true
@@ -112,7 +112,7 @@ def test_true_labels(load_data, seed=None, verbose=0):
     print("Confusion matrix: \n{}".format(cm))
 
 
-def test_2(load_data, seed=None):
+def analyse_2(load_data, seed=None):
     """ Makes a Grid search on the hyperparameters of a Feed-fordwared neural
         network
 
@@ -194,7 +194,7 @@ def test_2(load_data, seed=None):
         print("%f (%f) with: %r" % (mean, stdev, param))
 
 
-def test_3(load_data, seed=None):
+def analyse_3(load_data, seed=None):
     """ Trains a Feed-fordward neural network using cross-validation
 
     The training is done with the weak labels on the training set and
@@ -290,7 +290,7 @@ def test_3(load_data, seed=None):
     diary.save_figure(fig, filename='confusion_matrix')
 
 
-def test_4(load_data, seed=None):
+def analyse_4(load_data, seed=None):
     X_train, Z_train, z_train, X_val, Z_val, z_val, Y_val, y_val = load_data()
 
     n_s = X_train.shape[0]

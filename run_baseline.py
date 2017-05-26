@@ -2,11 +2,11 @@ from experiments.data import load_toy_example
 from experiments.data import load_blobs
 from experiments.data import load_webs
 
-from experiments.tests import test_true_labels
+from experiments.analysis import analyse_true_labels
 
 import argparse
 
-test_functions = {'true_labels': test_true_labels}
+analysis_functions = {'true_labels': analyse_true_labels}
 dataset_functions = {'toy_example': load_toy_example,
                      'blobs': load_blobs,
                      'webs': load_webs}
@@ -31,21 +31,21 @@ def parse_arguments():
 
 
 def test_1a():
-    test_true_labels(load_toy_example, seed=0)
+    analyse_true_labels(load_toy_example, seed=0)
 
 
 def test_1b():
-    test_true_labels(load_blobs, seed=0)
+    analyse_true_labels(load_blobs, seed=0)
 
 
 def test_1c():
-    test_true_labels(load_webs, seed=0)
+    analyse_true_labels(load_webs, seed=0)
 
 
 def main(test, dataset, seed, verbose):
     print('Main arguments')
     print(locals())
-    test_functions[test](dataset_functions[dataset], seed, verbose)
+    analysis_functions[test](dataset_functions[dataset], seed, verbose)
 
 
 if __name__ == '__main__':
