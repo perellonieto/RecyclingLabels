@@ -8,22 +8,20 @@ from sklearn.preprocessing import label_binarize
 
 from sklearn.model_selection import train_test_split
 
-seed = 42
-prng = RandomState(seed)
 
-def load_webs():
+def load_webs(seed=None):
     categories = ['blog', 'inmo', 'parking', 'b2c', 'no_b2c', 'Other']
     n_cat = len(categories)
 
-    # Note that the pickle file contains a multi-index dataframe. We take the label
-    # (multi-)column only.
+    # Note that the pickle file contains a multi-index dataframe. We take the
+    # label (multi-)column only.
     dfY = pd.read_csv('data/Y_newlabels.csv', index_col=0)
     Y_val = dfY[categories].as_matrix()
     y_val = Y_val.argmax(axis=1)
 
     if np.any(np.sum(Y_val, axis=1) != 1):
-        print("Oops!, there are unexpected weak labels in the new dataset. This "
-              "may cause some errors below")
+        print("Oops!, there are unexpected weak labels in the new dataset."
+              "This may cause some errors below")
 
     X = np.load('data/X_full.npy')
     X = X.item()
@@ -33,7 +31,7 @@ def load_webs():
 
     indices_val = [dfZ.index.get_loc(label) for label in dfY.index]
     Z_val = dfZ.iloc[indices_val][categories].as_matrix().astype(int)
-    X_val = X[indices_val,:]
+    X_val = X[indices_val, :]
 
     mask_train = np.ones(len(dfZ), dtype=bool)
     mask_train[indices_val] = False
@@ -46,14 +44,18 @@ def load_webs():
     z_train = Z_train.dot(p2)
     z_val = Z_val.dot(p2)
 
-    X_train, Z_train, z_train = shuffle(X_train, Z_train, z_train)
-    X_val, Z_val, z_val, Y_val, y_val = shuffle(X_val, Z_val, z_val, Y_val, y_val)
+    X_train, Z_train, z_train = shuffle(X_train, Z_train, z_train,
+                                        random_state=seed)
+    X_val, Z_val, z_val, Y_val, y_val = shuffle(X_val, Z_val, z_val, Y_val,
+                                                y_val)
 
     return X_train, Z_train, z_train, X_val, Z_val, z_val, Y_val, y_val
 
 
-def load_toy_example():
+def load_toy_example(seed=None):
     n_classes = 2
+
+    prng = RandomState(seed)
 
     X = np.concatenate([prng.rand(40, 2), prng.rand(20, 2)+1])
     y = np.concatenate([np.zeros((40, 1)), np.ones((20, 1))]).astype(int)
@@ -67,7 +69,8 @@ def load_toy_example():
 
     return X_train, Z_train, z_train, X_val, Z_val, z_val, Y_val, y_val
 
-def load_blobs(n_samples=1000, n_features=2, n_classes=6):
+
+def load_blobs(n_samples=1000, n_features=2, n_classes=6, seed=None):
     X, y = make_blobs(n_samples=n_samples, n_features=n_features,
                       centers=n_classes, random_state=seed)
     Y = label_binarize(y, range(n_classes))

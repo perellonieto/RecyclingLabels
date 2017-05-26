@@ -11,19 +11,15 @@ from sklearn.metrics import confusion_matrix
 
 from keras.wrappers.scikit_learn import KerasClassifier
 
-from testUtils import create_model
-from testUtils import plot_data
-from testUtils import plot_heatmap
+from experiments.utils import create_model
 
-from testData import load_toy_example
-from testData import load_blobs
-from testData import load_webs
+from experiments.visualizations import plot_data
+from experiments.visualizations import plot_heatmap
 
-from diary import Diary
+from experiments.diary import Diary
 
-seed = 42
 
-def test_1(load_data):
+def test_true_labels(load_data, seed=None, verbose=0):
     """ Trains a Feed-fordward neural network using cross-validation
 
     The training and validation is done in the validation set using the true
@@ -55,7 +51,7 @@ def test_1(load_data):
     diary.add_notebook('validation')
 
     # Test for the validation error with the true labels
-    X_train, Z_train, z_train, X_val, Z_val, z_val, Y_val, y_val = load_data()
+    X_train, Z_train, z_train, X_val, Z_val, z_val, Y_val, y_val = load_data(seed=seed)
 
     n_s = X_train.shape[0]
     n_f = X_train.shape[1]
@@ -73,11 +69,9 @@ def test_1(load_data):
         fig = plot_data(X_val, z_val, save=False, title='Weak labels')
         diary.save_figure(fig, filename='weak_labels')
 
-
     params = {'input_dim': n_f,
               'output_size': n_c,
-              'optimizer': 'rmsprop', # 'adadelta' 'adagrad' 'sgd' 'rmsprop'
-              # 'brier_score' 'w_brier_score' 'categorical_crossentropy' 'mean_squared_error'
+              'optimizer': 'rmsprop',
               'loss': 'categorical_crossentropy',
               'init': 'glorot_uniform',
               'lr': 1.0,
@@ -86,20 +80,22 @@ def test_1(load_data):
               'nesterov': True,
               'epochs': 100,
               'batch_size': 100,
-              'verbose': 1,
+              'verbose': verbose,
               'seed': seed
               }
 
     diary.add_entry('model', params)
 
     make_arguments = {key: value for key, value in params.iteritems()
-                                if key in inspect.getargspec(create_model)[0]}
+                      if key in inspect.getargspec(create_model)[0]}
     model = create_model(**make_arguments)
     pp = pprint.PrettyPrinter(indent=2)
-    print pp.pprint(model.get_config())
+
+    if verbose >= 1:
+        print pp.pprint(model.get_config())
 
     fit_arguments = {key: value for key, value in params.iteritems()
-                               if key in inspect.getargspec(model.fit)[0]}
+                     if key in inspect.getargspec(model.fit)[0]}
 
     if sparse.issparse(X_val):
         X_val = X_val.toarray()
@@ -116,7 +112,7 @@ def test_1(load_data):
     print("Confusion matrix: \n{}".format(cm))
 
 
-def test_2(load_data):
+def test_2(load_data, seed=None):
     """ Makes a Grid search on the hyperparameters of a Feed-fordwared neural
         network
 
@@ -166,15 +162,12 @@ def test_2(load_data):
         fig = plot_data(X_val, z_val, save=False, title='Weak labels')
         diary.save_figure(fig, filename='weak_labels')
 
-
     # FIXME See if it is possible to add a seed to Keras model
     param_grid = {'input_dim': [n_f],
                   'output_size': [n_c],
                   'optimizer': ['sgd', 'rmsprop', 'adam', 'adadelta',
-                      'adagrad', 'nadam'], # 'adadelta' 'adagrad' 'sgd' 'rmsprop'
-                  # 'brier_score' 'w_brier_score' 'categorical_crossentropy' 'mean_squared_error'
-                  'loss': ['categorical_crossentropy'], #, 'mean_squared_error',
-                          # 'brier_score', 'w_brier_score'],
+                                'adagrad', 'nadam'],
+                  'loss': ['categorical_crossentropy'],
                   'init': ['glorot_uniform'],
                   'lr': [1.0],
                   'momentum': [0.5],
@@ -192,7 +185,8 @@ def test_2(load_data):
     grid = GridSearchCV(estimator=model, param_grid=param_grid)
     grid_result = grid.fit(X_val, Y_val)
 
-    print("Best: %f using %s" % (grid_result.best_score_, grid_result.best_params_))
+    print("Best: %f using %s" % (grid_result.best_score_,
+                                 grid_result.best_params_))
     means = grid_result.cv_results_['mean_test_score']
     stds = grid_result.cv_results_['std_test_score']
     params = grid_result.cv_results_['params']
@@ -200,7 +194,7 @@ def test_2(load_data):
         print("%f (%f) with: %r" % (mean, stdev, param))
 
 
-def test_3(load_data):
+def test_3(load_data, seed=None):
     """ Trains a Feed-fordward neural network using cross-validation
 
     The training is done with the weak labels on the training set and
@@ -250,11 +244,9 @@ def test_3(load_data):
         fig = plot_data(X_val, z_val, save=False, title='Weak labels')
         diary.save_figure(fig, filename='weak_labels')
 
-
     params = {'input_dim': n_f,
               'output_size': n_c,
-              'optimizer': 'rmsprop', # 'adadelta' 'adagrad' 'sgd' 'rmsprop'
-              # 'brier_score' 'w_brier_score' 'categorical_crossentropy' 'mean_squared_error'
+              'optimizer': 'rmsprop',
               'loss': 'categorical_crossentropy',
               'init': 'glorot_uniform',
               'lr': 1.0,
@@ -270,13 +262,13 @@ def test_3(load_data):
     diary.add_entry('model', params)
 
     make_arguments = {key: value for key, value in params.iteritems()
-                                if key in inspect.getargspec(create_model)[0]}
+                      if key in inspect.getargspec(create_model)[0]}
     model = create_model(**make_arguments)
     pp = pprint.PrettyPrinter(indent=2)
     print pp.pprint(model.get_config())
 
     fit_arguments = {key: value for key, value in params.iteritems()
-                               if key in inspect.getargspec(model.fit)[0]}
+                     if key in inspect.getargspec(model.fit)[0]}
 
     if sparse.issparse(X_train):
         X_train = X_train.toarray()
@@ -298,10 +290,9 @@ def test_3(load_data):
     diary.save_figure(fig, filename='confusion_matrix')
 
 
-def test_4(load_data):
+def test_4(load_data, seed=None):
     X_train, Z_train, z_train, X_val, Z_val, z_val, Y_val, y_val = load_data()
 
-    seed = 42
     n_s = X_train.shape[0]
     n_f = X_train.shape[1]
     n_c = Y_val.shape[1]
@@ -309,18 +300,18 @@ def test_4(load_data):
     print("Samples = {}\nFeatures = {}\nClasses = {}".format(n_s, n_f, n_c))
 
     params = {'input_dim': n_f,
-             'output_size': n_c,
-             'optimizer': 'sgd',
-             'loss': 'mean_squared_error',
-             'init': 'glorot_uniform',
-             'lr': 1.0,
-             'momentum': 0.5,
-             'decay': 0.5,
-             'nesterov': True,
-             'epochs': 20,
-             'batch_size': 10,
-             'verbose': 0
-             }
+              'output_size': n_c,
+              'optimizer': 'sgd',
+              'loss': 'mean_squared_error',
+              'init': 'glorot_uniform',
+              'lr': 1.0,
+              'momentum': 0.5,
+              'decay': 0.5,
+              'nesterov': True,
+              'epochs': 20,
+              'batch_size': 10,
+              'verbose': 0
+              }
 
     model = KerasClassifier(build_fn=create_model, **params)
 
@@ -330,43 +321,3 @@ def test_4(load_data):
     predictions = cross_val_predict(model, X_train, Z_train, cv=kfold)
     acc = accuracy_score(Z_train.argmax(axis=1), predictions)
     print("Accuracy = {}".format(acc))
-
-
-def test_1a():
-    # Working
-    test_1(load_toy_example)
-
-
-def test_1b():
-    test_1(load_blobs)
-
-
-def test_1c():
-    test_1(load_webs)
-
-
-def test_2a():
-    # Working
-    test_2(load_toy_example)
-
-
-def test_2b():
-    # Working
-    test_2(load_blobs)
-
-
-def test_3a():
-    # Working
-    test_3(load_toy_example)
-
-
-def test_3b():
-    test_3(load_blobs)
-
-
-def test_3c():
-    test_3(load_webs)
-
-if __name__ == '__main__':
-    test_3c()
-    #main()

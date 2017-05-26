@@ -36,7 +36,7 @@ class Notebook(object):
 
     def add_entry(self, row, general_entry_number=0):
         self.entry_number += 1
-        if type(row) == dict:
+        if type(row) is dict:
             row = sum([[key, value] for key, value in row.iteritems()], [])
         with open(os.path.join(self.path, self.filename), 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter=',', quotechar='|',
