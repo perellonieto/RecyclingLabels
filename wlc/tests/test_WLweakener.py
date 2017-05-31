@@ -12,12 +12,6 @@ from wlc.WLweakener import binarizeWeakLabels
 
 from sklearn.preprocessing import label_binarize
 
-def nan_equal(a,b):
-    try:
-	np.testing.assert_equal(a,b)
-    except AssertionError:
-	return False
-    return True
 
 class TestWLweakener(unittest.TestCase):
 

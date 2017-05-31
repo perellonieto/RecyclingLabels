@@ -61,7 +61,7 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
         M = np.random.rand(c, c)
         M = M / np.sum(M, axis=0, keepdims=True)
 
-        M = alpha * np.eye(c) + (1-alpha) * M
+        M = (1-beta) * np.eye(c) + beta * M
 
     elif method == 'random_weak':
 
@@ -79,7 +79,7 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
         M = M / np.sum(M, axis=0, keepdims=True)
 
         # Averaging supervised and weak components
-        M = alpha * Ic + (1-alpha) * M
+        M = (1-beta) * Ic + beta * M
 
     elif method == 'IPL':
 
