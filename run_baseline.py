@@ -3,6 +3,7 @@ from experiments.data import load_blobs
 from experiments.data import load_webs
 
 from experiments.analysis import analyse_true_labels
+from experiments.analysis import analyse_weak_labels
 
 import argparse
 
@@ -44,10 +45,11 @@ def test_1b():
 
 
 def test_1c():
-    training, validation = load_webs()
+    # Add class names as a return
+    training, validation, classes = load_webs()
     X_t, Z_t, z_t = training
     X_v, Z_v, z_v, Y_v, y_v = validation
-    analyse_true_labels(X_v, Y_v, y_v, seed=0)
+    analyse_true_labels(X_v, Y_v, y_v, seed=0, classes=classes)
 
 
 def main(test, dataset, seed, verbose):
@@ -56,11 +58,15 @@ def main(test, dataset, seed, verbose):
     if dataset not in dataset_functions.keys():
         raise ValueError("Dataset not available: %s" % (dataset))
 
-    training, validation = dataset_functions[dataset](seed=seed)
+    training, validation, classes = dataset_functions[dataset](seed=seed)
     X_t, Z_t, z_t = training
     X_v, Z_v, z_v, Y_v, y_v = validation
     if test == 'true_labels':
-        analyse_true_labels(X_v, Y_v, y_v, seed=seed, verbose=verbose)
+        analyse_true_labels(X_v, Y_v, y_v, seed=seed, verbose=verbose,
+                            classes=classes)
+    elif test == 'weak_labels':
+        analyse_weak_labels(X_t, Z_t, z_t, X_v, Z_v, z_v, Y_v, y_v,
+                            seed=seed, verbose=verbose, classes=classes)
     else:
         raise ValueError("Analysis not implemented: %s" % (test))
 

@@ -49,7 +49,7 @@ def load_webs(seed=None):
     X_val, Z_val, z_val, Y_val, y_val = shuffle(X_val, Z_val, z_val, Y_val,
                                                 y_val)
 
-    return (X_train, Z_train, z_train), (X_val, Z_val, z_val, Y_val, y_val)
+    return (X_train, Z_train, z_train), (X_val, Z_val, z_val, Y_val, y_val), categories
 
 
 def load_toy_example(seed=None):
@@ -71,4 +71,4 @@ def load_blobs(n_samples=1000, n_features=2, n_classes=6, seed=None):
 
     X_train, X_val, Z_train, Z_val, z_train, z_val, Y_train, Y_val, y_train, y_val = train_test_split(X, Z, z, Y, y, test_size=0.5, random_state=seed)
 
-    return (X_train, Z_train, z_train), (X_val, Z_val, z_val, Y_val, y_val)
+    return (X_train, Z_train, z_train), (X_val, Z_val, z_val, Y_val, y_val), None

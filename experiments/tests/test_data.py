@@ -55,20 +55,20 @@ def test_data_consistency(X_t, Z_t, z_t, X_v, Z_v, z_v, Y_v, y_v):
 
 class TestData(unittest.TestCase):
     def test_load_toy_example(self):
-        training, validation = load_toy_example()
+        training, validation, classes = load_toy_example()
         X_t, Z_t, z_t = training
         X_v, Z_v, z_v, Y_v, y_v = validation
         test_data_consistency(X_t, Z_t, z_t, X_v, Z_v, z_v, Y_v, y_v)
 
     def test_load_blobs(self):
-        training, validation = load_blobs()
+        training, validation, classes = load_blobs()
         X_t, Z_t, z_t = training
         X_v, Z_v, z_v, Y_v, y_v = validation
         test_data_consistency(X_t, Z_t, z_t, X_v, Z_v, z_v, Y_v, y_v)
 
     @unittest.skipIf("TRAVIS" in os.environ and os.environ["TRAVIS"]== "true", "Skipping this test on Travis CI.")
     def test_load_webs(self):
-        training, validation = load_webs()
+        training, validation, classes = load_webs()
         X_t, Z_t, z_t = training
         X_v, Z_v, z_v, Y_v, y_v = validation
         test_data_consistency(X_t, Z_t, z_t, X_v, Z_v, z_v, Y_v, y_v)
