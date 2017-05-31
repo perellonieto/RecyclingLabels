@@ -19,7 +19,7 @@ from experiments.visualizations import plot_heatmap
 from experiments.diary import Diary
 
 
-def analyse_true_labels(X, Y, y, seed=None, verbose=0):
+def analyse_true_labels(X, Y, y, seed=None, verbose=0, classes=None):
     """ Trains a Feed-fordward neural network using cross-validation
 
     The training and validation is done in the validation set using the true
@@ -35,7 +35,7 @@ def analyse_true_labels(X, Y, y, seed=None, verbose=0):
     """
     # Test performance on validation true labels
     # ## Create a Diary for all the logs and results
-    diary = Diary(name='test_1', path='results', overwrite=False,
+    diary = Diary(name='true_labels', path='results', overwrite=False,
                   image_format='png', fig_format='svg')
     diary.add_notebook('dataset')
     diary.add_notebook('model')
@@ -44,6 +44,9 @@ def analyse_true_labels(X, Y, y, seed=None, verbose=0):
     n_s = X.shape[0]
     n_f = X.shape[1]
     n_c = Y.shape[1]
+
+    if classes is None:
+        classes = [str(i) for i in range(n_c)]
 
     print("Samples = {}\nFeatures = {}\nClasses = {}".format(n_s, n_f, n_c))
     diary.add_entry('dataset', ['n_samples', n_s, 'n_features', n_f,
@@ -95,6 +98,8 @@ def analyse_true_labels(X, Y, y, seed=None, verbose=0):
     print("Accuracy = {}".format(acc))
     cm = confusion_matrix(y, y_pred)
     print("Confusion matrix: \n{}".format(cm))
+    fig = plot_heatmap(cm, columns=classes, rows=classes, colorbar=False)
+    diary.save_figure(fig, filename='confusion_matrix')
 
 
 def analyse_2(load_data, seed=None):
@@ -179,7 +184,8 @@ def analyse_2(load_data, seed=None):
         print("%f (%f) with: %r" % (mean, stdev, param))
 
 
-def analyse_3(load_data, seed=None):
+def analyse_weak_labels(X_train, Z_train, z_train, X_val, Z_val, z_val, Y_val, y_val,
+                        seed=None, verbose=0, classes=None):
     """ Trains a Feed-fordward neural network using cross-validation
 
     The training is done with the weak labels on the training set and
@@ -204,14 +210,14 @@ def analyse_3(load_data, seed=None):
     """
     # Test performance on validation true labels
     # ## Create a Diary for all the logs and results
-    diary = Diary(name='test_1', path='results', overwrite=False,
+    diary = Diary(name='weak_labels', path='results', overwrite=False,
                   image_format='png', fig_format='svg')
     diary.add_notebook('dataset')
     diary.add_notebook('model')
     diary.add_notebook('validation')
 
     # Test for the validation error with the true labels
-    X_train, Z_train, z_train, X_val, Z_val, z_val, Y_val, y_val = load_data()
+    #X_train, Z_train, z_train, X_val, Z_val, z_val, Y_val, y_val = load_data()
 
     n_s = X_train.shape[0]
     n_f = X_train.shape[1]
@@ -232,13 +238,13 @@ def analyse_3(load_data, seed=None):
     params = {'input_dim': n_f,
               'output_size': n_c,
               'optimizer': 'rmsprop',
-              'loss': 'categorical_crossentropy',
+              'loss': 'mean_squared_error',
               'init': 'glorot_uniform',
               'lr': 1.0,
               'momentum': 0.5,
               'decay': 0.5,
               'nesterov': True,
-              'epochs': 100,
+              'epochs': 50,
               'batch_size': 100,
               'verbose': 1,
               'seed': seed
@@ -271,7 +277,7 @@ def analyse_3(load_data, seed=None):
     print("Accuracy = {}".format(acc))
     cm = confusion_matrix(y_val, y_pred)
     print("Confusion matrix: \n{}".format(cm))
-    fig = plot_heatmap(cm, title='Confusion matrix')
+    fig = plot_heatmap(cm, columns=classes, rows=classes, colorbar=False)
     diary.save_figure(fig, filename='confusion_matrix')
 
 
