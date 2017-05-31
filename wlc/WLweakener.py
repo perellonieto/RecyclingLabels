@@ -53,8 +53,8 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
 
     elif method == 'noisy':
 
-        M = (np.eye(c) * (alpha - (1-alpha)/(c-1))
-             + np.ones((c, c)) * (1-alpha)/(c-1))
+        M = (np.eye(c) * (1 - beta - beta/(c-1)) +
+             np.ones((c, c)) * beta/(c-1))
 
     elif method == 'random_noise':
 
@@ -102,15 +102,19 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
 
     elif method == 'IPL3':
 
+        b0 = beta[0]
+        b1 = beta[1]
+        b2 = beta[2]
+
         M = np.array([
-                [0.0,             0.0,           0.0],
-                [0,               0,             (1-gamma)**2],
-                [0,               (1-beta)**2,   0],
-                [0.0,             beta*(1-beta), gamma*(1-gamma)],
-                [(1-alpha)**2,    0,             0],
-                [alpha*(1-alpha), 0.0,           gamma*(1-gamma)],
-                [alpha*(1-alpha), beta*(1-beta), 0.0],
-                [alpha**2,        beta**2,       gamma**2]])
+                [0.0,       0.0,       0.0],
+                [0,         0,         (1-b2)**2],
+                [0,         (1-b1)**2, 0],
+                [0.0,       b1*(1-b1), b2*(1-b2)],
+                [(1-b0)**2, 0,         0],
+                [b0*(1-b0), 0.0,       b2*(1-b2)],
+                [b0*(1-b0), b1*(1-1),  0.0],
+                [b0**2,     b1**2,     b2**2]])
 
     elif method == 'quasi_IPL':
 

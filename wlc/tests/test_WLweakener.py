@@ -10,7 +10,7 @@ from wlc.WLweakener import computeVirtual
 from wlc.WLweakener import generateWeak
 from wlc.WLweakener import binarizeWeakLabels
 
-from sklearn.preprocessing import label_binarize
+# from sklearn.preprocessing import label_binarize
 
 
 class TestWLweakener(unittest.TestCase):
@@ -22,13 +22,13 @@ class TestWLweakener(unittest.TestCase):
                              [0, 0, 1]])
         assert_array_equal(M, expected)
 
-        M = computeM(c=3, method='noisy', alpha=0.8)
+        M = computeM(c=3, method='noisy', beta=0.2)
         expected = np.array([[.8, .1, .1],
                              [.1, .8, .1],
                              [.1, .1, .8]])
         assert_array_almost_equal(M, expected)
 
-        M = computeM(c=4, method='noisy', alpha=0.1)
+        M = computeM(c=4, method='noisy', beta=0.9)
         expected = np.array([[.1, .3, .3, .3],
                              [.3, .1, .3, .3],
                              [.3, .3, .1, .3],
@@ -65,7 +65,6 @@ class TestWLweakener(unittest.TestCase):
         assert_array_almost_equal(z_bin, expected)
 
     def test_generateWeak(self):
-        c = 4
         y = np.array([0, 1, 2, 3])
         M = np.array([[1., 0., 0., 0.],
                       [0., 1., 0., 0.],
@@ -82,9 +81,9 @@ class TestWLweakener(unittest.TestCase):
         expected = np.array([[1, 0, 0, 0],
                              [0, 1, 0, 0],
                              [0, 0, 1, 0],
-                             [0, 0, 0, 1],
-                            ])
+                             [0, 0, 0, 1]])
         assert_equal(z_bin, expected)
+
 
 def main():
     unittest.main()
