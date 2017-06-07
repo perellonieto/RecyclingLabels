@@ -12,6 +12,8 @@ import errno
 import csv
 import datetime
 
+from functools import partial
+
 try:
     import PIL.Image as Image
 except ImportError:
@@ -71,6 +73,7 @@ class Diary(object):
 
     def add_notebook(self, name, **kwargs):
         self.notebooks[name] = Notebook(name, self.path, **kwargs)
+        return partial(self.add_entry, notebook_name=name)
 
     def _create_all_paths(self):
         original_path = self.path

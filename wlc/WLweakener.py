@@ -9,6 +9,7 @@ from sklearn.preprocessing import label_binarize
 # import sklearn.linear_model as sklm
 import sys
 # import ipdb
+from scipy import sparse
 
 
 def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
@@ -292,6 +293,9 @@ def computeVirtual(z, c, method='IPL', M=None, dec_labels=None):
 
         # Compute inverted index from decimal labels to position in dec_labels
         z2i = dict(zip(dec_labels, range(len(dec_labels))))
+
+        if sparse.issparse(M):
+            M = M.toarray()
 
         # Compute the virtual label matrix
         Y = np.linalg.pinv(M)

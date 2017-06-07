@@ -7,6 +7,8 @@ from experiments.analysis import analyse_weak_labels
 
 import argparse
 
+import numpy as np
+
 dataset_functions = {'toy_example': load_toy_example,
                      'blobs': load_blobs,
                      'webs': load_webs}
@@ -24,6 +26,12 @@ def parse_arguments():
     parser.add_argument('-s', '--seed', dest='seed', type=int,
                         default=None,
                         help='Test that needs to be run')
+    parser.add_argument('-m', '--method', dest='method', type=str,
+                        default='supervised',
+                        help='Verbosity level with 0 the minimum')
+    parser.add_argument('-M', '--path-M', dest='path_M', type=str,
+                        default='data/M.npy',
+                        help='Verbosity level with 0 the minimum')
     parser.add_argument('-v', '--verbose', dest='verbose', type=int,
                         default=0,
                         help='Verbosity level with 0 the minimum')
@@ -52,7 +60,7 @@ def test_1c():
     analyse_true_labels(X_v, Y_v, y_v, seed=0, classes=classes)
 
 
-def main(test, dataset, seed, verbose):
+def main(test, dataset, seed, verbose, method, path_M):
     print('Main arguments')
     print(locals())
     if dataset not in dataset_functions.keys():
@@ -65,8 +73,11 @@ def main(test, dataset, seed, verbose):
         analyse_true_labels(X_v, Y_v, y_v, seed=seed, verbose=verbose,
                             classes=classes)
     elif test == 'weak_labels':
-        analyse_weak_labels(X_t, Z_t, z_t, X_v, Z_v, z_v, Y_v, y_v,
-                            seed=seed, verbose=verbose, classes=classes)
+        M = np.load(path_M)
+        M = M.item()
+        analyse_weak_labels(X_t, Z_t, z_t, X_v, Z_v, z_v, Y_v, y_v, seed=seed,
+                            verbose=verbose, classes=classes, method=method,
+                            M=M)
     else:
         raise ValueError("Analysis not implemented: %s" % (test))
 
