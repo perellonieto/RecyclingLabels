@@ -5,6 +5,8 @@ from experiments.data import load_webs
 from experiments.analysis import analyse_true_labels
 from experiments.analysis import analyse_weak_labels
 
+from experiments.diary import Diary
+
 import argparse
 
 import numpy as np
@@ -16,25 +18,26 @@ dataset_functions = {'toy_example': load_toy_example,
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='''Runs a test with a toy
-                example or a real dataset''')
+                                                example or a real dataset''')
     parser.add_argument('-t', '--test', dest='test', type=str,
                         default='true_labels',
                         help='Test that needs to be run')
     parser.add_argument('-d', '--dataset', dest='dataset', type=str,
                         default='toy_example',
-                        help='Test that needs to be run')
+                        help='Name of the dataset to use')
     parser.add_argument('-s', '--seed', dest='seed', type=int,
                         default=None,
-                        help='Test that needs to be run')
+                        help='Seed for the random number generator')
     parser.add_argument('-m', '--method', dest='method', type=str,
                         default='supervised',
-                        help='Verbosity level with 0 the minimum')
+                        help=('Learning method to use between supervised'
+                              'Mproper or quasi_IPL'))
     parser.add_argument('-M', '--path-M', dest='path_M', type=str,
                         default='data/M.npy',
-                        help='Verbosity level with 0 the minimum')
+                        help='Path to the precomputed mixing matrix M')
     parser.add_argument('-v', '--verbose', dest='verbose', type=int,
                         default=0,
-                        help='Verbosity level with 0 the minimum')
+                        help='Verbosity level being 0 the minimum value')
     return parser.parse_args()
 
 
@@ -69,15 +72,25 @@ def main(test, dataset, seed, verbose, method, path_M):
     training, validation, classes = dataset_functions[dataset](seed=seed)
     X_t, Z_t, z_t = training
     X_v, Z_v, z_v, Y_v, y_v = validation
+
+    diary = Diary(name=test, path='results', overwrite=False,
+                  image_format='png', fig_format='svg')
+
+    entry_dataset = diary.add_notebook('dataset')
+    entry_dataset(row=['n_samples_train', X_t.shape[0],
+                       'n_samples_val', X_v.shape[0],
+                       'n_features', X_t.shape[1], 'n_classes', Z_t.shape[1]])
+
     if test == 'true_labels':
         analyse_true_labels(X_v, Y_v, y_v, seed=seed, verbose=verbose,
-                            classes=classes)
+                            classes=classes, diary=diary)
     elif test == 'weak_labels':
         M = np.load(path_M)
         M = M.item()
-        analyse_weak_labels(X_t, Z_t, z_t, X_v, Z_v, z_v, Y_v, y_v, seed=seed,
-                            verbose=verbose, classes=classes, method=method,
-                            M=M)
+        analyse_weak_labels(X_train=X_t, Z_train=Z_t, z_train=z_t, X_val=X_v,
+                            Z_val=Z_v, z_val=z_v, Y_val=Y_v, y_val=y_v,
+                            seed=seed, verbose=verbose, classes=classes,
+                            method=method, M=M, diary=diary)
     else:
         raise ValueError("Analysis not implemented: %s" % (test))
 
