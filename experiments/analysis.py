@@ -27,7 +27,8 @@ from wlc.WLweakener import computeVirtual
 
 
 def n_times_k_fold_cross_val(X, V, y, classifier, iterations=10, n_folds=10,
-                             n_jobs=-1, fit_arguments=None, entry_notebook=None):
+                             n_jobs=-1, fit_arguments=None,
+                             entry_notebook=None, classes=None, diary=None):
     """Evaluates a classifier using cross-validation
 
     Parameters
@@ -65,6 +66,10 @@ def n_times_k_fold_cross_val(X, V, y, classifier, iterations=10, n_folds=10,
     predictions_validation : ndarray
         This are the predictions on the validation set after training
     """
+    n_c = V.shape[1]
+    if classes is None:
+        classes = [str(i) for i in range(n_c)]
+
     pe_cv = [0] * iterations
 
     ns = X.shape[0]
@@ -73,13 +78,13 @@ def n_times_k_fold_cross_val(X, V, y, classifier, iterations=10, n_folds=10,
     for i in xrange(iterations):
         X_shuff, v_shuff, y_shuff = shuffle(X, V, y, random_state=i)
         cv_start = time.clock()
-        preds = skcv.cross_val_predict(classifier, X_shuff, v_shuff, cv=n_folds,
+        y_pred = skcv.cross_val_predict(classifier, X_shuff, v_shuff, cv=n_folds,
                                        verbose=0, n_jobs=n_jobs,
                                        fit_params=fit_arguments)
         cv_end = time.clock()
 
         # Estimate error rates:s
-        pe_cv[i] = float(np.count_nonzero(y_shuff != preds)) / ns
+        pe_cv[i] = float(np.count_nonzero(y_shuff != y_pred)) / ns
 
         # ########################
         # Ground truth evaluation:
@@ -103,10 +108,88 @@ def n_times_k_fold_cross_val(X, V, y, classifier, iterations=10, n_folds=10,
                                       (stop - start)/(i+1)*(iterations-i)))
         sys.stdout.flush()
 
+        cm = confusion_matrix(y_shuff, y_pred)
+        print("Confusion matrix: \n{}".format(cm))
+        if diary is not None:
+            fig = plot_heatmap(cm, columns=classes, rows=classes, colorbar=False)
+            diary.save_figure(fig, filename='confusion_matrix')
+
     return pe_tr, pe_cv
 
 
-def analyse_true_labels(X, Y, y, seed=None, verbose=0, classes=None):
+# TODO think about having a training and validation sets, dividing them
+# randomly in k folds, and training k times with each training fold and
+# validating in each of the k folds of the validation
+def n_times_validation(X_train, V_train, X_val, y_val, classifier,
+                       iterations=10, n_jobs=-1, fit_arguments=None,
+                       entry_notebook=None, classes=None, diary=None):
+    """Evaluates a classifier using
+
+    Parameters
+    ----------
+    classif : object
+        This is the classifier that needs to be trained and evaluated. It needs
+        to have the following functions:
+            - fit(X,y) :
+            - predict(X) :
+            - predict_proba(X) :
+            - get_params() : All the necessary parameters to create a deep copy
+
+    X : array-like, with shape (n_samples, n_dim)
+        The data to fit.
+
+    y : array-like, with shape (n_samples, )
+        The target variable of integers. This array is used for the evaluation
+        of the model.
+
+    V : array-like, optional, with shape (n_samples, n_classes), default: 'y'
+        The virtual target variable. This array is used for the training of the
+        model.
+
+    n_sim : integer, optional, default: 1
+        The number of simulation runs.
+
+    n_jobs : integer, optional, default: 1
+        The number of CPUs to use to do the computation. -1 means 'all CPUs'
+
+    Returns
+    -------
+    predictions_training : ndarray
+        This are the predictions on the training set after training
+
+    predictions_validation : ndarray
+        This are the predictions on the validation set after training
+    """
+    n_c = V_train.shape[1]
+    if classes is None:
+        classes = [str(i) for i in range(n_c)]
+
+    ns = X_train.shape[0]
+    start = time.clock()
+
+    train_start = time.clock()
+    history = classifier.fit(X_train, V_train, **fit_arguments)
+    train_end = time.clock()
+
+    y_pred = classifier.predict(X_val)
+    # Estimate error rates:s
+    pe_val = (y_val != y_pred).mean()
+
+    if entry_notebook is not None:
+        entry_notebook(row={'pe_val': pe_val,
+                       'train_time': train_end - train_start})
+
+    cm = confusion_matrix(y_val, y_pred)
+    print("Confusion matrix: \n{}".format(cm))
+    if diary is not None:
+        fig = plot_heatmap(cm, columns=classes, rows=classes, colorbar=False)
+        diary.save_figure(fig, filename='confusion_matrix')
+
+    return pe_val
+
+
+def analyse_true_labels(X, Y, y, seed=None, verbose=0, classes=None,
+                        diary=None):
     """ Trains a Feed-fordward neural network using cross-validation
 
     The training and validation is done in the validation set using the true
@@ -122,21 +205,16 @@ def analyse_true_labels(X, Y, y, seed=None, verbose=0, classes=None):
     """
     # Test performance on validation true labels
     # ## Create a Diary for all the logs and results
-    diary = Diary(name='true_labels', path='results', overwrite=False,
-                  image_format='png', fig_format='svg')
-    entry_dataset = diary.add_notebook('dataset')
+    if diary is None:
+        diary = Diary(name='true_labels', path='results', overwrite=False,
+                      image_format='png', fig_format='svg')
+
     entry_model = diary.add_notebook('model')
     entry_val = diary.add_notebook('validation')
 
     n_s = X.shape[0]
     n_f = X.shape[1]
     n_c = Y.shape[1]
-
-    if classes is None:
-        classes = [str(i) for i in range(n_c)]
-
-    print("Samples = {}\nFeatures = {}\nClasses = {}".format(n_s, n_f, n_c))
-    entry_dataset(row=['n_samples', n_s, 'n_features', n_f, 'n_classes', n_c])
 
     # If dimension is 2, we draw a scatterplot
     if n_f >= 2:
@@ -181,7 +259,8 @@ def analyse_true_labels(X, Y, y, seed=None, verbose=0, classes=None):
                                             iterations=10, n_folds=10,
                                             n_jobs=-1,
                                             fit_arguments=fit_arguments,
-                                            entry_notebook=entry_val)
+                                            entry_notebook=entry_val,
+                                            classes=classes, diary=diary)
 
     #model.fit(X, Y, **fit_arguments)
 
@@ -199,7 +278,7 @@ def analyse_true_labels(X, Y, y, seed=None, verbose=0, classes=None):
 
 def analyse_weak_labels(X_train, Z_train, z_train, X_val, Z_val, z_val, Y_val, y_val,
                         seed=None, verbose=0, classes=None, method='weak',
-                        M=None):
+                        M=None, diary=None):
     """ Trains a Feed-fordward neural network using cross-validation
 
     The training is done with the weak labels on the training set and
@@ -224,11 +303,12 @@ def analyse_weak_labels(X_train, Z_train, z_train, X_val, Z_val, z_val, Y_val, y
     """
     # Test performance on validation true labels
     # ## Create a Diary for all the logs and results
-    diary = Diary(name='weak_labels', path='results', overwrite=False,
-                  image_format='png', fig_format='svg')
-    diary.add_notebook('dataset')
-    diary.add_notebook('model')
-    diary.add_notebook('validation')
+    if diary is None:
+        diary = Diary(name='weak_labels', path='results', overwrite=False,
+                      image_format='png', fig_format='svg')
+
+    entry_model = diary.add_notebook('model')
+    entry_val = diary.add_notebook('validation')
 
     # Test for the validation error with the true labels
     #X_train, Z_train, z_train, X_val, Z_val, z_val, Y_val, y_val = load_data()
@@ -236,9 +316,6 @@ def analyse_weak_labels(X_train, Z_train, z_train, X_val, Z_val, z_val, Y_val, y
     n_s = X_train.shape[0]
     n_f = X_train.shape[1]
     n_c = Y_val.shape[1]
-
-    print("Samples = {}\nFeatures = {}\nClasses = {}".format(n_s, n_f, n_c))
-    entry_dataset(row['n_samples', n_s, 'n_features', n_f, 'n_classes', n_c])
 
     # If dimension is 2, we draw a scatterplot
     if n_f >= 2:
@@ -263,16 +340,19 @@ def analyse_weak_labels(X_train, Z_train, z_train, X_val, Z_val, z_val, Y_val, y
               'seed': seed
               }
 
-    entry_model(row=params)
+    entry_model(row=dict(params.items() + {'method': method}.items()))
 
     make_arguments = {key: value for key, value in params.iteritems()
                       if key in inspect.getargspec(create_model)[0]}
-    model = create_model(**make_arguments)
+    model = KerasClassifier(build_fn=create_model, **make_arguments)
+    #model = create_model(**make_arguments)
     pp = pprint.PrettyPrinter(indent=2)
-    print pp.pprint(model.get_config())
+
+    if verbose >= 1:
+        print pp.pprint(model.get_config())
 
     fit_arguments = {key: value for key, value in params.iteritems()
-                     if key in inspect.getargspec(model.fit)[0]}
+                     if key in inspect.getargspec(model.build_fn().fit)[0]}
 
     if sparse.issparse(X_train):
         X_train = X_train.toarray()
@@ -283,26 +363,23 @@ def analyse_weak_labels(X_train, Z_train, z_train, X_val, Z_val, z_val, Y_val, y
     if method == 'Mproper' and M is not None:
         V_train = computeVirtual(z_train, c=n_c, method=method, M=M,
                                  dec_labels=None)
-        model.fit(X_train, V_train, **fit_arguments)
+        Target_train = V_train
     elif method == 'quasi_IPL':
         V_train = computeVirtual(z_train, c=n_c, method=method,
                                  dec_labels=None)
-        model.fit(X_train, V_train, **fit_arguments)
+        Target_train = V_train
     elif method == 'supervised':
-        model.fit(X_train, Z_train, **fit_arguments)
+        Target_train = Z_train
     else:
-        raise ValueError("Unknown method to compute virtual labels: {}".format(method))
+        raise ValueError(("Unknown method to compute virtual "
+                          "labels: {}").format(method))
 
-    q = model.predict_proba(X_val)
-    y_pred = q.argmax(axis=1)
-
-    acc = accuracy_score(y_val, y_pred)
-    print("#####")
-    print("Accuracy = {}".format(acc))
-    cm = confusion_matrix(y_val, y_pred)
-    print("Confusion matrix: \n{}".format(cm))
-    fig = plot_heatmap(cm, columns=classes, rows=classes, colorbar=False)
-    diary.save_figure(fig, filename='confusion_matrix')
+    # FIXME add proper cross-validation with weak and real labels
+    pe_val = n_times_validation(X_train=X_train, V_train=Target_train,
+                                X_val=X_val, y_val=y_val, classifier=model,
+                                fit_arguments=fit_arguments,
+                                entry_notebook=entry_val, classes=classes,
+                                diary=diary)
 
 
 def analyse_2(load_data, seed=None):
