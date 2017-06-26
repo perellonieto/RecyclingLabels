@@ -4,6 +4,8 @@ from sklearn.preprocessing import label_binarize
 import pandas as pd
 from scipy.sparse import csr_matrix
 
+import unittest
+
 
 # TODO implement for numpy arrays
 def weakCount(dfZ, dfY, categories, reg=None):
@@ -54,7 +56,7 @@ def weakCount(dfZ, dfY, categories, reg=None):
     if reg is None:
         S = csr_matrix((2**n_cat, n_cat))
     elif reg == 'Complete':
-        S = np.ones((2**n_cat, n_cat))
+        S = csr_matrix(np.ones((2**n_cat, n_cat)))
     elif reg == 'Partial':
         S = csr_matrix((2**n_cat, n_cat))
         weak_list = list(set(Z.dot(p2)))    # Flag vector of existing weak labels
@@ -98,7 +100,7 @@ def new_weak_count(Z, Y, categories, reg=None):
     if reg is None:
         S = csr_matrix((2**n_cat, n_cat))
     elif reg == 'Complete':
-        S = np.ones((2**n_cat, n_cat))
+        S = csr_matrix(np.ones((2**n_cat, n_cat)))
     elif reg == 'Partial':
         S = csr_matrix((2**n_cat, n_cat))
         # Flag vector of existing weak labels
@@ -119,48 +121,45 @@ def new_weak_count(Z, Y, categories, reg=None):
 
     return S
 
-def compute_M(dfZ, dfY, categories, reg=None):
-    S0 = weakCount(dfZ, dfY, categories, reg=reg)
+def compute_M(Z, Y, categories, reg=None):
+    S0 = weakCount(Z, Y, categories, reg=reg)
     return S0 / np.sum(S0, axis=0)
 
 
-def compare_weakCount():
-    n_classes = 7
-    categories = range(n_classes)
-    np.random.seed(0)
-    z = np.random.randint(2**n_classes, size=500)
-    Z = np.matrix([list(np.binary_repr(x, n_classes)) for x in z], dtype=int)
-    y = Z.argmax(axis=1)
-    Y = label_binarize(y, categories)
-    dfZ = pd.DataFrame(Z)
-    dfY = pd.DataFrame(Y)
-    for reg in [None, 'Partial', 'Complete']:
-        start = time.time()
-        wc = weakCount(dfZ, dfY, categories, reg=reg)
-        end = time.time()
-        print('weakCount time = %s seconds' % (end - start))
-        start = time.time()
-        wc2 = new_weak_count(Z, Y, categories, reg=reg)
-        end = time.time()
-        print('new_weak_count time = %s seconds' % (end - start))
-        print np.min(wc==wc2)
+class TestWeakCount(unittest.TestCase):
+    #def test_compute_M(self):
+    #    n_classes = 4
+    #    categories = range(n_classes)
+    #    np.random.seed(0)
+    #    z = np.random.randint(n_classes**2, size=50)
+    #    Z = np.matrix([list(np.binary_repr(x, n_classes)) for x in z], dtype=int)
+    #    y = Z.argmax(axis=1)
+    #    Y = label_binarize(y, categories)
+    #    dfZ = pd.DataFrame(Z)
+    #    dfY = pd.DataFrame(Y)
+    #    wc = compute_M(dfZ, dfY, categories, reg=None)
 
-
-def test_compute_M():
-    n_classes = 4
-    categories = range(n_classes)
-    np.random.seed(0)
-    z = np.random.randint(n_classes**2, size=50)
-    Z = np.matrix([list(np.binary_repr(x, n_classes)) for x in z], dtype=int)
-    y = Z.argmax(axis=1)
-    Y = label_binarize(y, categories)
-    dfZ = pd.DataFrame(Z)
-    dfY = pd.DataFrame(Y)
-    wc = compute_M(dfZ, dfY, categories, reg=None)
-    wc = compute_M(Z, dfY, categories, reg=None)
-    print wc
+    def test_compare_weakCount(self):
+        n_classes = 7
+        categories = range(n_classes)
+        np.random.seed(0)
+        z = np.random.randint(2**n_classes, size=500)
+        Z = np.matrix([list(np.binary_repr(x, n_classes)) for x in z], dtype=int)
+        y = Z.argmax(axis=1)
+        Y = label_binarize(y, categories)
+        dfZ = pd.DataFrame(Z)
+        dfY = pd.DataFrame(Y)
+        for reg in [None, 'Partial', 'Complete']:
+            #start = time.time()
+            wc = weakCount(dfZ, dfY, categories, reg=reg)
+            #end = time.time()
+            #print('weakCount time = %s seconds' % (end - start))
+            #start = time.time()
+            wc2 = new_weak_count(Z, Y, categories, reg=reg)
+            #end = time.time()
+            #print('new_weak_count time = %s seconds' % (end - start))
+            self.assertTrue(np.allclose(wc.A, wc2.A))
 
 
 if __name__ == '__main__':
-    compare_weakCount()
-    #test_compute_M()
+    unittest.main()
