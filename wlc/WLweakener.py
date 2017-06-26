@@ -11,6 +11,10 @@ import sys
 # import ipdb
 from scipy import sparse
 
+import time
+import pandas as pd
+from scipy.sparse import csr_matrix
+
 
 def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
     """
@@ -361,7 +365,120 @@ def main():
     ipdb.set_trace()
 
 
-if __name__ == "__main__":
+# TODO implement for numpy arrays
+def weakCount(dfZ, dfY, categories, reg=None):
+    """ Compute the matrix of weak label counts in df_Z for each category in
+        df_Y
 
-    main()
+    Parameters
+    ----------
+    categories: A list of category names.
+    dfZ:        A pandas dataframe indexed by a sample identifier, and
+                containing at least one column per category. The weak label
+                vector for each sample is composed by the binary values in
+                these colummns.
+    dfY:        A pandas dataframe indexed by a sample identifier, and
+                containing at least one column per category. The weak
+                label vector for each sample is composed by the binary
+                values in these colummns.
+    reg:        Type of regularization:
+                    - None:       The weak count is not regularized
+                    - 'Partial':  Only rows corresponding to weak
+                                  labels existing in dfZ are
+                                  regularized (by adding 1)
+                    - 'Complete': All valuves are regularized (by adding 1)
 
+    Returns
+    -------
+    S: A count matrix. S(w, c) contains the number of times that a sample
+       appears in df_Z with the weak label vector identified by w and also in
+       df_Y with the weak label vector identified by c.  The identifier of a
+       label vector is the decimal number corresponding to the binary number
+       resulting from the concatenation of its components.  If reg=='Complete',
+       the output matrix is dense. Otherwise, it is a sparse_csr matrix.
+    """
+
+    # Number of categories
+    n_cat = len(categories)
+
+    # These vectors are useful to convert binary vectors into integers.
+    # To convert arbitrary binary vectors to a decimal
+    p2 = np.array([2**n for n in reversed(range(n_cat))])
+    # To convert single-1-vectors to position integers.
+    ind = range(n_cat)
+
+    # Convert weak label dataframe into matrix
+    Z = dfZ[categories].as_matrix()
+
+    # Initialize (and maybe regularize) the counting matrix
+    if reg is None:
+        S = csr_matrix((2**n_cat, n_cat))
+    elif reg == 'Complete':
+        S = csr_matrix(np.ones((2**n_cat, n_cat)))
+    elif reg == 'Partial':
+        S = csr_matrix((2**n_cat, n_cat))
+        weak_list = list(set(Z.dot(p2)))    # Flag vector of existing weak labels
+        S[weak_list, :] = 1
+
+    # Convert weak label dataframe into matrix
+    Y = dfY[categories].as_matrix()
+
+    # Start the weak label count
+    for idx in dfY.index:
+
+        # True label
+        y = dfY.loc[idx].as_matrix()
+        c = y.dot(ind)
+
+        # Weak label
+        if idx in dfZ.index:
+            z = dfZ.loc[idx, categories].as_matrix()
+            w = int(z.dot(p2))
+
+            S[w, c] += 1
+
+    return S
+
+
+def newWeakCount(Z, Y, categories, reg=None):
+    # Number of categories
+    n_cat = len(categories)
+
+    # These vectors are useful to convert binary vectors into integers.
+    # To convert arbitrary binary vectors to a decimal
+    p2 = np.array([2**n for n in reversed(range(n_cat))])
+    # To convert single-1-vectors to position integers.
+    ind = range(n_cat)
+
+    if type(Z) == pd.DataFrame:
+        # Convert weak label dataframe into matrix
+        Z = Z.as_matrix()
+
+    # Initialize (and maybe regularize) the counting matrix
+    if reg is None:
+        S = csr_matrix((2**n_cat, n_cat))
+    elif reg == 'Complete':
+        S = csr_matrix(np.ones((2**n_cat, n_cat)))
+    elif reg == 'Partial':
+        S = csr_matrix((2**n_cat, n_cat))
+        # Flag vector of existing weak labels
+        weak_list = np.unique(np.array(Z.dot(p2)))
+        S[weak_list, :] = 1
+
+    if type(Y) == pd.DataFrame:
+        # Convert weak label dataframe into matrix
+        Y = Y[categories].as_matrix()
+
+    # Start the weak label count
+    y_class = np.argmax(Y, axis=1)
+    for i, (y, c, z) in enumerate(zip(Y, y_class, Z)):
+        # Weak label
+        w = int(z.dot(p2))
+
+        S[w, c] += 1
+
+    return S
+
+def estimate_M(Z, Y, categories, reg=None):
+    S0 = weakCount(Z, Y, categories, reg=reg)
+    return S0 / np.sum(S0, axis=0)

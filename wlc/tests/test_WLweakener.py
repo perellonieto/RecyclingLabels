@@ -9,6 +9,13 @@ from wlc.WLweakener import computeM
 from wlc.WLweakener import computeVirtual
 from wlc.WLweakener import generateWeak
 from wlc.WLweakener import binarizeWeakLabels
+from wlc.WLweakener import estimate_M
+from wlc.WLweakener import weakCount
+from wlc.WLweakener import newWeakCount
+
+from sklearn.preprocessing import label_binarize
+import pandas as pd
+
 
 # from sklearn.preprocessing import label_binarize
 
@@ -83,6 +90,27 @@ class TestWLweakener(unittest.TestCase):
                              [0, 0, 1, 0],
                              [0, 0, 0, 1]])
         assert_equal(z_bin, expected)
+
+    def test_compare_weakCount(self):
+        n_classes = 7
+        categories = range(n_classes)
+        np.random.seed(0)
+        z = np.random.randint(2**n_classes, size=500)
+        Z = np.matrix([list(np.binary_repr(x, n_classes)) for x in z], dtype=int)
+        y = Z.argmax(axis=1)
+        Y = label_binarize(y, categories)
+        dfZ = pd.DataFrame(Z)
+        dfY = pd.DataFrame(Y)
+        for reg in [None, 'Partial', 'Complete']:
+            #start = time.time()
+            wc = weakCount(dfZ, dfY, categories, reg=reg)
+            #end = time.time()
+            #print('weakCount time = %s seconds' % (end - start))
+            #start = time.time()
+            wc2 = newWeakCount(Z, Y, categories, reg=reg)
+            #end = time.time()
+            #print('newWeakCount time = %s seconds' % (end - start))
+            self.assertTrue(np.allclose(wc.A, wc2.A))
 
 
 def main():
