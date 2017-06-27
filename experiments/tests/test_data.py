@@ -15,6 +15,7 @@ from experiments.metrics import w_brier_loss
 from experiments.data import load_toy_example
 from experiments.data import load_blobs
 from experiments.data import load_webs
+from experiments.data import load_weak_iris
 
 
 def nan_equal(a, b):
@@ -62,6 +63,12 @@ class TestData(unittest.TestCase):
 
     def test_load_blobs(self):
         training, validation, classes = load_blobs()
+        X_t, Z_t, z_t = training
+        X_v, Z_v, z_v, Y_v, y_v = validation
+        test_data_consistency(X_t, Z_t, z_t, X_v, Z_v, z_v, Y_v, y_v)
+
+    def test_load_weak_iris(self):
+        training, validation, classes = load_weak_iris()
         X_t, Z_t, z_t = training
         X_v, Z_v, z_v, Y_v, y_v = validation
         test_data_consistency(X_t, Z_t, z_t, X_v, Z_v, z_v, Y_v, y_v)
