@@ -227,8 +227,10 @@ def computeVirtual(z, c, method='IPL', M=None, dec_labels=None):
     matrix M, and a list of admissible decimal labels.
 
     Args:
-        z       :List of weak labels. Each weak label is an integer whose
-                 binary representation encondes the observed weak labels
+        z       :List of weak labels or binary matrix (n_samples, n_classes)
+                - if List: Each weak label is an integer whose binary
+                           representation encondes the observed weak labels
+                - if Matrix: Each column represents one class
         c       :Number of classes. All components of z must be smaller than
                  2**c
         method  :Method applied to compute the virtual label vector v.
@@ -258,13 +260,19 @@ def computeVirtual(z, c, method='IPL', M=None, dec_labels=None):
     Returns:
         v
     """
+    v = None
+    if len(z.shape) > 1 and z.shape[1] >= 2:
+        v = z
+        z = weak_to_decimal(z)
 
     if method in ['supervised', 'IPL']:
-        v = binarizeWeakLabels(z, c).astype(float)
+        if v is None:
+            v = binarizeWeakLabels(z, c).astype(float)
     elif method == 'quasi_IPL':    # quasi-independent labels
 
         # The virtual labels are computed from the weak label vectors
-        v = binarizeWeakLabels(z, c).astype(float)
+        if v is None:
+            v = binarizeWeakLabels(z, c).astype(float)
 
         # Each 1 or 0 in the weak label vector must be replaced by a number
         # that depends on the total number of 1's in the vector
@@ -311,11 +319,12 @@ def computeVirtual(z, c, method='IPL', M=None, dec_labels=None):
         #     z = c-np.log2(z)-1
 
         # Compute the virtual label.
-        v = np.zeros((z.size, c))
+        v = np.zeros((len(z), c))
         for i, zi in enumerate(z):
             # The virtual label for the i-th weak label, zi, is the column
             # in Y corresponding to zi (that is taken from the inverted index)
-            v[i, :] = Y[:, z2i[zi]]
+            v[i, :] = Y[:, z2i[zi]].flatten()
+
     else:
         raise ValueError(
             "Unknown method to create virtual labels: {}".format(method))
@@ -479,6 +488,12 @@ def newWeakCount(Z, Y, categories, reg=None):
 
     return S
 
+
+def weak_to_decimal(z):
+    n, n_cat = z.shape
+    p2 = np.array([2**n for n in reversed(range(n_cat))])
+    return np.array(z.dot(p2), dtype=int)
+
 def estimate_M(Z, Y, categories, reg=None):
-    S0 = weakCount(Z, Y, categories, reg=reg)
+    S0 = newWeakCount(Z, Y, categories, reg=reg)
     return S0 / np.sum(S0, axis=0)
