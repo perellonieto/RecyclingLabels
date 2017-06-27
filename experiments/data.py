@@ -117,12 +117,12 @@ def load_blobs(n_samples=1000, n_features=2, n_classes=6, random_state=None):
     return (X_train, Z_train, z_train), (X_val, Z_val, z_val, Y_val, y_val), None
 
 
-def load_weak_blobs(method='quasi_IPL', n_samples=1000, n_features=2,
+def load_weak_blobs(method='quasi_IPL', n_samples=2000, n_features=2,
                     n_classes=6, random_state=None, true_size=0.1):
     X, y = make_blobs(n_samples=n_samples, n_features=n_features,
                       centers=n_classes, random_state=random_state)
 
-    M = computeM(n_classes, method=method)
+    M = computeM(n_classes, method=method, alpha=0.7, beta=0.3)
     return make_weak_true_partition(M, X, y, true_size=true_size,
                                     random_state=random_state)
 
@@ -132,6 +132,6 @@ def load_weak_iris(method='quasi_IPL', true_size=0.1, random_state=None):
     iris = load_iris()
     X = iris.data
     y = iris.target
-    M = computeM(len(np.unique(y)), method=method)
+    M = computeM(len(np.unique(y)), method=method, alpha=0.7, beta=0.3)
     return make_weak_true_partition(M, X, y, true_size=true_size,
                                     random_state=random_state)
