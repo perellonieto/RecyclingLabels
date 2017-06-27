@@ -2,6 +2,7 @@ import sys
 import time
 import pprint
 import inspect
+import multiprocessing
 
 from scipy import sparse
 import numpy as np
@@ -9,6 +10,7 @@ import numpy as np
 from sklearn.model_selection import KFold
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import cross_val_predict
+from sklearn.model_selection import StratifiedKFold
 import sklearn.cross_validation as skcv
 from sklearn.utils import shuffle
 from sklearn.metrics import accuracy_score
@@ -24,9 +26,10 @@ from experiments.visualizations import plot_heatmap
 from experiments.diary import Diary
 
 from wlc.WLweakener import computeVirtual
+from wlc.WLweakener import estimate_M
 
 
-def n_times_k_fold_cross_val(X, V, y, classifier, iterations=10, n_folds=10,
+def n_times_k_fold_cross_val(X, V, y, classifier, n_iterations=10, k_folds=10,
                              n_jobs=-1, fit_arguments=None,
                              entry_notebook=None, classes=None, diary=None):
     """Evaluates a classifier using cross-validation
@@ -70,15 +73,15 @@ def n_times_k_fold_cross_val(X, V, y, classifier, iterations=10, n_folds=10,
     if classes is None:
         classes = [str(i) for i in range(n_c)]
 
-    pe_cv = [0] * iterations
+    pe_cv = [0] * n_iterations
 
     ns = X.shape[0]
     start = time.clock()
     # ## Loop over simulation runs
-    for i in xrange(iterations):
+    for i in xrange(n_iterations):
         X_shuff, v_shuff, y_shuff = shuffle(X, V, y, random_state=i)
         cv_start = time.clock()
-        y_pred = skcv.cross_val_predict(classifier, X_shuff, v_shuff, cv=n_folds,
+        y_pred = skcv.cross_val_predict(classifier, X_shuff, v_shuff, cv=k_folds,
                                         verbose=0, n_jobs=n_jobs,
                                         fit_params=fit_arguments)
         cv_end = time.clock()
@@ -104,8 +107,8 @@ def n_times_k_fold_cross_val(X, V, y, classifier, iterations=10, n_folds=10,
 
         stop = time.clock()
         print(('\nAveraging {0} simulations. Estimated time to finish '
-               '{1:0.4f}s.').format(iterations,
-                                      (stop - start)/(i+1)*(iterations-i)))
+               '{1:0.4f}s.').format(n_iterations,
+                                      (stop - start)/(i+1)*(n_iterations-i)))
         sys.stdout.flush()
 
         cm = confusion_matrix(y_shuff, y_pred)
@@ -285,7 +288,6 @@ def analyse_true_labels(X, Y, y, random_state=None, verbose=0, classes=None,
     make_arguments = {key: value for key, value in params.iteritems()
                       if key in inspect.getargspec(create_model)[0]}
     model = KerasClassifier(build_fn=create_model, **make_arguments)
-    #model = create_model(**make_arguments)
     pp = pprint.PrettyPrinter(indent=2)
 
     if verbose >= 1:
@@ -300,7 +302,7 @@ def analyse_true_labels(X, Y, y, random_state=None, verbose=0, classes=None,
         X = X.toarray()
 
     pe_tr, pe_cv = n_times_k_fold_cross_val(X=X, V=Y, y=y, classifier=model,
-                                            iterations=10, n_folds=10,
+                                            n_iterations=10, k_folds=10,
                                             n_jobs=-1,
                                             fit_arguments=fit_arguments,
                                             entry_notebook=entry_val,
@@ -320,9 +322,47 @@ def analyse_true_labels(X, Y, y, random_state=None, verbose=0, classes=None,
     #diary.save_figure(fig, filename='confusion_matrix')
 
 
-def analyse_weak_labels(X_train, Z_train, z_train, X_val, Z_val, z_val, Y_val, y_val,
-                        random_state=None, verbose=0, classes=None, method='weak',
-                        M=None, diary=None):
+# TODO take a look that everything is ok
+def train_weak_test_acc((process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t,
+                         Y_y_t, X_y_v, Y_y_v)):
+    """
+    Parameters
+    ----------
+    X_z_t : array-like, with shape (n_training_samples_without_y, n_dim)
+        Matrix with features used for training with only weak labels available
+
+    Z_z_t : array-like, with shape (n_training_samples_without_y, n_classes)
+        Weak labels for training
+
+    X_y_t : array-like, with shape (n_training_samples_with_y, n_dim)
+        Matrix with features used for training with weak and true labels
+
+    Z_y_t : array-like, with shape (n_training_samples_with_y, n_classes)
+        Weak labels for training with the true labels available
+
+    Y_y_t : array-like, with shape (n_training_samples_with_y, n_classes)
+        True labels for training
+
+    X_y_v : array-like, with shape (n_validation_samples_with_y, n_dim)
+        Matrix with features used for validation with weak and true labels
+
+    Y_y_v : array-like, with shape (n_validation_samples_with_y, n_classes)
+        True labels for validation
+    """
+    n_c = Y_y_v.shape[1]
+    categories = range(n_c)
+    M = estimate_M(Z_y_t, Y_y_t, categories, reg=None)
+    V_z_t = computeVirtual(Z_z_t, c=n_c, method='Mproper', M=M)
+    np.random.seed(process_id)
+    classifier.fit(X_z_t, V_z_t, verbose=0, epochs=20)
+    y_pred = classifier.predict(X_y_v, verbose=0)
+    return np.mean(np.equal(y_pred, np.argmax(Y_y_v, axis=1)))
+
+
+# TODO add other methods
+def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
+                        n_iterations=5, k_folds=5, diary=None, verbose=0,
+                        random_state=None, method='Mproper', n_jobs=None):
     """ Trains a Feed-fordward neural network using cross-validation
 
     The training is done with the weak labels on the training set and
@@ -330,20 +370,30 @@ def analyse_weak_labels(X_train, Z_train, z_train, X_val, Z_val, z_val, Y_val, y
 
     Parameters
     ----------
-        load_data: function
-            Function that returns a training and validation set on the form
-            X_train: ndarray (n_train_samples, n_features)
-            Z_train: ndarray (n_train_samples, n_classes)
-                Weak labels in binary as a one-hot encoding
-            z_train: ndarray (n_train_samples, )
-                Weak labels as integers
-            X_val: ndarray (n_val_samples, n_features)
-            Z_val: ndarray (n_val_samples, n_classes)
-            z_val: ndarray (n_val_samples, )
-            Y_val: ndarray (n_val_samples, n_classes)
-                True labels in binary as a encoding one-hot encoding
-            y_val: ndarray (n_val_samples, )
-                True labels as integers
+    X_z : array-like, with shape (n_samples_without_y, n_dim)
+        Matrix with features with only weak labels available
+
+    Z_z : array-like, with shape (n_samples_without_y, n_classes)
+        Weak labels in a binary matrix
+
+    z_z : array-like, with shape (n_samples_without_y, )
+        Weak labels in decimal
+
+    X_y : array-like, with shape (n_samples_with_y, n_dim)
+        Matrix with features with both weak and true labels available
+
+    Z_y : array-like, with shape (n_samples_with_y, n_classes)
+        Weak labels in a binary matrix
+
+    z_y : array-like, with shape (n_samples_with_y, )
+        Weak labels in decimal
+
+    Y_y : array-like, with shape (n_samples_with_y, n_classes)
+        True labels in a binary matrix
+
+    y_y : array-like, with shape (n_samples_with_y, )
+        True labels in decimal
+
     """
     # Test performance on validation true labels
     # ## Create a Diary for all the logs and results
@@ -357,18 +407,20 @@ def analyse_weak_labels(X_train, Z_train, z_train, X_val, Z_val, z_val, Y_val, y
     # Test for the validation error with the true labels
     #X_train, Z_train, z_train, X_val, Z_val, z_val, Y_val, y_val = load_data()
 
-    n_s = X_train.shape[0]
-    n_f = X_train.shape[1]
-    n_c = Y_val.shape[1]
+    n_s_z = X_z.shape[0]
+    n_s_y = X_y.shape[0]
+    n_f = X_z.shape[1]
+    n_c = Y_y.shape[1]
 
     # If dimension is 2, we draw a scatterplot
     if n_f >= 2:
-        fig = plot_data(X_val, y_val, save=False, title='True labels')
+        fig = plot_data(X_y, y_y, save=False, title='True labels')
         diary.save_figure(fig, filename='true_labels')
 
-        fig = plot_data(X_val, z_val, save=False, title='Weak labels')
+        fig = plot_data(X_y, z_y, save=False, title='Weak labels')
         diary.save_figure(fig, filename='weak_labels')
 
+    # Multiprocessing training and validation
     params = {'input_dim': n_f,
               'output_size': n_c,
               'optimizer': 'rmsprop',
@@ -388,43 +440,35 @@ def analyse_weak_labels(X_train, Z_train, z_train, X_val, Z_val, z_val, Y_val, y
 
     make_arguments = {key: value for key, value in params.iteritems()
                       if key in inspect.getargspec(create_model)[0]}
-    model = KerasClassifier(build_fn=create_model, **make_arguments)
-    #model = create_model(**make_arguments)
+    fit_arguments = {key: value for key, value in params.iteritems()
+                     if key not in make_arguments}
+
+    classifier = KerasClassifier(build_fn=create_model, **make_arguments)
     pp = pprint.PrettyPrinter(indent=2)
 
     if verbose >= 1:
-        print pp.pprint(model.get_config())
+        print pp.pprint(classifier.get_config())
 
-    fit_arguments = {key: value for key, value in params.iteritems()
-                     if key in inspect.getargspec(model.build_fn().fit)[0]}
+    map_arguments = []
+    skf = StratifiedKFold(n_splits=k_folds, shuffle=False)
+    process_id = 0
+    for i in range(n_iterations):
+        X_y_s, Z_y_s, z_y_s, Y_y_s, y_y_s = shuffle(X_y, Z_y, z_y, Y_y, y_y,
+                                                    random_state=i)
+        splits = skf.split(X_y_s, y_y_s)
 
-    if sparse.issparse(X_train):
-        X_train = X_train.toarray()
-        Z_train = Z_train
-        z_train = z_train
-        X_val = X_val.toarray()
+        for train, test in splits:
+            map_arguments.append((process_id, classifier,
+                                  X_z, Z_z,
+                                  X_y_s[train], Z_y_s[train], Y_y_s[train],
+                                  X_y_s[test], Y_y_s[test]))
+            process_id += 1
 
-    if method == 'Mproper' and M is not None:
-        V_train = computeVirtual(z_train, c=n_c, method=method, M=M,
-                                 dec_labels=None)
-        Target_train = V_train
-    elif method == 'quasi_IPL':
-        V_train = computeVirtual(z_train, c=n_c, method=method,
-                                 dec_labels=None)
-        Target_train = V_train
-    elif method == 'supervised':
-        Target_train = Z_train
-    else:
-        raise ValueError(("Unknown method to compute virtual "
-                          "labels: {}").format(method))
-
-    # FIXME add proper cross-validation with weak and real labels
-    pe_val = n_times_validation(X_train=X_train, V_train=Target_train,
-                                X_val=X_val, y_val=y_val, classifier=model,
-                                fit_arguments=fit_arguments,
-                                entry_notebook=entry_val, classes=classes,
-                                diary=diary)
-
+    #accuracies = train_weak_test_acc(map_arguments[0])
+    pool = multiprocessing.Pool(processes=n_jobs)
+    accuracies = pool.map(train_weak_test_acc, map_arguments)
+    print accuracies
+    print('mean accuracy = %s' % (np.mean(accuracies)))
 
 def analyse_2(load_data, random_state=None):
     """ Makes a Grid search on the hyperparameters of a Feed-fordwared neural
