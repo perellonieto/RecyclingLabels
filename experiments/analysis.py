@@ -114,7 +114,8 @@ def n_times_k_fold_cross_val(X, V, y, classifier, n_iterations=10, k_folds=10,
         cm = confusion_matrix(y_shuff, y_pred)
         print("Confusion matrix: \n{}".format(cm))
         if diary is not None:
-            fig = plot_heatmap(cm, columns=classes, rows=classes, colorbar=False)
+            fig = plot_heatmap(cm, columns=classes, rows=classes,
+                               colorbar=False, title='Confusion matrix')
             diary.save_figure(fig, filename='confusion_matrix')
 
     return pe_tr, pe_cv
@@ -209,34 +210,15 @@ def n_times_validation(X_train, V_train, X_val, y_val, classifier,
         cm = confusion_matrix(y_shuff, y_pred)
         print("Confusion matrix: \n{}".format(cm))
         if diary is not None:
-            fig = plot_heatmap(cm, columns=classes, rows=classes, colorbar=False)
+            fig = plot_heatmap(cm, columns=classes, rows=classes,
+                               colorbar=False, title='Confusion matrix')
             diary.save_figure(fig, filename='confusion_matrix')
 
     return pe_tr, pe_cv
 
-    train_start = time.clock()
-    history = classifier.fit(X_train, V_train, **fit_arguments)
-    train_end = time.clock()
-
-    y_pred = classifier.predict(X_val)
-    # Estimate error rates:s
-    pe_val = (y_val != y_pred).mean()
-
-    if entry_notebook is not None:
-        entry_notebook(row={'pe_val': pe_val,
-                       'train_time': train_end - train_start})
-
-    cm = confusion_matrix(y_val, y_pred)
-    print("Confusion matrix: \n{}".format(cm))
-    if diary is not None:
-        fig = plot_heatmap(cm, columns=classes, rows=classes, colorbar=False)
-        diary.save_figure(fig, filename='confusion_matrix')
-
-    return pe_val
-
 
 def analyse_true_labels(X, Y, y, random_state=None, verbose=0, classes=None,
-                        diary=None):
+                        diary=None, n_jobs=None, n_iterations=2, k_folds=2):
     """ Trains a Feed-fordward neural network using cross-validation
 
     The training and validation is done in the validation set using the true
@@ -302,8 +284,9 @@ def analyse_true_labels(X, Y, y, random_state=None, verbose=0, classes=None,
         X = X.toarray()
 
     pe_tr, pe_cv = n_times_k_fold_cross_val(X=X, V=Y, y=y, classifier=model,
-                                            n_iterations=10, k_folds=10,
-                                            n_jobs=-1,
+                                            n_iterations=n_iterations,
+                                            k_folds=k_folds,
+                                            n_jobs=n_jobs,
                                             fit_arguments=fit_arguments,
                                             entry_notebook=entry_val,
                                             classes=classes, diary=diary)
@@ -323,8 +306,8 @@ def analyse_true_labels(X, Y, y, random_state=None, verbose=0, classes=None,
 
 
 # TODO take a look that everything is ok
-def train_weak_test_acc((process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t,
-                         Y_y_t, X_y_v, Y_y_v)):
+def train_weak_test_results((process_id, classifier, X_z_t, Z_z_t, X_y_t,
+                             Z_y_t, Y_y_t, X_y_v, Y_y_v)):
     """
     Parameters
     ----------
@@ -356,12 +339,14 @@ def train_weak_test_acc((process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t,
     np.random.seed(process_id)
     classifier.fit(X_z_t, V_z_t, verbose=0, epochs=20)
     y_pred = classifier.predict(X_y_v, verbose=0)
-    return np.mean(np.equal(y_pred, np.argmax(Y_y_v, axis=1)))
+    cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
+    results = {'pid': process_id, 'cm': cm}
+    return results
 
 
 # TODO add other methods
 def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
-                        n_iterations=5, k_folds=5, diary=None, verbose=0,
+                        n_iterations=2, k_folds=2, diary=None, verbose=0,
                         random_state=None, method='Mproper', n_jobs=None):
     """ Trains a Feed-fordward neural network using cross-validation
 
@@ -466,9 +451,22 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
 
     #accuracies = train_weak_test_acc(map_arguments[0])
     pool = multiprocessing.Pool(processes=n_jobs)
-    accuracies = pool.map(train_weak_test_acc, map_arguments)
-    print accuracies
-    print('mean accuracy = %s' % (np.mean(accuracies)))
+    results = pool.map(train_weak_test_results, map_arguments)
+    print results
+    cm_mean = np.zeros((n_c, n_c))
+    acc_mean = 0
+    for result in results:
+        cm = result['cm']
+        pid = result['pid']
+        acc = np.true_divide(np.diag(cm).sum(), cm.sum())
+        entry_val(row={'pid': pid, 'acc': acc,
+                       'cm': cm.__str__().replace('\n','')})
+        cm_mean += np.true_divide(cm, len(results))
+        acc_mean += acc/len(results)
+
+    fig = plot_heatmap(cm_mean, columns=classes, rows=classes, colorbar=False,
+                       title='Mean Confusion matrix (acc={})'.format(acc_mean))
+    diary.save_figure(fig, filename='mean_confusion_matrix')
 
 def analyse_2(load_data, random_state=None):
     """ Makes a Grid search on the hyperparameters of a Feed-fordwared neural
