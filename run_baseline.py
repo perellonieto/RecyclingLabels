@@ -42,6 +42,15 @@ def parse_arguments():
     parser.add_argument('-v', '--verbose', dest='verbose', type=int,
                         default=0,
                         help='Verbosity level being 0 the minimum value')
+    parser.add_argument('-p', '--processes', dest='n_jobs', type=int,
+                        default=None,
+                        help='Number of concurrent processes')
+    parser.add_argument('-i', '--iterations', dest='n_iterations', type=int,
+                        default=2,
+                        help='Number of iterations to repeat the validation')
+    parser.add_argument('-k', '--k-folds', dest='k_folds', type=int,
+                        default=2,
+                        help='Number of folds for the cross-validation')
     return parser.parse_args()
 
 
@@ -67,7 +76,8 @@ def test_1c():
     analyse_true_labels(X_v, Y_v, y_v, random_state=0, classes=classes)
 
 
-def main(test, dataset, seed, verbose, method, path_M):
+def main(test, dataset, seed, verbose, method, path_M, n_jobs, n_iterations,
+         k_folds):
     print('Main arguments')
     print(locals())
     if dataset not in dataset_functions.keys():
@@ -82,18 +92,21 @@ def main(test, dataset, seed, verbose, method, path_M):
                   fig_format='svg')
 
     entry_dataset = diary.add_notebook('dataset')
-    entry_dataset(row=['n_samples_train', X_t.shape[0],
-                       'n_samples_val', X_v.shape[0],
-                       'n_features', X_t.shape[1], 'n_classes', Z_t.shape[1]])
+    entry_dataset(row=['n_samples_without_y', X_t.shape[0],
+                       'n_samples_with_y', X_v.shape[0],
+                       'n_features', X_t.shape[1],
+                       'n_classes', Z_t.shape[1]])
 
     if test == 'true_labels':
         analyse_true_labels(X_v, Y_v, y_v, random_state=seed, verbose=verbose,
-                            classes=classes, diary=diary)
+                            classes=classes, diary=diary, n_jobs=n_jobs,
+                            n_iterations=n_iterations, k_folds=k_folds)
     elif test == 'weak_labels':
         analyse_weak_labels(X_z=X_t, Z_z=Z_t, z_z=z_t, X_y=X_v, Z_y=Z_v,
                             z_y=z_v, Y_y=Y_v, y_y=y_v, random_state=seed,
                             verbose=verbose, classes=classes, method=method,
-                            diary=diary)
+                            diary=diary, n_jobs=n_jobs,
+                            n_iterations=n_iterations, k_folds=k_folds)
     else:
         raise ValueError("Analysis not implemented: %s" % (test))
 
