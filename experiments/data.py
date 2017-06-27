@@ -1,5 +1,6 @@
 import pandas as pd
 import numpy as np
+from scipy import sparse
 from numpy.random import RandomState
 
 from sklearn.utils import shuffle
@@ -83,6 +84,13 @@ def load_webs(random_state=None):
                                         random_state=random_state)
     X_val, Z_val, z_val, Y_val, y_val = shuffle(X_val, Z_val, z_val, Y_val,
                                                 y_val)
+
+    # TODO is it possible to keep the matrices sparse with Keras?
+    if sparse.issparse(X_train):
+        X_train = X_train.toarray()
+        Z_train = Z_train
+        z_train = z_train
+        X_val = X_val.toarray()
 
     return (X_train, Z_train, z_train), (X_val, Z_val, z_val, Y_val, y_val), categories
 
