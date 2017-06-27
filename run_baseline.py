@@ -1,5 +1,6 @@
 from experiments.data import load_toy_example
-from experiments.data import load_blobs
+from experiments.data import load_weak_blobs
+from experiments.data import load_weak_iris
 from experiments.data import load_webs
 
 from experiments.analysis import analyse_true_labels
@@ -12,7 +13,8 @@ import argparse
 import numpy as np
 
 dataset_functions = {'toy_example': load_toy_example,
-                     'blobs': load_blobs,
+                     'blobs': load_weak_blobs,
+                     'iris': load_weak_iris,
                      'webs': load_webs}
 
 
@@ -20,18 +22,20 @@ def parse_arguments():
     parser = argparse.ArgumentParser(description='''Runs a test with a toy
                                                 example or a real dataset''')
     parser.add_argument('-t', '--test', dest='test', type=str,
-                        default='true_labels',
-                        help='Test that needs to be run')
+                        default='weak_labels',
+                        help='''Test that needs to be run: true_labels or
+                                weak_labels''')
     parser.add_argument('-d', '--dataset', dest='dataset', type=str,
-                        default='toy_example',
-                        help='Name of the dataset to use')
+                        default='iris',
+                        help='''Name of the dataset to use: iris, toy_example,
+                                blobs, webs''')
     parser.add_argument('-s', '--seed', dest='seed', type=int,
                         default=None,
                         help='Seed for the random number generator')
     parser.add_argument('-m', '--method', dest='method', type=str,
                         default='supervised',
-                        help=('Learning method to use between supervised'
-                              'Mproper or quasi_IPL'))
+                        help='''Learning method to use between supervised
+                                Mproper or quasi_IPL''')
     parser.add_argument('-M', '--path-M', dest='path_M', type=str,
                         default='data/M.npy',
                         help='Path to the precomputed mixing matrix M')
@@ -45,14 +49,14 @@ def test_1a():
     training, validation = load_toy_example()
     X_t, Z_t, z_t = training
     X_v, Z_v, z_v, Y_v, y_v = validation
-    analyse_true_labels(X_v, Y_v, y_v, seed=0)
+    analyse_true_labels(X_v, Y_v, y_v, srandom_state0)
 
 
 def test_1b():
-    training, validation = load_blobs()
+    training, validation = load_weak_blobs()
     X_t, Z_t, z_t = training
     X_v, Z_v, z_v, Y_v, y_v = validation
-    analyse_true_labels(X_v, Y_v, y_v, seed=0)
+    analyse_true_labels(X_v, Y_v, y_v, random_state=0)
 
 
 def test_1c():
@@ -60,7 +64,7 @@ def test_1c():
     training, validation, classes = load_webs()
     X_t, Z_t, z_t = training
     X_v, Z_v, z_v, Y_v, y_v = validation
-    analyse_true_labels(X_v, Y_v, y_v, seed=0, classes=classes)
+    analyse_true_labels(X_v, Y_v, y_v, random_state=0, classes=classes)
 
 
 def main(test, dataset, seed, verbose, method, path_M):
@@ -69,12 +73,13 @@ def main(test, dataset, seed, verbose, method, path_M):
     if dataset not in dataset_functions.keys():
         raise ValueError("Dataset not available: %s" % (dataset))
 
-    training, validation, classes = dataset_functions[dataset](seed=seed)
+    training, validation, classes = dataset_functions[dataset](random_state=seed)
     X_t, Z_t, z_t = training
     X_v, Z_v, z_v, Y_v, y_v = validation
 
-    diary = Diary(name=test, path='results', overwrite=False,
-                  image_format='png', fig_format='svg')
+    diary = Diary(name=('{}_{}_{}'.format(test, dataset, method)),
+                  path='results', overwrite=False, image_format='png',
+                  fig_format='svg')
 
     entry_dataset = diary.add_notebook('dataset')
     entry_dataset(row=['n_samples_train', X_t.shape[0],
@@ -82,15 +87,13 @@ def main(test, dataset, seed, verbose, method, path_M):
                        'n_features', X_t.shape[1], 'n_classes', Z_t.shape[1]])
 
     if test == 'true_labels':
-        analyse_true_labels(X_v, Y_v, y_v, seed=seed, verbose=verbose,
+        analyse_true_labels(X_v, Y_v, y_v, random_state=seed, verbose=verbose,
                             classes=classes, diary=diary)
     elif test == 'weak_labels':
-        M = np.load(path_M)
-        M = M.item()
-        analyse_weak_labels(X_train=X_t, Z_train=Z_t, z_train=z_t, X_val=X_v,
-                            Z_val=Z_v, z_val=z_v, Y_val=Y_v, y_val=y_v,
-                            seed=seed, verbose=verbose, classes=classes,
-                            method=method, M=M, diary=diary)
+        analyse_weak_labels(X_z=X_t, Z_z=Z_t, z_z=z_t, X_y=X_v, Z_y=Z_v,
+                            z_y=z_v, Y_y=Y_v, y_y=y_v, random_state=seed,
+                            verbose=verbose, classes=classes, method=method,
+                            diary=diary)
     else:
         raise ValueError("Analysis not implemented: %s" % (test))
 
