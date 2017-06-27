@@ -79,8 +79,8 @@ def n_times_k_fold_cross_val(X, V, y, classifier, iterations=10, n_folds=10,
         X_shuff, v_shuff, y_shuff = shuffle(X, V, y, random_state=i)
         cv_start = time.clock()
         y_pred = skcv.cross_val_predict(classifier, X_shuff, v_shuff, cv=n_folds,
-                                       verbose=0, n_jobs=n_jobs,
-                                       fit_params=fit_arguments)
+                                        verbose=0, n_jobs=n_jobs,
+                                        fit_params=fit_arguments)
         cv_end = time.clock()
 
         # Estimate error rates:s
@@ -166,6 +166,50 @@ def n_times_validation(X_train, V_train, X_val, y_val, classifier,
 
     ns = X_train.shape[0]
     start = time.clock()
+    # ## Loop over simulation runs
+    for i in xrange(iterations):
+        X_train_s, V_train_s = shuffle(X_train, V_train, random_state=i)
+        X_val_s, y_val_s = shuffle(X_val, y_val, random_state=i)
+
+        cv_start = time.clock()
+        history = classifier.fit(X_train_s, V_train_s, **fit_arguments)
+        y_pred = skcv.cross_val_predict(classifier, X_val_s, y_val_s, cv=n_folds,
+                                        verbose=0, n_jobs=n_jobs,
+                                        fit_params=fit_arguments)
+        cv_end = time.clock()
+
+        # Estimate error rates:s
+        pe_cv[i] = float(np.count_nonzero(y_shuff != y_pred)) / ns
+
+        # ########################
+        # Ground truth evaluation:
+        #   Training with the given virtual labels (by default true labels)
+        if i == 0:
+            classifier.fit(X, V, **fit_arguments)
+            f = classifier.predict_proba(X, verbose=0)
+
+            # Then, we evaluate this classifier with all true labels
+            # Note that training and test samples are being used in this error rate
+            d = np.argmax(f, axis=1)
+            pe_tr = float(np.count_nonzero(y != d)) / ns
+
+        if entry_notebook is not None:
+            entry_notebook(row={'pe_tr': pe_tr, 'pe_cv': pe_cv[i],
+                           'cv_time': cv_end - cv_start})
+
+        stop = time.clock()
+        print(('\nAveraging {0} simulations. Estimated time to finish '
+               '{1:0.4f}s.').format(iterations,
+                                      (stop - start)/(i+1)*(iterations-i)))
+        sys.stdout.flush()
+
+        cm = confusion_matrix(y_shuff, y_pred)
+        print("Confusion matrix: \n{}".format(cm))
+        if diary is not None:
+            fig = plot_heatmap(cm, columns=classes, rows=classes, colorbar=False)
+            diary.save_figure(fig, filename='confusion_matrix')
+
+    return pe_tr, pe_cv
 
     train_start = time.clock()
     history = classifier.fit(X_train, V_train, **fit_arguments)
@@ -188,7 +232,7 @@ def n_times_validation(X_train, V_train, X_val, y_val, classifier,
     return pe_val
 
 
-def analyse_true_labels(X, Y, y, seed=None, verbose=0, classes=None,
+def analyse_true_labels(X, Y, y, random_state=None, verbose=0, classes=None,
                         diary=None):
     """ Trains a Feed-fordward neural network using cross-validation
 
@@ -233,7 +277,7 @@ def analyse_true_labels(X, Y, y, seed=None, verbose=0, classes=None,
               'epochs': 100,
               'batch_size': 100,
               'verbose': verbose,
-              'seed': seed
+              'random_state': random_state
               }
 
     entry_model(row=params)
@@ -277,7 +321,7 @@ def analyse_true_labels(X, Y, y, seed=None, verbose=0, classes=None,
 
 
 def analyse_weak_labels(X_train, Z_train, z_train, X_val, Z_val, z_val, Y_val, y_val,
-                        seed=None, verbose=0, classes=None, method='weak',
+                        random_state=None, verbose=0, classes=None, method='weak',
                         M=None, diary=None):
     """ Trains a Feed-fordward neural network using cross-validation
 
@@ -337,7 +381,7 @@ def analyse_weak_labels(X_train, Z_train, z_train, X_val, Z_val, z_val, Y_val, y
               'epochs': 50,
               'batch_size': 100,
               'verbose': verbose,
-              'seed': seed
+              'random_state': random_state
               }
 
     entry_model(row=dict(params.items() + {'method': method}.items()))
@@ -382,7 +426,7 @@ def analyse_weak_labels(X_train, Z_train, z_train, X_val, Z_val, z_val, Y_val, y
                                 diary=diary)
 
 
-def analyse_2(load_data, seed=None):
+def analyse_2(load_data, random_state=None):
     """ Makes a Grid search on the hyperparameters of a Feed-fordwared neural
         network
 
@@ -463,7 +507,7 @@ def analyse_2(load_data, seed=None):
         print("%f (%f) with: %r" % (mean, stdev, param))
 
 
-def analyse_4(load_data, seed=None, verbose=0):
+def analyse_4(load_data, random_state=None, verbose=0):
     X_train, Z_train, z_train, X_val, Z_val, z_val, Y_val, y_val = load_data()
 
     n_s = X_train.shape[0]
@@ -488,7 +532,7 @@ def analyse_4(load_data, seed=None, verbose=0):
 
     model = KerasClassifier(build_fn=create_model, **params)
 
-    kfold = KFold(n_splits=10, shuffle=True, random_state=seed)
+    kfold = KFold(n_splits=10, shuffle=True, random_state=random_state)
     # It needs the initial parameters
     # FIXME train in _train and test in _val
     predictions = cross_val_predict(model, X_train, Z_train, cv=kfold)
