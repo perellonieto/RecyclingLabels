@@ -22,6 +22,7 @@ from experiments.models import create_model
 
 from experiments.visualizations import plot_data
 from experiments.visualizations import plot_heatmap
+from experiments.visualizations import plot_multilabel_scatter
 
 from experiments.diary import Diary
 
@@ -399,10 +400,10 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
 
     # If dimension is 2, we draw a scatterplot
     if n_f >= 2:
-        fig = plot_data(X_y, y_y, save=False, title='True labels')
+        fig = plot_multilabel_scatter(X_y, Y_y, title='True labels')
         diary.save_figure(fig, filename='true_labels')
 
-        fig = plot_data(X_y, z_y, save=False, title='Weak labels')
+        fig = plot_multilabel_scatter(X_y, Z_y, title='Weak labels')
         diary.save_figure(fig, filename='weak_labels')
 
     # Multiprocessing training and validation
