@@ -11,6 +11,7 @@ from sklearn.model_selection import KFold
 from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import cross_val_predict
 from sklearn.model_selection import StratifiedKFold
+# TODO Change to model_selection
 import sklearn.cross_validation as skcv
 from sklearn.utils import shuffle
 from sklearn.metrics import accuracy_score
@@ -268,17 +269,17 @@ def analyse_true_labels(X, Y, y, random_state=None, verbose=0, classes=None,
 
     entry_model(row=params)
 
-    make_arguments = {key: value for key, value in params.iteritems()
+    make_arguments = {key: value for key, value in params.items()
                       if key in inspect.getargspec(create_model)[0]}
     model = KerasClassifier(build_fn=create_model, **make_arguments)
     pp = pprint.PrettyPrinter(indent=2)
 
     if verbose >= 1:
-        print pp.pprint(model.get_config())
+        print(pp.pprint(model.get_config()))
 
-    #fit_arguments = {key: value for key, value in params.iteritems()
+    #fit_arguments = {key: value for key, value in params.items()
     #                 if key in inspect.getargspec(model.fit)[0]}
-    fit_arguments = {key: value for key, value in params.iteritems()
+    fit_arguments = {key: value for key, value in params.items()
                      if key in inspect.getargspec(model.build_fn().fit)[0]}
 
     if sparse.issparse(X):
@@ -307,8 +308,7 @@ def analyse_true_labels(X, Y, y, random_state=None, verbose=0, classes=None,
 
 
 # TODO take a look that everything is ok
-def train_weak_test_results((process_id, classifier, X_z_t, Z_z_t, X_y_t,
-                             Z_y_t, Y_y_t, X_y_v, Y_y_v)):
+def train_weak_test_results(parameters):
     """
     Parameters
     ----------
@@ -333,6 +333,7 @@ def train_weak_test_results((process_id, classifier, X_z_t, Z_z_t, X_y_t,
     Y_y_v : array-like, with shape (n_validation_samples_with_y, n_classes)
         True labels for validation
     """
+    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v = parameters
     n_c = Y_y_v.shape[1]
     categories = range(n_c)
     M = estimate_M(Z_y_t, Y_y_t, categories, reg=None)
@@ -422,18 +423,18 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
               'random_state': random_state
               }
 
-    entry_model(row=dict(params.items() + {'method': method}.items()))
+    entry_model(row={**params, **{'method': method}})
 
-    make_arguments = {key: value for key, value in params.iteritems()
+    make_arguments = {key: value for key, value in params.items()
                       if key in inspect.getargspec(create_model)[0]}
-    fit_arguments = {key: value for key, value in params.iteritems()
+    fit_arguments = {key: value for key, value in params.items()
                      if key not in make_arguments}
 
     classifier = KerasClassifier(build_fn=create_model, **make_arguments)
     pp = pprint.PrettyPrinter(indent=2)
 
     if verbose >= 1:
-        print pp.pprint(classifier.get_config())
+        print(pp.pprint(classifier.get_config()))
 
     map_arguments = []
     skf = StratifiedKFold(n_splits=k_folds, shuffle=False)
@@ -453,7 +454,7 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
     #accuracies = train_weak_test_acc(map_arguments[0])
     pool = multiprocessing.Pool(processes=n_jobs)
     results = pool.map(train_weak_test_results, map_arguments)
-    print results
+    print(results)
     cm_mean = np.zeros((n_c, n_c))
     acc_mean = 0
     for result in results:
