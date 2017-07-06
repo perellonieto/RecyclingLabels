@@ -71,6 +71,8 @@ class TestWLweakener(unittest.TestCase):
         expected = np.array([[.5, .5], [0, 1], [1, 0], [np.nan, np.nan]])
         assert_array_almost_equal(z_bin, expected)
 
+        # TODO make tests for Mproper
+
     def test_generateWeak(self):
         y = np.array([0, 1, 2, 3])
         M = np.array([[1., 0., 0., 0.],
