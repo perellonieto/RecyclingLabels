@@ -349,9 +349,9 @@ def main():
     #####################
     # ## A title to start
 
-    print "======================="
-    print "    Weak labels"
-    print "======================="
+    print("=======================")
+    print("    Weak labels")
+    print("=======================")
 
     ###########################################################################
     # ## PART I: Load data (samples and true labels)                         ##
@@ -367,9 +367,9 @@ def main():
     z = generateWeak(y, M, c)
     v = computeVirtual(z, c, method='quasi_IPL')
 
-    print M
-    print z
-    print v
+    print(M)
+    print(M)
+    print(M)
 
     ipdb.set_trace()
 
