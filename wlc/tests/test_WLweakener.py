@@ -93,7 +93,7 @@ class TestWLweakener(unittest.TestCase):
 
     def test_compare_weakCount(self):
         n_classes = 7
-        categories = range(n_classes)
+        categories = list(range(n_classes))
         np.random.seed(0)
         z = np.random.randint(2**n_classes, size=500)
         Z = np.matrix([list(np.binary_repr(x, n_classes)) for x in z], dtype=int)

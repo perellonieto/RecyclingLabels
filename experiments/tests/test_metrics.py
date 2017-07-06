@@ -60,12 +60,12 @@ class TestMetrics(unittest.TestCase):
                    np.random.rand(50, 1))
 
         for p, y, w in zip(p_tuple, y_tuple, w_tuple):
-            self.assertAlmostEqual(expanded_bs_v1(p, y, w),
-                                   expanded_bs_v2(p, y, w))
-            self.assertAlmostEqual(expanded_bs_v2(p, y, w),
-                                   brier_score(p, y, w))
-            self.assertAlmostEqual(brier_score(p, y, w),
-                                   brier_score(p, y, w, per_class=True).sum())
+            np.testing.assert_almost_equal(expanded_bs_v1(p, y, w),
+                                           expanded_bs_v2(p, y, w))
+            np.testing.assert_almost_equal(expanded_bs_v2(p, y, w),
+                                           brier_score(p, y, w))
+            np.testing.assert_almost_equal(brier_score(p, y, w),
+                                           brier_score(p, y, w, per_class=True).sum())
             self.assertTrue(np.allclose(expanded_bs_per_class(p, y, w),
                             brier_score(p, y, w, per_class=True)))
             self.assertEqual(brier_score(p, y, w, per_class=True).shape[0],

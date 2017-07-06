@@ -27,7 +27,7 @@ def make_weak_true_partition(M, X, y, true_size=0.1, random_state=0):
     # Create partition for weak and true labels
     sss = StratifiedShuffleSplit(n_splits=1, test_size=true_size,
                                  random_state=random_state)
-    weak_fold, true_fold = sss.split(X, y).next()
+    weak_fold, true_fold = sss.split(X, y).__next__()
 
     # Weaken the true labels fold using the mixing matrix M
     X_w = X[weak_fold]
@@ -59,7 +59,7 @@ def load_webs(random_state=None):
         print("Oops!, there are unexpected weak labels in the new dataset."
               "This may cause some errors below")
 
-    X = np.load('data/X_full.npy')
+    X = np.load('data/X_full.npy', encoding='latin1')
     X = X.item()
 
     # Label dataframe
