@@ -423,7 +423,7 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
               'random_state': random_state
               }
 
-    entry_model(row={**params, **{'method': method}})
+    entry_model(row=params.update({'method': method}))
 
     make_arguments = {key: value for key, value in params.items()
                       if key in inspect.getargspec(create_model)[0]}

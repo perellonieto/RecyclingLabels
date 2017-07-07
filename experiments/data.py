@@ -27,19 +27,18 @@ def make_weak_true_partition(M, X, y, true_size=0.1, random_state=0):
     # Create partition for weak and true labels
     sss = StratifiedShuffleSplit(n_splits=1, test_size=true_size,
                                  random_state=random_state)
-    weak_fold, true_fold = sss.split(X, y).__next__()
+    for weak_fold, true_fold in sss.split(X, y):
+        # Weaken the true labels fold using the mixing matrix M
+        X_w = X[weak_fold]
+        z_w = z[weak_fold]
+        Z_w = Z[weak_fold]
 
-    # Weaken the true labels fold using the mixing matrix M
-    X_w = X[weak_fold]
-    z_w = z[weak_fold]
-    Z_w = Z[weak_fold]
-
-    # Select the true labels fold
-    X_t = X[true_fold]
-    z_t = z[true_fold]
-    Z_t = Z[true_fold]
-    y_t = y[true_fold]
-    Y_t = Y[true_fold]
+        # Select the true labels fold
+        X_t = X[true_fold]
+        z_t = z[true_fold]
+        Z_t = Z[true_fold]
+        y_t = y[true_fold]
+        Y_t = Y[true_fold]
 
     # TODO refactor name convention of train and val, for weak and true
     return (X_w, Z_w, z_w), (X_t, Z_t, z_t, Y_t, y_t), classes
