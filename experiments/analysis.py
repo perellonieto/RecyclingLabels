@@ -449,6 +449,59 @@ def train_weak_fully_weak_test_results(parameters):
     # 1. Train model with the training set that has weak labels
     X_z_t = np.concatenate([X_z_t, X_y_t])
     Z_z_t = np.concatenate([Z_z_t, Z_y_t])
+    X_z_t, Z_z_t = shuffle(X_z_t, Z_z_t, random_state=process_id)
+    classifier.fit(X_z_t, Z_z_t, **fit_arguments)
+    # 2. Evaluate the model in the validation set with true labels
+    y_pred = classifier.predict(X_y_v, verbose=verbose)
+    # Compute the confusion matrix
+    cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
+    results = {'pid': process_id, 'cm': cm}
+    return results
+
+
+def train_weak_partially_weak_test_results(parameters):
+    """Train a model using the fully supervised approach:
+
+        1. Train model with the training set that has weak labels with the true
+           labels when available
+        2. Evaluate the model in the validation set with true labels
+
+    Parameters
+    ----------
+    X_z_t : array-like, with shape (n_training_samples_without_y, n_dim)
+        Matrix with features used for training with only weak labels available
+
+    Z_z_t : array-like, with shape (n_training_samples_without_y, n_classes)
+        Weak labels for training
+
+    X_y_t : array-like, with shape (n_training_samples_with_y, n_dim)
+        Matrix with features used for training with weak and true labels
+
+    Z_y_t : array-like, with shape (n_training_samples_with_y, n_classes)
+        Weak labels for training with the true labels available
+
+    Y_y_t : array-like, with shape (n_training_samples_with_y, n_classes)
+        True labels for training
+
+    X_y_v : array-like, with shape (n_validation_samples_with_y, n_dim)
+        Matrix with features used for validation with weak and true labels
+
+    Y_y_v : array-like, with shape (n_validation_samples_with_y, n_classes)
+        True labels for validation
+    """
+    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments = parameters
+    n_c = Y_y_v.shape[1]
+    categories = range(n_c)
+
+    verbose = fit_arguments.get('verbose', 0)
+
+    # TODO where is the randomization applied?
+    np.random.seed(process_id)
+    # 1. Train model with the training set that has weak labels with the true
+    #    labels when available
+    X_z_t = np.concatenate([X_z_t, X_y_t])
+    Z_z_t = np.concatenate([Z_z_t, Y_y_t])
+    X_z_t, Z_z_t = shuffle(X_z_t, Z_z_t, random_state=process_id)
     classifier.fit(X_z_t, Z_z_t, **fit_arguments)
     # 2. Evaluate the model in the validation set with true labels
     y_pred = classifier.predict(X_y_v, verbose=verbose)
@@ -568,6 +621,10 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
         results = pool.map(train_weak_fully_supervised_test_results, map_arguments)
     elif method == 'fully_weak':
         results = pool.map(train_weak_fully_weak_test_results, map_arguments)
+    elif method == 'partially_weak':
+        results = pool.map(train_weak_partially_weak_test_results, map_arguments)
+    else:
+        raise(ValueError('Method not implemented: %s' % (method)))
 
     if verbose >= 1:
         print(results)

@@ -34,8 +34,9 @@ def parse_arguments():
                         help='Seed for the random number generator')
     parser.add_argument('-m', '--method', dest='method', type=str,
                         default='supervised',
-                        help='''Learning method to use between supervised
-                                Mproper or fully_supervised, fully_weak''')
+                        help='''Learning method to use between,
+                                Mproper, fully_supervised, fully_weak, or
+                                partially_weak''')
     parser.add_argument('-M', '--path-M', dest='path_M', type=str,
                         default='data/M.npy',
                         help='Path to the precomputed mixing matrix M')
