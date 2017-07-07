@@ -26,6 +26,7 @@ from experiments.visualizations import plot_heatmap
 from experiments.visualizations import plot_multilabel_scatter
 
 from experiments.diary import Diary
+from experiments.utils import merge_dicts
 
 from wlc.WLweakener import computeVirtual
 from wlc.WLweakener import estimate_M
@@ -272,16 +273,15 @@ def analyse_true_labels(X, Y, y, random_state=None, verbose=0, classes=None,
     make_arguments = {key: value for key, value in params.items()
                       if key in inspect.getargspec(create_model)[0]}
     model = KerasClassifier(build_fn=create_model, **make_arguments)
-    pp = pprint.PrettyPrinter(indent=2)
 
     if verbose >= 1:
+        pp = pprint.PrettyPrinter(indent=2)
         print(pp.pprint(model.get_config()))
 
-    #fit_arguments = {key: value for key, value in params.items()
-    #                 if key in inspect.getargspec(model.fit)[0]}
     fit_arguments = {key: value for key, value in params.items()
                      if key in inspect.getargspec(model.build_fn().fit)[0]}
 
+    # TODO move the desparsification into the batch generation
     if sparse.issparse(X):
         X = X.toarray()
 
@@ -308,8 +308,14 @@ def analyse_true_labels(X, Y, y, random_state=None, verbose=0, classes=None,
 
 
 # TODO take a look that everything is ok
-def train_weak_test_results(parameters):
-    """
+def train_weak_Mproper_test_results(parameters):
+    """Train a model using the Mproper approach:
+
+        1. Learn a mixing matrix using training with weak and true labels
+        2. Compute virtual labels for training set only with weak labels
+        3. Train a model using the training set with virtual labels
+        4. Evaluate the model in the validation set with true labels
+
     Parameters
     ----------
     X_z_t : array-like, with shape (n_training_samples_without_y, n_dim)
@@ -336,11 +342,111 @@ def train_weak_test_results(parameters):
     process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v = parameters
     n_c = Y_y_v.shape[1]
     categories = range(n_c)
+
+    # 1. Learn a mixing matrix using training with weak and true labels
     M = estimate_M(Z_y_t, Y_y_t, categories, reg=None)
+    # 2. Compute virtual labels for training set only with weak labels
     V_z_t = computeVirtual(Z_z_t, c=n_c, method='Mproper', M=M)
+    # TODO where is the randomization applied?
     np.random.seed(process_id)
+    # 3. Train a model using the training set with virtual labels
     classifier.fit(X_z_t, V_z_t, verbose=0, epochs=20)
+    # 4. Evaluate the model in the validation set with true labels
     y_pred = classifier.predict(X_y_v, verbose=0)
+    # Compute the confusion matrix
+    cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
+    results = {'pid': process_id, 'cm': cm}
+    return results
+
+
+# TODO take a look that everything is ok
+def train_weak_fully_supervised_test_results(parameters):
+    """Train a model using the fully supervised approach:
+
+        1. Train model with the training set that has true labels
+        2. Evaluate the model in the validation set with true labels
+
+    Parameters
+    ----------
+    X_z_t : array-like, with shape (n_training_samples_without_y, n_dim)
+        Matrix with features used for training with only weak labels available
+
+    Z_z_t : array-like, with shape (n_training_samples_without_y, n_classes)
+        Weak labels for training
+
+    X_y_t : array-like, with shape (n_training_samples_with_y, n_dim)
+        Matrix with features used for training with weak and true labels
+
+    Z_y_t : array-like, with shape (n_training_samples_with_y, n_classes)
+        Weak labels for training with the true labels available
+
+    Y_y_t : array-like, with shape (n_training_samples_with_y, n_classes)
+        True labels for training
+
+    X_y_v : array-like, with shape (n_validation_samples_with_y, n_dim)
+        Matrix with features used for validation with weak and true labels
+
+    Y_y_v : array-like, with shape (n_validation_samples_with_y, n_classes)
+        True labels for validation
+    """
+    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v = parameters
+    n_c = Y_y_v.shape[1]
+    categories = range(n_c)
+
+    # TODO where is the randomization applied?
+    np.random.seed(process_id)
+    # 1. Train model with the training set that has true labels
+    classifier.fit(X_y_t, Z_y_t, verbose=0, epochs=20)
+    # 2. Evaluate the model in the validation set with true labels
+    y_pred = classifier.predict(X_y_v, verbose=0)
+    # Compute the confusion matrix
+    cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
+    results = {'pid': process_id, 'cm': cm}
+    return results
+
+
+def train_weak_fully_weak_test_results(parameters):
+    """Train a model using the fully supervised approach:
+
+        1. Train model with the training set that has weak labels
+        2. Evaluate the model in the validation set with true labels
+
+    Parameters
+    ----------
+    X_z_t : array-like, with shape (n_training_samples_without_y, n_dim)
+        Matrix with features used for training with only weak labels available
+
+    Z_z_t : array-like, with shape (n_training_samples_without_y, n_classes)
+        Weak labels for training
+
+    X_y_t : array-like, with shape (n_training_samples_with_y, n_dim)
+        Matrix with features used for training with weak and true labels
+
+    Z_y_t : array-like, with shape (n_training_samples_with_y, n_classes)
+        Weak labels for training with the true labels available
+
+    Y_y_t : array-like, with shape (n_training_samples_with_y, n_classes)
+        True labels for training
+
+    X_y_v : array-like, with shape (n_validation_samples_with_y, n_dim)
+        Matrix with features used for validation with weak and true labels
+
+    Y_y_v : array-like, with shape (n_validation_samples_with_y, n_classes)
+        True labels for validation
+    """
+    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v = parameters
+    n_c = Y_y_v.shape[1]
+    categories = range(n_c)
+
+    # TODO where is the randomization applied?
+    np.random.seed(process_id)
+    # 1. Train model with the training set that has weak labels
+    X_z_t = np.concatenate([X_z_t, X_y_t])
+    Z_z_t = np.concatenate([Z_z_t, Z_y_t])
+    classifier.fit(X_z_t, Z_z_t, verbose=0, epochs=20)
+    # 2. Evaluate the model in the validation set with true labels
+    y_pred = classifier.predict(X_y_v, verbose=0)
+    # Compute the confusion matrix
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
     results = {'pid': process_id, 'cm': cm}
     return results
@@ -391,15 +497,12 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
     entry_model = diary.add_notebook('model')
     entry_val = diary.add_notebook('validation')
 
-    # Test for the validation error with the true labels
-    #X_train, Z_train, z_train, X_val, Z_val, z_val, Y_val, y_val = load_data()
-
     n_s_z = X_z.shape[0]
     n_s_y = X_y.shape[0]
     n_f = X_z.shape[1]
     n_c = Y_y.shape[1]
 
-    # If dimension is 2, we draw a scatterplot
+    # If dimension is 2, we draw a 2D scatterplot
     if n_f >= 2:
         fig = plot_multilabel_scatter(X_y, Y_y, title='True labels')
         diary.save_figure(fig, filename='true_labels')
@@ -407,7 +510,7 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
         fig = plot_multilabel_scatter(X_y, Z_y, title='Weak labels')
         diary.save_figure(fig, filename='weak_labels')
 
-    # Multiprocessing training and validation
+    # Parameters for the multiprocessing training and validation
     params = {'input_dim': n_f,
               'output_size': n_c,
               'optimizer': 'rmsprop',
@@ -423,7 +526,7 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
               'random_state': random_state
               }
 
-    entry_model(row=params.update({'method': method}))
+    entry_model(row=merge_dicts(params, {'method': method}))
 
     make_arguments = {key: value for key, value in params.items()
                       if key in inspect.getargspec(create_model)[0]}
@@ -431,9 +534,9 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
                      if key not in make_arguments}
 
     classifier = KerasClassifier(build_fn=create_model, **make_arguments)
-    pp = pprint.PrettyPrinter(indent=2)
 
     if verbose >= 1:
+        pp = pprint.PrettyPrinter(indent=2)
         print(pp.pprint(classifier.get_config()))
 
     map_arguments = []
@@ -453,8 +556,16 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
 
     #accuracies = train_weak_test_acc(map_arguments[0])
     pool = multiprocessing.Pool(processes=n_jobs)
-    results = pool.map(train_weak_test_results, map_arguments)
-    print(results)
+    if method == 'Mproper':
+        results = pool.map(train_weak_Mproper_test_results, map_arguments)
+    elif method == 'fully_supervised':
+        results = pool.map(train_weak_fully_supervised_test_results, map_arguments)
+    elif method == 'fully_weak':
+        results = pool.map(train_weak_fully_weak_test_results, map_arguments)
+
+    if verbose >= 1:
+        print(results)
+
     cm_mean = np.zeros((n_c, n_c))
     acc_mean = 0
     for result in results:
@@ -549,36 +660,3 @@ def analyse_2(load_data, random_state=None):
     params = grid_result.cv_results_['params']
     for mean, stdev, param in zip(means, stds, params):
         print("%f (%f) with: %r" % (mean, stdev, param))
-
-
-def analyse_4(load_data, random_state=None, verbose=0):
-    X_train, Z_train, z_train, X_val, Z_val, z_val, Y_val, y_val = load_data()
-
-    n_s = X_train.shape[0]
-    n_f = X_train.shape[1]
-    n_c = Y_val.shape[1]
-
-    print("Samples = {}\nFeatures = {}\nClasses = {}".format(n_s, n_f, n_c))
-
-    params = {'input_dim': n_f,
-              'output_size': n_c,
-              'optimizer': 'sgd',
-              'loss': 'mean_squared_error',
-              'init': 'glorot_uniform',
-              'lr': 1.0,
-              'momentum': 0.5,
-              'decay': 0.5,
-              'nesterov': True,
-              'epochs': 20,
-              'batch_size': 10,
-              'verbose': verbose
-              }
-
-    model = KerasClassifier(build_fn=create_model, **params)
-
-    kfold = KFold(n_splits=10, shuffle=True, random_state=random_state)
-    # It needs the initial parameters
-    # FIXME train in _train and test in _val
-    predictions = cross_val_predict(model, X_train, Z_train, cv=kfold)
-    acc = accuracy_score(Z_train.argmax(axis=1), predictions)
-    print("Accuracy = {}".format(acc))
