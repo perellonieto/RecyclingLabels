@@ -276,7 +276,7 @@ def analyse_true_labels(X, Y, y, random_state=None, verbose=0, classes=None,
 
     if verbose >= 1:
         pp = pprint.PrettyPrinter(indent=2)
-        print(pp.pprint(model.get_config()))
+        print(pp.pprint(create_model().get_config()))
 
     fit_arguments = {key: value for key, value in params.items()
                      if key in inspect.getargspec(model.build_fn().fit)[0]}
@@ -339,9 +339,11 @@ def train_weak_Mproper_test_results(parameters):
     Y_y_v : array-like, with shape (n_validation_samples_with_y, n_classes)
         True labels for validation
     """
-    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v = parameters
+    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments = parameters
     n_c = Y_y_v.shape[1]
     categories = range(n_c)
+
+    verbose = fit_arguments.get('verbose', 0)
 
     # 1. Learn a mixing matrix using training with weak and true labels
     M = estimate_M(Z_y_t, Y_y_t, categories, reg=None)
@@ -350,9 +352,9 @@ def train_weak_Mproper_test_results(parameters):
     # TODO where is the randomization applied?
     np.random.seed(process_id)
     # 3. Train a model using the training set with virtual labels
-    classifier.fit(X_z_t, V_z_t, verbose=0, epochs=20)
+    classifier.fit(X_z_t, V_z_t, **fit_arguments)
     # 4. Evaluate the model in the validation set with true labels
-    y_pred = classifier.predict(X_y_v, verbose=0)
+    y_pred = classifier.predict(X_y_v, verbose=verbose)
     # Compute the confusion matrix
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
     results = {'pid': process_id, 'cm': cm}
@@ -389,16 +391,18 @@ def train_weak_fully_supervised_test_results(parameters):
     Y_y_v : array-like, with shape (n_validation_samples_with_y, n_classes)
         True labels for validation
     """
-    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v = parameters
+    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments = parameters
     n_c = Y_y_v.shape[1]
     categories = range(n_c)
+
+    verbose = fit_arguments.get('verbose', 0)
 
     # TODO where is the randomization applied?
     np.random.seed(process_id)
     # 1. Train model with the training set that has true labels
-    classifier.fit(X_y_t, Z_y_t, verbose=0, epochs=20)
+    classifier.fit(X_y_t, Z_y_t, **fit_arguments)
     # 2. Evaluate the model in the validation set with true labels
-    y_pred = classifier.predict(X_y_v, verbose=0)
+    y_pred = classifier.predict(X_y_v, verbose=verbose)
     # Compute the confusion matrix
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
     results = {'pid': process_id, 'cm': cm}
@@ -434,18 +438,20 @@ def train_weak_fully_weak_test_results(parameters):
     Y_y_v : array-like, with shape (n_validation_samples_with_y, n_classes)
         True labels for validation
     """
-    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v = parameters
+    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments = parameters
     n_c = Y_y_v.shape[1]
     categories = range(n_c)
+
+    verbose = fit_arguments.get('verbose', 0)
 
     # TODO where is the randomization applied?
     np.random.seed(process_id)
     # 1. Train model with the training set that has weak labels
     X_z_t = np.concatenate([X_z_t, X_y_t])
     Z_z_t = np.concatenate([Z_z_t, Z_y_t])
-    classifier.fit(X_z_t, Z_z_t, verbose=0, epochs=20)
+    classifier.fit(X_z_t, Z_z_t, **fit_arguments)
     # 2. Evaluate the model in the validation set with true labels
-    y_pred = classifier.predict(X_y_v, verbose=0)
+    y_pred = classifier.predict(X_y_v, verbose=verbose)
     # Compute the confusion matrix
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
     results = {'pid': process_id, 'cm': cm}
@@ -520,7 +526,7 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
               'momentum': 0.5,
               'decay': 0.5,
               'nesterov': True,
-              'epochs': 50,
+              'epochs': 200,
               'batch_size': 100,
               'verbose': verbose,
               'random_state': random_state
@@ -531,13 +537,13 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
     make_arguments = {key: value for key, value in params.items()
                       if key in inspect.getargspec(create_model)[0]}
     fit_arguments = {key: value for key, value in params.items()
-                     if key not in make_arguments}
+                     if key in inspect.getargspec(create_model().fit)[0]}
 
     classifier = KerasClassifier(build_fn=create_model, **make_arguments)
 
     if verbose >= 1:
         pp = pprint.PrettyPrinter(indent=2)
-        print(pp.pprint(classifier.get_config()))
+        print(pp.pprint(create_model().get_config()))
 
     map_arguments = []
     skf = StratifiedKFold(n_splits=k_folds, shuffle=False)
@@ -551,7 +557,7 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
             map_arguments.append((process_id, classifier,
                                   X_z, Z_z,
                                   X_y_s[train], Z_y_s[train], Y_y_s[train],
-                                  X_y_s[test], Y_y_s[test]))
+                                  X_y_s[test], Y_y_s[test], fit_arguments))
             process_id += 1
 
     #accuracies = train_weak_test_acc(map_arguments[0])
@@ -578,7 +584,7 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
         acc_mean += acc/len(results)
 
     fig = plot_heatmap(cm_mean, columns=classes, rows=classes, colorbar=False,
-                       title='Mean Confusion matrix (acc={})'.format(acc_mean))
+                       title='Mean CM {} (acc={:.3f})'.format(method, acc_mean))
     diary.save_figure(fig, filename='mean_confusion_matrix')
 
 def analyse_2(load_data, random_state=None):
