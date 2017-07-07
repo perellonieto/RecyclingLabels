@@ -16,7 +16,7 @@ import pandas as pd
 from scipy.sparse import csr_matrix
 
 
-def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
+def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised', seed=None):
     """
     Generate a mixing matrix M, given the number of classes c.
 
@@ -51,6 +51,8 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
     -------
     M : array-like, shape = (n_classes, n_classes)
     """
+    if seed is not None:
+        np.random.seed(seed)
 
     if method == 'supervised':
 
@@ -152,7 +154,7 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
     return M
 
 
-def generateWeak(y, M, dec_labels=None):
+def generateWeak(y, M, dec_labels=None, seed=None):
     """
     Generate the set of weak labels z from the ground truth labels y, given
     a mixing matrix M and, optionally, a set of possible weak labels, zset.
@@ -175,6 +177,8 @@ def generateWeak(y, M, dec_labels=None):
         z   :List of weak labels. Each weak label is an integer whose binary
             representation encodes the observed weak labels.
     """
+    if seed is not None:
+        np.random.seed(seed)
 
     z = np.zeros(y.shape, dtype=int)  # Weak labels for all labels y (int)
     d = M.shape[0]               # Number of weak labels

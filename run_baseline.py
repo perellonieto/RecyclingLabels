@@ -58,7 +58,7 @@ def test_1a():
     training, validation = load_toy_example()
     X_t, Z_t, z_t = training
     X_v, Z_v, z_v, Y_v, y_v = validation
-    analyse_true_labels(X_v, Y_v, y_v, srandom_state0)
+    analyse_true_labels(X_v, Y_v, y_v, random_state=0)
 
 
 def test_1b():
