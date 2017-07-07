@@ -1,7 +1,7 @@
 import numpy as np
 
 from keras.models import Sequential
-from keras.layers.core import Dense
+from keras.layers.core import Dense, Dropout
 from keras.optimizers import SGD
 
 from functools import partial
@@ -15,9 +15,13 @@ def create_model(input_dim=1, output_size=1, optimizer='rmsprop',
                  nesterov=False, loss='mean_squared_error',
                  class_weights=None):
     model = Sequential()
-    model.add(Dense(20, input_dim=input_dim, kernel_initializer=init,
+    model.add(Dense(100, input_dim=input_dim, kernel_initializer=init,
                     activation='sigmoid'))
-    model.add(Dense(output_size, input_dim=20, kernel_initializer=init,
+    model.add(Dropout(0.5))
+    model.add(Dense(100, input_dim=input_dim, kernel_initializer=init,
+                    activation='sigmoid'))
+    model.add(Dropout(0.5))
+    model.add(Dense(output_size, input_dim=100, kernel_initializer=init,
                     activation='softmax'))
 
     if optimizer == 'sgd':
