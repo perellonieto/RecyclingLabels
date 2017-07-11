@@ -3,7 +3,6 @@ from experiments.data import load_weak_blobs
 from experiments.data import load_weak_iris
 from experiments.data import load_webs
 
-from experiments.analysis import analyse_true_labels
 from experiments.analysis import analyse_weak_labels
 
 from experiments.diary import Diary
@@ -21,10 +20,6 @@ dataset_functions = {'toy_example': load_toy_example,
 def parse_arguments():
     parser = argparse.ArgumentParser(description='''Runs a test with a toy
                                                 example or a real dataset''')
-    parser.add_argument('-t', '--test', dest='test', type=str,
-                        default='weak_labels',
-                        help='''Test that needs to be run: true_labels or
-                                weak_labels''')
     parser.add_argument('-d', '--dataset', dest='dataset', type=str,
                         default='iris',
                         help='''Name of the dataset to use: iris, toy_example,
@@ -37,6 +32,14 @@ def parse_arguments():
                         help='''Learning method to use between,
                                 Mproper, fully_supervised, fully_weak, or
                                 partially_weak''')
+    parser.add_argument('-a', '--architecture', dest='architecture', type=str,
+                        default='lr',
+                        help='''Model architecture. Possible options are: lr
+                        (logistic regression), mlp100 (Multilayer Perceptron
+                        with 100 units in a hidden layer), mlp100d (MLP with
+                        100 hidden units and dropout 0.5), mlp100d100d, (MLP
+                        with two hidden layers of 100 units and dropout of 0.5
+                        after each of them).''')
     parser.add_argument('-M', '--path-M', dest='path_M', type=str,
                         default='data/M.npy',
                         help='Path to the precomputed mixing matrix M')
@@ -77,8 +80,8 @@ def test_1c():
     analyse_true_labels(X_v, Y_v, y_v, random_state=0, classes=classes)
 
 
-def main(test, dataset, seed, verbose, method, path_M, n_jobs, n_iterations,
-         k_folds):
+def main(dataset, seed, verbose, method, path_M, n_jobs, n_iterations,
+         k_folds, architecture):
     print('Main arguments')
     print(locals())
     if dataset not in dataset_functions.keys():
@@ -88,7 +91,7 @@ def main(test, dataset, seed, verbose, method, path_M, n_jobs, n_iterations,
     X_t, Z_t, z_t = training
     X_v, Z_v, z_v, Y_v, y_v = validation
 
-    diary = Diary(name=('{}_{}_{}'.format(test, dataset, method)),
+    diary = Diary(name=('{}_{}'.format(dataset, method)),
                   path='results', overwrite=False, image_format='png',
                   fig_format='svg')
 
@@ -98,18 +101,12 @@ def main(test, dataset, seed, verbose, method, path_M, n_jobs, n_iterations,
                        'n_features', X_t.shape[1],
                        'n_classes', Z_t.shape[1]])
 
-    if test == 'true_labels':
-        analyse_true_labels(X_v, Y_v, y_v, random_state=seed, verbose=verbose,
-                            classes=classes, diary=diary, n_jobs=n_jobs,
-                            n_iterations=n_iterations, k_folds=k_folds)
-    elif test == 'weak_labels':
-        analyse_weak_labels(X_z=X_t, Z_z=Z_t, z_z=z_t, X_y=X_v, Z_y=Z_v,
-                            z_y=z_v, Y_y=Y_v, y_y=y_v, random_state=seed,
-                            verbose=verbose, classes=classes, method=method,
-                            diary=diary, n_jobs=n_jobs,
-                            n_iterations=n_iterations, k_folds=k_folds)
-    else:
-        raise ValueError("Analysis not implemented: %s" % (test))
+    analyse_weak_labels(X_z=X_t, Z_z=Z_t, z_z=z_t, X_y=X_v, Z_y=Z_v,
+                        z_y=z_v, Y_y=Y_v, y_y=y_v, random_state=seed,
+                        verbose=verbose, classes=classes, method=method,
+                        diary=diary, n_jobs=n_jobs,
+                        n_iterations=n_iterations, k_folds=k_folds,
+                        architecture=architecture)
 
 
 if __name__ == '__main__':

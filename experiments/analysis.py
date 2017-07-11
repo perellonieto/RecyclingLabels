@@ -220,93 +220,6 @@ def n_times_validation(X_train, V_train, X_val, y_val, classifier,
     return pe_tr, pe_cv
 
 
-def analyse_true_labels(X, Y, y, random_state=None, verbose=0, classes=None,
-                        diary=None, n_jobs=None, n_iterations=2, k_folds=2):
-    """ Trains a Feed-fordward neural network using cross-validation
-
-    The training and validation is done in the validation set using the true
-    labels
-
-    Parameters
-    ----------
-        X: ndarray (n_samples, n_features)
-        Y: ndarray (n_samples, n_classes)
-            True labels in binary as a encoding one-hot encoding
-        y: ndarray (n_samples, )
-            True labels as integers
-    """
-    # Test performance on validation true labels
-    # ## Create a Diary for all the logs and results
-    if diary is None:
-        diary = Diary(name='true_labels', path='results', overwrite=False,
-                      image_format='png', fig_format='svg')
-
-    entry_model = diary.add_notebook('model')
-    entry_val = diary.add_notebook('validation')
-
-    n_s = X.shape[0]
-    n_f = X.shape[1]
-    n_c = Y.shape[1]
-
-    # If dimension is 2, we draw a scatterplot
-    if n_f >= 2:
-        fig = plot_data(X, y, save=False, title='True labels')
-        diary.save_figure(fig, filename='true_labels')
-
-    params = {'input_dim': n_f,
-              'output_size': n_c,
-              'optimizer': 'rmsprop',
-              'loss': 'categorical_crossentropy',
-              'init': 'glorot_uniform',
-              'lr': 1.0,
-              'momentum': 0.5,
-              'decay': 0.5,
-              'nesterov': True,
-              'epochs': 100,
-              'batch_size': 100,
-              'verbose': verbose,
-              'random_state': random_state
-              }
-
-    entry_model(row=params)
-
-    make_arguments = {key: value for key, value in params.items()
-                      if key in inspect.getargspec(create_model)[0]}
-    model = KerasClassifier(build_fn=create_model, **make_arguments)
-
-    if verbose >= 1:
-        pp = pprint.PrettyPrinter(indent=2)
-        print(pp.pprint(create_model().get_config()))
-
-    fit_arguments = {key: value for key, value in params.items()
-                     if key in inspect.getargspec(model.build_fn().fit)[0]}
-
-    # TODO move the desparsification into the batch generation
-    if sparse.issparse(X):
-        X = X.toarray()
-
-    pe_tr, pe_cv = n_times_k_fold_cross_val(X=X, V=Y, y=y, classifier=model,
-                                            n_iterations=n_iterations,
-                                            k_folds=k_folds,
-                                            n_jobs=n_jobs,
-                                            fit_arguments=fit_arguments,
-                                            entry_notebook=entry_val,
-                                            classes=classes, diary=diary)
-
-    #model.fit(X, Y, **fit_arguments)
-
-    #q = model.predict_proba(X)
-    #y_pred = q.argmax(axis=1)
-
-    #acc = accuracy_score(y, y_pred)
-    #print("#####")
-    #print("Accuracy = {}".format(acc))
-    #cm = confusion_matrix(y, y_pred)
-    #print("Confusion matrix: \n{}".format(cm))
-    #fig = plot_heatmap(cm, columns=classes, rows=classes, colorbar=False)
-    #diary.save_figure(fig, filename='confusion_matrix')
-
-
 # TODO take a look that everything is ok
 def train_weak_Mproper_test_results(parameters):
     """Train a model using the Mproper approach:
@@ -514,7 +427,8 @@ def train_weak_partially_weak_test_results(parameters):
 # TODO add other methods
 def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
                         n_iterations=2, k_folds=2, diary=None, verbose=0,
-                        random_state=None, method='Mproper', n_jobs=None):
+                        random_state=None, method='Mproper', n_jobs=None,
+                        architecture='lr'):
     """ Trains a Feed-fordward neural network using cross-validation
 
     The training is done with the weak labels on the training set and
@@ -569,6 +483,8 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
         fig = plot_multilabel_scatter(X_y, Z_y, title='Weak labels')
         diary.save_figure(fig, filename='weak_labels')
 
+    training_method = 'OSL' if method == 'OSL' else 'supervised'
+
     # Parameters for the multiprocessing training and validation
     params = {'input_dim': n_f,
               'output_size': n_c,
@@ -582,7 +498,9 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
               'epochs': 200,
               'batch_size': 100,
               'verbose': verbose,
-              'random_state': random_state
+              'random_state': random_state,
+              'training_method': training_method,
+              'architecture': architecture
               }
 
     entry_model(row=merge_dicts(params, {'method': method}))
@@ -621,7 +539,7 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
         results = pool.map(train_weak_fully_supervised_test_results, map_arguments)
     elif method == 'fully_weak':
         results = pool.map(train_weak_fully_weak_test_results, map_arguments)
-    elif method == 'partially_weak':
+    elif method in ['partially_weak', 'OSL']:
         results = pool.map(train_weak_partially_weak_test_results, map_arguments)
     else:
         raise(ValueError('Method not implemented: %s' % (method)))
