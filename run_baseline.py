@@ -91,7 +91,7 @@ def main(dataset, seed, verbose, method, path_M, n_jobs, n_iterations,
     X_t, Z_t, z_t = training
     X_v, Z_v, z_v, Y_v, y_v = validation
 
-    diary = Diary(name=('{}_{}'.format(dataset, method)),
+    diary = Diary(name=('{}_{}_{}'.format(dataset, method, architecture)),
                   path='results', overwrite=False, image_format='png',
                   fig_format='svg')
 
