@@ -96,7 +96,8 @@ def main(dataset, seed, verbose, method, path_M, n_jobs, n_iterations,
                   fig_format='svg')
 
     entry_dataset = diary.add_notebook('dataset')
-    entry_dataset(row=['n_samples_without_y', X_t.shape[0],
+    entry_dataset(row=['name', dataset,
+                       'n_samples_without_y', X_t.shape[0],
                        'n_samples_with_y', X_v.shape[0],
                        'n_features', X_t.shape[1],
                        'n_classes', Z_t.shape[1]])
