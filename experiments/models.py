@@ -52,9 +52,10 @@ class MySequentialEM(Sequential):
             ##        complete data log-likelihood after the E-step). It assumes
             ##        that a mixing matrix is known and contained in
             ##        self.params['M']
-            ## Need to incorporate this part
-            # Q = predictions * M[T, :].T
-            # train_em_y = Q / np.sum(Q, axis=0)
+            ## Need to incorporate this part.
+            ## TODO : Where do I get the M from?
+            Q = predictions * M[T, :].T
+            train_em_y = Q / np.sum(Q, axis=0)
             raise(ValueError('Not implemented'))
 
             h = super(MySequentialOSL, self).fit(train_x, train_em_y,

@@ -3,8 +3,7 @@ import sys
 import itertools
 import os
 from os import walk
-from argparse import ArgumentParser
-
+from argparse import ArgumentParser 
 import json
 import pandas as pd
 import numpy as np
@@ -96,10 +95,8 @@ def plot_df_heatmap(df, normalize=None, title='Heat-map',
     return fig
 
 
-def get_list_results_folders(folder, return_unfinished=False,
-                             essentials=['description.txt', 'dataset.csv',
-                                         'model.csv'],
-                             finished = ['validation.csv']):
+def get_list_results_folders(folder, essentials=['description.txt'],
+                             finished=None, return_unfinished=False):
     list_results_folders = []
     list_unfinished_folders = []
     for root, subdirs, files in walk(folder):
@@ -258,7 +255,11 @@ def main(results_path='results', summary_path='', filter_rows={},
     print('\n#########################################################')
     print('##### Making summary of folder {}'.format(results_path))
     print('#')
-    results_folders, unfin_folders = get_list_results_folders(results_path, True)
+    results_folders, unfin_folders = get_list_results_folders(
+            results_path, essentials=['description.txt', 'dataset.csv',
+                                      'model.csv'],
+            finished = ['validation.csv'],
+            return_unfinished=True)
 
     # Creates summary path if it does not exist
     if not os.path.exists(summary_path):
@@ -291,6 +292,9 @@ def main(results_path='results', summary_path='', filter_rows={},
 
     df = pd.concat(summaries, axis=0, ignore_index=True)
 
+    # Remove experiments with no information about the dataset
+    df = df[df.name.notnull()]
+
     print("Filtering only rows that contain")
     for key, value in filter_rows.items():
         print("- [{}] = {}".format(key, value))
@@ -300,10 +304,10 @@ def main(results_path='results', summary_path='', filter_rows={},
             df = df[df[key] == float(value)]
 
     df.sort_values(by=['date', 'time'], ascending=True, inplace=True)
-    df.drop_duplicates(subset=['method', 'training_method', 'architecture',
-                               'optimizer', 'epochs', 'name',
-                               'n_samples_without_y', 'n_samples_with_y',
-                               'n_features', 'n_classes'],
+    df.drop_duplicates(subset=['architecture', 'epochs', 'init', 'input_dim',
+                               'loss', 'method', 'n_classes', 'n_features',
+                               'name', 'n_samples_without_y',
+                               'n_samples_with_y', 'pid', 'training_method'],
                        inplace=True, keep='last')
 
     df_datasets = export_datasets_info(df, path=summary_path)
@@ -312,7 +316,7 @@ def main(results_path='results', summary_path='', filter_rows={},
     ########################################################################
     # Boxplots by different groups
     ########################################################################
-    groups_by = ['architecture', 'name']
+    groups_by = ['architecture', 'name', 'method']
     columns = ['acc']
     for groupby in groups_by:
         for column in columns:
@@ -335,7 +339,7 @@ def main(results_path='results', summary_path='', filter_rows={},
                                                      fig_extension), path=summary_path)
 
     ########################################################################
-    # Heatmap of models vs mixing_matrix_M or dataset
+    # Heatmap of models vs architecture
     ########################################################################
     indices = ['architecture']
     columns = ['name']
@@ -364,7 +368,7 @@ def main(results_path='results', summary_path='', filter_rows={},
                         fig_extension), path=summary_path)
 
     ########################################################################
-    # Heatmap of models vs mixing_matrix_M or dataset
+    # Heatmap of method vs architecture or dataset
     ########################################################################
     indices = ['method']
     columns = ['architecture', 'name']
@@ -399,13 +403,13 @@ def main(results_path='results', summary_path='', filter_rows={},
                                 index, column, value, norm, fig_extension), path=summary_path)
 
     ########################################################################
-    # Heatmap of models vs dataset for every mixing_matrix_M
+    # Heatmap of method vs architecture for every dataset
     ########################################################################
-    filter_by_column = 'method'
+    filter_by_column = 'name'
     filter_values = df[filter_by_column].unique()
     # TODO change columns and indices
-    indices = ['architecture']
-    columns = ['name', 'n_samples_with_y', 'n_classes', 'n_features']
+    indices = ['method']
+    columns = ['architecture', 'n_samples_with_y', 'n_classes', 'n_features']
     values = ['acc']
     normalizations = [None] #, 'rows', 'cols']
     for filtered_row in filter_values:
