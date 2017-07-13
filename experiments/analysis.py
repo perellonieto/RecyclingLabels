@@ -22,7 +22,7 @@ from keras.wrappers.scikit_learn import KerasClassifier
 from experiments.models import create_model
 
 from experiments.visualizations import plot_data
-from experiments.visualizations import plot_heatmap
+from experiments.visualizations import plot_confusion_matrix
 from experiments.visualizations import plot_multilabel_scatter
 
 from experiments.diary import Diary
@@ -117,8 +117,9 @@ def n_times_k_fold_cross_val(X, V, y, classifier, n_iterations=10, k_folds=10,
         cm = confusion_matrix(y_shuff, y_pred)
         print("Confusion matrix: \n{}".format(cm))
         if diary is not None:
-            fig = plot_heatmap(cm, columns=classes, rows=classes,
-                               colorbar=False, title='Confusion matrix')
+            fig = plot_confusion_matrix(cm, columns=classes, rows=classes,
+                                        colorbar=False,
+                                        title='Confusion matrix')
             diary.save_figure(fig, filename='confusion_matrix')
 
     return pe_tr, pe_cv
@@ -213,8 +214,9 @@ def n_times_validation(X_train, V_train, X_val, y_val, classifier,
         cm = confusion_matrix(y_shuff, y_pred)
         print("Confusion matrix: \n{}".format(cm))
         if diary is not None:
-            fig = plot_heatmap(cm, columns=classes, rows=classes,
-                               colorbar=False, title='Confusion matrix')
+            fig = plot_confusion_matrix(cm, columns=classes, rows=classes,
+                                        colorbar=False,
+                                        title='Confusion matrix')
             diary.save_figure(fig, filename='confusion_matrix')
 
     return pe_tr, pe_cv
@@ -558,8 +560,10 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
         cm_mean += np.true_divide(cm, len(results))
         acc_mean += acc/len(results)
 
-    fig = plot_heatmap(cm_mean, columns=classes, rows=classes, colorbar=False,
-                       title='Mean CM {} (acc={:.3f})'.format(method, acc_mean))
+    fig = plot_confusion_matrix(cm_mean, columns=classes, rows=classes,
+                                colorbar=False,
+                                title='Mean CM {} (acc={:.3f})'.format(method,
+                                                                       acc_mean))
     diary.save_figure(fig, filename='mean_confusion_matrix')
 
 def analyse_2(load_data, random_state=None):

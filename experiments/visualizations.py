@@ -80,7 +80,8 @@ class MyFloat(float):
 
 # TODO use this or other heatmap to visualize confusion matrix
 def plot_df_heatmap(df, normalize=None, title='Heat-map',
-                    cmap=plt.cm.Blues, colorbar=False):
+                    cmap=plt.cm.Blues, colorbar=False, ylabel=None,
+                    xlabel=None):
     """
     This function prints and plots the confusion matrix.
     Normalization can be applied by setting `normalize=True`.
@@ -96,44 +97,22 @@ def plot_df_heatmap(df, normalize=None, title='Heat-map',
     if normalize == 'cols':
         M = M.astype('float') / M.sum(axis=0)[np.newaxis, :]
 
-    h_size = len(columns)*.5 + 2
-    v_size = len(rows)*.5 + 2
-    fig = plt.figure(figsize=(h_size, v_size))
-    ax = fig.add_subplot(111)
-    im = ax.imshow(M, interpolation='nearest', cmap=cmap)
-    if colorbar:
-        fig.colorbar(im)
-    ax.set_title(title)
-    column_tick_marks = np.arange(len(columns))
-    ax.set_xticks(column_tick_marks)
-    ax.set_xticklabels(columns, rotation=45, ha='right')
-    row_tick_marks = np.arange(len(rows))
-    ax.set_yticks(row_tick_marks)
-    ax.set_yticklabels(rows)
+    xlabel = df.columns.name
+    ylabel = df.index.name
 
-    thresh = np.nanmin(M) + ((np.nanmax(M)-np.nanmin(M)) / 2.)
-    are_ints = df.dtypes[0] in ['int', 'int32', 'int64']
-    for i, j in itertools.product(range(M.shape[0]), range(M.shape[1])):
-        # fontsize is adjusted for different number of digits
-        if are_ints:
-            ax.text(j, i, M[i, j], horizontalalignment="center",
-                    verticalalignment="center", color="white" if M[i, j] >
-                    thresh else "black")
-        else:
-            if np.isfinite(M[i, j]):
-                ax.text(j, i, '{:0.2f}'.format(MyFloat(M[i, j])),
-                        horizontalalignment="center",
-                        verticalalignment="center",
-                        color="white" if M[i, j] > thresh else "black")
+    return plot_heatmap(M, columns=columns, rows=rows, cmap=cmap,
+                        colorbar=colorbar, fig=fig, title=title, ylabel=ylabel,
+                        xlabel=xlabel)
 
-    ax.set_ylabel(df.index.name)
-    ax.set_xlabel(df.columns.name)
-    fig.tight_layout()
-    return fig
-
+def plot_confusion_matrix(M, columns=None, rows=None, cmap=plt.cm.Blues,
+                          colorbar=False, fig=None, title='Heat-map',
+                          ylabel='True label', xlabel='Predicted label'):
+    return plot_heatmap(M=M, columns=columns, rows=rows, cmap=cmap,
+                        colorbar=colorbar, fig=fig, title=title, ylabel=ylabel,
+                        xlabel=xlabel)
 
 def plot_heatmap(M, columns=None, rows=None, cmap=plt.cm.Blues, colorbar=False,
-                 fig=None, title='Heat-map'):
+                 fig=None, title='Heat-map', ylabel=None, xlabel=None):
     if columns is None:
         columns = [str(i) for i in range(M.shape[1])]
     if rows is None:
@@ -156,6 +135,10 @@ def plot_heatmap(M, columns=None, rows=None, cmap=plt.cm.Blues, colorbar=False,
     row_tick_marks = np.arange(len(rows))
     ax.set_yticks(row_tick_marks)
     ax.set_yticklabels(rows)
+    if xlabel is not None:
+        ax.set_xlabel(xlabel)
+    if ylabel is not None:
+        ax.set_ylabel(ylabel)
 
     thresh = np.nanmin(M) + ((np.nanmax(M)-np.nanmin(M)) / 2.)
     are_ints = M.dtype in ['int', 'int32', 'int64']

@@ -3,7 +3,7 @@ import sys
 import itertools
 import os
 from os import walk
-from argparse import ArgumentParser 
+from argparse import ArgumentParser
 import json
 import pandas as pd
 import numpy as np
@@ -370,10 +370,11 @@ def main(results_path='results', summary_path='', filter_rows={},
     ########################################################################
     # Heatmap of method vs architecture or dataset
     ########################################################################
+    # TODO annotate axis
     indices = ['method']
     columns = ['architecture', 'name']
     values = ['acc']
-    normalizations = [None] #, 'rows', 'cols']
+    normalizations = [None, 'rows', 'cols']
     for value in values:
         for index in indices:
             for column in columns:
@@ -388,7 +389,7 @@ def main(results_path='results', summary_path='', filter_rows={},
                     df2 = pd.pivot_table(df, values=value, index=index,
                                          columns=column,
                                          aggfunc=np.mean)
-                    title = r'Mean ER'
+                    title = r'Mean acc'
                     fig = plot_df_heatmap(df2, normalize=norm, title=title)
                     savefig_and_close(fig, '{}_vs_{}_{}_heatmap_{}.{}'.format(
                                 index, column, value, norm, fig_extension), path=summary_path)
@@ -397,7 +398,7 @@ def main(results_path='results', summary_path='', filter_rows={},
                     df2 = pd.pivot_table(df, values=value, index=index,
                                          columns=column,
                                          aggfunc=np.median)
-                    title = r'Median ER'
+                    title = r'Median acc'
                     fig = plot_df_heatmap(df2, normalize=norm, title=title)
                     savefig_and_close(fig, '{}_vs_{}_{}_median_heatmap_{}.{}'.format(
                                 index, column, value, norm, fig_extension), path=summary_path)
@@ -411,7 +412,7 @@ def main(results_path='results', summary_path='', filter_rows={},
     indices = ['method']
     columns = ['architecture', 'n_samples_with_y', 'n_classes', 'n_features']
     values = ['acc']
-    normalizations = [None] #, 'rows', 'cols']
+    normalizations = [None, 'rows', 'cols']
     for filtered_row in filter_values:
         for value in values:
             for index in indices:
