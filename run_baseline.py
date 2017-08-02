@@ -30,8 +30,8 @@ def parse_arguments():
     parser.add_argument('-m', '--method', dest='method', type=str,
                         default='supervised',
                         help='''Learning method to use between,
-                                Mproper, fully_supervised, fully_weak, or
-                                partially_weak''')
+                                Mproper, fully_supervised, fully_weak,
+                                partially_weak, or EM''')
     parser.add_argument('-a', '--architecture', dest='architecture', type=str,
                         default='lr',
                         help='''Model architecture. Possible options are: lr
@@ -51,6 +51,9 @@ def parse_arguments():
                         help='Number of concurrent processes')
     parser.add_argument('-i', '--iterations', dest='n_iterations', type=int,
                         default=2,
+                        help='Number of iterations to repeat the validation')
+    parser.add_argument('-l', '--loss', dest='loss', type=str,
+                        default='mse',
                         help='Number of iterations to repeat the validation')
     parser.add_argument('-k', '--k-folds', dest='k_folds', type=int,
                         default=2,
@@ -81,7 +84,7 @@ def test_1c():
 
 
 def main(dataset, seed, verbose, method, path_M, n_jobs, n_iterations,
-         k_folds, architecture):
+         k_folds, architecture, loss):
     print('Main arguments')
     print(locals())
     if dataset not in dataset_functions.keys():
@@ -105,7 +108,7 @@ def main(dataset, seed, verbose, method, path_M, n_jobs, n_iterations,
     analyse_weak_labels(X_z=X_t, Z_z=Z_t, z_z=z_t, X_y=X_v, Z_y=Z_v,
                         z_y=z_v, Y_y=Y_v, y_y=y_v, random_state=seed,
                         verbose=verbose, classes=classes, method=method,
-                        diary=diary, n_jobs=n_jobs,
+                        diary=diary, n_jobs=n_jobs, loss=loss,
                         n_iterations=n_iterations, k_folds=k_folds,
                         architecture=architecture)
 

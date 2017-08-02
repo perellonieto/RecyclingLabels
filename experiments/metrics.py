@@ -2,6 +2,7 @@ import numpy as np
 
 import theano.tensor as T
 
+from sklearn.metrics import log_loss
 
 def brier_score(target, predicted, class_weights, per_class=False):
     """Brier score between target and predicted

@@ -17,7 +17,7 @@ from sklearn.utils import shuffle
 from sklearn.metrics import accuracy_score
 from sklearn.metrics import confusion_matrix
 
-from keras.wrappers.scikit_learn import KerasClassifier
+from experiments.models import MyKerasClassifier
 
 from experiments.models import create_model
 
@@ -29,8 +29,9 @@ from experiments.diary import Diary
 from experiments.utils import merge_dicts
 
 from wlc.WLweakener import computeVirtual
+from wlc.WLweakener import computeM
 from wlc.WLweakener import estimate_M
-
+from wlc.WLweakener import weak_to_index
 
 def n_times_k_fold_cross_val(X, V, y, classifier, n_iterations=10, k_folds=10,
                              n_jobs=-1, fit_arguments=None,
@@ -266,9 +267,88 @@ def train_weak_Mproper_test_results(parameters):
     V_z_t = computeVirtual(Z_z_t, c=n_c, method='Mproper', M=M)
     # TODO where is the randomization applied?
     np.random.seed(process_id)
-    # 3. Train a model using the training set with virtual labels
-    classifier.fit(X_z_t, V_z_t, **fit_arguments)
+    # 3. Train a model using the training set with virtual labels and true
+    #    labels
+    V_t = np.concatenate((V_z_t, Y_y_t), axis=0)
+    X_t = np.concatenate((X_z_t, X_y_t), axis=0)
+    np.random.seed(process_id)
+    X_t, V_t = shuffle(X_t, V_t)
+    classifier.fit(X_t, V_t, **fit_arguments)
     # 4. Evaluate the model in the validation set with true labels
+    # FIXME this outputs classes from 0 to #classes - 1
+    y_pred = classifier.predict(X_y_v, verbose=verbose)
+    #print('MP: predictions min: {}, max: {}'.format(min(y_pred), max(y_pred)))
+    # Compute the confusion matrix
+    cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
+    results = {'pid': process_id, 'cm': cm}
+    return results
+
+
+# TODO take a look that everything is ok
+def train_weak_EM_test_results(parameters):
+    """Train a model using the Expectation Maximization approach:
+
+        1. Learn a mixing matrix using training with weak and true labels
+        2. Compute the index of each sample relating it to the corresponding
+        row of the new mixing matrix
+            - Needs to compute the individual M and their weight q
+        3. Give the mixing matrix to the model for future use
+        4. Train model using all the sets with instead of labels the index of
+        the corresponding rows of the mixing matrix
+        5. Evaluate the model in the validation set with true labels
+
+    Parameters
+    ----------
+    X_z_t : array-like, with shape (n_training_samples_without_y, n_dim)
+        Matrix with features used for training with only weak labels available
+
+    Z_z_t : array-like, with shape (n_training_samples_without_y, n_classes)
+        Weak labels for training
+
+    X_y_t : array-like, with shape (n_training_samples_with_y, n_dim)
+        Matrix with features used for training with weak and true labels
+
+    Z_y_t : array-like, with shape (n_training_samples_with_y, n_classes)
+        Weak labels for training with the true labels available
+
+    Y_y_t : array-like, with shape (n_training_samples_with_y, n_classes)
+        True labels for training
+
+    X_y_v : array-like, with shape (n_validation_samples_with_y, n_dim)
+        Matrix with features used for validation with weak and true labels
+
+    Y_y_v : array-like, with shape (n_validation_samples_with_y, n_classes)
+        True labels for validation
+    """
+    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments = parameters
+    n_c = Y_y_v.shape[1]
+    categories = range(n_c)
+
+    verbose = fit_arguments.get('verbose', 0)
+
+    # 1. Learn a mixing matrix using training with weak and true labels
+    M_1 = estimate_M(Z_y_t, Y_y_t, categories, reg=None)
+    M_2 = computeM(c=n_c, method='supervised')
+    q_1 = M_1.shape[0] / float(M_1.shape[0] + M_2.shape[0])
+    q_2 = M_2.shape[0] / float(M_1.shape[0] + M_2.shape[0])
+    M = np.concatenate((q_1*M_1, q_2*M_2), axis=0)
+    #  2. Compute the index of each sample relating it to the corresponding
+    #     row of the new mixing matrix
+    #      - Needs to compute the individual M and their weight q
+    Z_z_t_index = weak_to_index(Z_z_t, method='Mproper')
+    Y_y_t_index = weak_to_index(Y_y_t, method='supervised')
+
+    # 3. Give the mixing matrix to the model for future use
+    #    I need to give the matrix M to the fit function
+    # 4. Train model using all the sets with instead of labels the index of
+    #    the corresponding rows of the mixing matrix
+    Z_index_t = np.concatenate((Z_z_t_index,
+                                Y_y_t_index + M_1.shape[0]))
+    np.random.seed(process_id)
+    X_t = np.concatenate((X_z_t, X_y_t), axis=0)
+    X_t, Z_index_t = shuffle(X_t, Z_index_t)
+    classifier.fit(X_t, Z_index_t, M=M, **fit_arguments)
+    # 5. Evaluate the model in the validation set with true labels
     y_pred = classifier.predict(X_y_v, verbose=verbose)
     # Compute the confusion matrix
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
@@ -318,6 +398,7 @@ def train_weak_fully_supervised_test_results(parameters):
     classifier.fit(X_y_t, Z_y_t, **fit_arguments)
     # 2. Evaluate the model in the validation set with true labels
     y_pred = classifier.predict(X_y_v, verbose=verbose)
+    #print('FS: predictions min: {}, max: {}'.format(min(y_pred), max(y_pred)))
     # Compute the confusion matrix
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
     results = {'pid': process_id, 'cm': cm}
@@ -368,6 +449,7 @@ def train_weak_fully_weak_test_results(parameters):
     classifier.fit(X_z_t, Z_z_t, **fit_arguments)
     # 2. Evaluate the model in the validation set with true labels
     y_pred = classifier.predict(X_y_v, verbose=verbose)
+    #print('FW: predictions min: {}, max: {}'.format(min(y_pred), max(y_pred)))
     # Compute the confusion matrix
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
     results = {'pid': process_id, 'cm': cm}
@@ -420,6 +502,7 @@ def train_weak_partially_weak_test_results(parameters):
     classifier.fit(X_z_t, Z_z_t, **fit_arguments)
     # 2. Evaluate the model in the validation set with true labels
     y_pred = classifier.predict(X_y_v, verbose=verbose)
+    #print('PW: predictions min: {}, max: {}'.format(min(y_pred), max(y_pred)))
     # Compute the confusion matrix
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
     results = {'pid': process_id, 'cm': cm}
@@ -430,7 +513,7 @@ def train_weak_partially_weak_test_results(parameters):
 def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
                         n_iterations=2, k_folds=2, diary=None, verbose=0,
                         random_state=None, method='Mproper', n_jobs=None,
-                        architecture='lr'):
+                        architecture='lr', loss='mse'):
     """ Trains a Feed-fordward neural network using cross-validation
 
     The training is done with the weak labels on the training set and
@@ -485,13 +568,28 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
         fig = plot_multilabel_scatter(X_y, Z_y, title='Weak labels')
         diary.save_figure(fig, filename='weak_labels')
 
-    training_method = 'OSL' if method == 'OSL' else 'supervised'
+
+    if method == 'OSL':
+        training_method = 'OSL'
+    elif method in ['Mproper', 'fully_supervised', 'fully_weak',
+                    'partially_weak']:
+        training_method = 'supervised'
+    elif method == 'EM':
+        print('Training method is EM')
+        training_method = 'EM'
+    else:
+        raise(ValueError('Method unknown {}'.format(method)))
+
+    LOSS_MAP = dict(mse='mean_squared_error', wbs='w_brier_score',
+                    bs='brier_score')
+
+    loss = LOSS_MAP[loss]
 
     # Parameters for the multiprocessing training and validation
     params = {'input_dim': n_f,
               'output_size': n_c,
               'optimizer': 'rmsprop',
-              'loss': 'mean_squared_error',
+              'loss': loss,
               'init': 'glorot_uniform',
               'lr': 1.0,
               'momentum': 0.5,
@@ -512,7 +610,7 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
     fit_arguments = {key: value for key, value in params.items()
                      if key in inspect.getargspec(create_model().fit)[0]}
 
-    classifier = KerasClassifier(build_fn=create_model, **make_arguments)
+    classifier = MyKerasClassifier(build_fn=create_model, **make_arguments)
 
     if verbose >= 1:
         pp = pprint.PrettyPrinter(indent=2)
@@ -543,6 +641,8 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
         results = pool.map(train_weak_fully_weak_test_results, map_arguments)
     elif method in ['partially_weak', 'OSL']:
         results = pool.map(train_weak_partially_weak_test_results, map_arguments)
+    elif method == 'EM':
+        results = pool.map(train_weak_EM_test_results, map_arguments)
     else:
         raise(ValueError('Method not implemented: %s' % (method)))
 
