@@ -108,6 +108,8 @@ class MySequentialOSL(Sequential):
             epochs=1, verbose=0):
         history = []
         for n in range(epochs):
+            if verbose > 1:
+                print('Epoch {} of {}'.format(n, epochs))
             predictions = self.predict_proba(train_x, batch_size=batch_size)
             train_osl_y = self.hardmax(np.multiply(train_y, predictions))
 
@@ -138,6 +140,8 @@ class MySequentialEM(Sequential):
             batch_size=None, epochs=1, verbose=0):
         history = []
         for n in range(epochs):
+            if verbose > 1:
+                print('Epoch {} of {}'.format(n, epochs))
             predictions = self.predict_proba(train_x, batch_size=batch_size)
 
             ## 'EM'  :Expected Log likelihood (i.e. the expected value of the
