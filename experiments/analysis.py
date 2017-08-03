@@ -176,14 +176,14 @@ def train_weak_Mproper_test_results(parameters):
     X_t = np.concatenate((X_z_t, X_y_t), axis=0)
     np.random.seed(process_id)
     X_t, V_t = shuffle(X_t, V_t)
-    classifier.fit(X_t, V_t, **fit_arguments)
+    history = classifier.fit(X_t, V_t, **fit_arguments)
     # 4. Evaluate the model in the validation set with true labels
     # FIXME this outputs classes from 0 to #classes - 1
     y_pred = classifier.predict(X_y_v, verbose=verbose)
     #print('MP: predictions min: {}, max: {}'.format(min(y_pred), max(y_pred)))
     # Compute the confusion matrix
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
-    results = {'pid': process_id, 'cm': cm}
+    results = {'pid': process_id, 'cm': cm, 'history': history}
     return results
 
 
@@ -250,12 +250,12 @@ def train_weak_EM_test_results(parameters):
     np.random.seed(process_id)
     X_t = np.concatenate((X_z_t, X_y_t), axis=0)
     X_t, Z_index_t = shuffle(X_t, Z_index_t)
-    classifier.fit(X_t, Z_index_t, M=M, **fit_arguments)
+    history = classifier.fit(X_t, Z_index_t, M=M, **fit_arguments)
     # 5. Evaluate the model in the validation set with true labels
     y_pred = classifier.predict(X_y_v, verbose=verbose)
     # Compute the confusion matrix
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
-    results = {'pid': process_id, 'cm': cm}
+    results = {'pid': process_id, 'cm': cm, 'history': history}
     return results
 
 
