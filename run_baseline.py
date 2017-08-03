@@ -58,6 +58,12 @@ def parse_arguments():
     parser.add_argument('-k', '--k-folds', dest='k_folds', type=int,
                         default=2,
                         help='Number of folds for the cross-validation')
+    parser.add_argument('-o', '--stdout', dest='stdout',
+                        default=False, action='store_true',
+                        help='If the stdout needs to be redirected')
+    parser.add_argument('-e', '--stderr', dest='stderr',
+                        default=False, action='store_true',
+                        help='If the stderr needs to be redirected')
     return parser.parse_args()
 
 
@@ -84,11 +90,11 @@ def test_1c():
 
 
 def main(dataset, seed, verbose, method, path_M, n_jobs, n_iterations,
-         k_folds, architecture, loss):
+         k_folds, architecture, loss, stdout, stderr):
 
     diary = Diary(name=('{}_{}_{}'.format(dataset, method, architecture)),
                   path='results', overwrite=False, image_format='png',
-                  fig_format='svg')
+                  fig_format='svg', stdout=stdout, stderr=stderr)
 
     print('Main arguments')
     print(locals())

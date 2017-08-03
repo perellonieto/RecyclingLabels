@@ -126,103 +126,6 @@ def n_times_k_fold_cross_val(X, V, y, classifier, n_iterations=10, k_folds=10,
     return pe_tr, pe_cv
 
 
-# TODO think about having a training and validation sets, dividing them
-# randomly in k folds, and training k times with each training fold and
-# validating in each of the k folds of the validation
-def n_times_validation(X_train, V_train, X_val, y_val, classifier,
-                       iterations=10, n_jobs=-1, fit_arguments=None,
-                       entry_notebook=None, classes=None, diary=None):
-    """Evaluates a classifier using
-
-    Parameters
-    ----------
-    classif : object
-        This is the classifier that needs to be trained and evaluated. It needs
-        to have the following functions:
-            - fit(X,y) :
-            - predict(X) :
-            - predict_proba(X) :
-            - get_params() : All the necessary parameters to create a deep copy
-
-    X : array-like, with shape (n_samples, n_dim)
-        The data to fit.
-
-    y : array-like, with shape (n_samples, )
-        The target variable of integers. This array is used for the evaluation
-        of the model.
-
-    V : array-like, optional, with shape (n_samples, n_classes), default: 'y'
-        The virtual target variable. This array is used for the training of the
-        model.
-
-    n_sim : integer, optional, default: 1
-        The number of simulation runs.
-
-    n_jobs : integer, optional, default: 1
-        The number of CPUs to use to do the computation. -1 means 'all CPUs'
-
-    Returns
-    -------
-    predictions_training : ndarray
-        This are the predictions on the training set after training
-
-    predictions_validation : ndarray
-        This are the predictions on the validation set after training
-    """
-    n_c = V_train.shape[1]
-    if classes is None:
-        classes = [str(i) for i in range(n_c)]
-
-    ns = X_train.shape[0]
-    start = time.clock()
-    # ## Loop over simulation runs
-    for i in xrange(iterations):
-        X_train_s, V_train_s = shuffle(X_train, V_train, random_state=i)
-        X_val_s, y_val_s = shuffle(X_val, y_val, random_state=i)
-
-        cv_start = time.clock()
-        history = classifier.fit(X_train_s, V_train_s, **fit_arguments)
-        y_pred = skcv.cross_val_predict(classifier, X_val_s, y_val_s, cv=n_folds,
-                                        verbose=0, n_jobs=n_jobs,
-                                        fit_params=fit_arguments)
-        cv_end = time.clock()
-
-        # Estimate error rates:s
-        pe_cv[i] = float(np.count_nonzero(y_shuff != y_pred)) / ns
-
-        # ########################
-        # Ground truth evaluation:
-        #   Training with the given virtual labels (by default true labels)
-        if i == 0:
-            classifier.fit(X, V, **fit_arguments)
-            f = classifier.predict_proba(X, verbose=0)
-
-            # Then, we evaluate this classifier with all true labels
-            # Note that training and test samples are being used in this error rate
-            d = np.argmax(f, axis=1)
-            pe_tr = float(np.count_nonzero(y != d)) / ns
-
-        if entry_notebook is not None:
-            entry_notebook(row={'pe_tr': pe_tr, 'pe_cv': pe_cv[i],
-                           'cv_time': cv_end - cv_start})
-
-        stop = time.clock()
-        print(('\nAveraging {0} simulations. Estimated time to finish '
-               '{1:0.4f}s.').format(iterations,
-                                      (stop - start)/(i+1)*(iterations-i)))
-        sys.stdout.flush()
-
-        cm = confusion_matrix(y_shuff, y_pred)
-        print("Confusion matrix: \n{}".format(cm))
-        if diary is not None:
-            fig = plot_confusion_matrix(cm, columns=classes, rows=classes,
-                                        colorbar=False,
-                                        title='Confusion matrix')
-            diary.save_figure(fig, filename='confusion_matrix')
-
-    return pe_tr, pe_cv
-
-
 # TODO take a look that everything is ok
 def train_weak_Mproper_test_results(parameters):
     """Train a model using the Mproper approach:
@@ -395,13 +298,13 @@ def train_weak_fully_supervised_test_results(parameters):
     # TODO where is the randomization applied?
     np.random.seed(process_id)
     # 1. Train model with the training set that has true labels
-    classifier.fit(X_y_t, Z_y_t, **fit_arguments)
+    history = classifier.fit(X_y_t, Z_y_t, **fit_arguments)
     # 2. Evaluate the model in the validation set with true labels
     y_pred = classifier.predict(X_y_v, verbose=verbose)
     #print('FS: predictions min: {}, max: {}'.format(min(y_pred), max(y_pred)))
     # Compute the confusion matrix
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
-    results = {'pid': process_id, 'cm': cm}
+    results = {'pid': process_id, 'cm': cm, 'history': history}
     return results
 
 
@@ -446,13 +349,13 @@ def train_weak_fully_weak_test_results(parameters):
     X_z_t = np.concatenate([X_z_t, X_y_t])
     Z_z_t = np.concatenate([Z_z_t, Z_y_t])
     X_z_t, Z_z_t = shuffle(X_z_t, Z_z_t, random_state=process_id)
-    classifier.fit(X_z_t, Z_z_t, **fit_arguments)
+    history = classifier.fit(X_z_t, Z_z_t, **fit_arguments)
     # 2. Evaluate the model in the validation set with true labels
     y_pred = classifier.predict(X_y_v, verbose=verbose)
     #print('FW: predictions min: {}, max: {}'.format(min(y_pred), max(y_pred)))
     # Compute the confusion matrix
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
-    results = {'pid': process_id, 'cm': cm}
+    results = {'pid': process_id, 'cm': cm, 'history': history}
     return results
 
 
@@ -499,13 +402,13 @@ def train_weak_partially_weak_test_results(parameters):
     X_z_t = np.concatenate([X_z_t, X_y_t])
     Z_z_t = np.concatenate([Z_z_t, Y_y_t])
     X_z_t, Z_z_t = shuffle(X_z_t, Z_z_t, random_state=process_id)
-    classifier.fit(X_z_t, Z_z_t, **fit_arguments)
+    history = classifier.fit(X_z_t, Z_z_t, **fit_arguments)
     # 2. Evaluate the model in the validation set with true labels
     y_pred = classifier.predict(X_y_v, verbose=verbose)
     #print('PW: predictions min: {}, max: {}'.format(min(y_pred), max(y_pred)))
     # Compute the confusion matrix
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
-    results = {'pid': process_id, 'cm': cm}
+    results = {'pid': process_id, 'cm': cm, 'history': history}
     return results
 
 
@@ -554,6 +457,7 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
 
     entry_model = diary.add_notebook('model')
     entry_val = diary.add_notebook('validation')
+    entry_tra = diary.add_notebook('training')
 
     n_s_z = X_z.shape[0]
     n_s_y = X_y.shape[0]
@@ -646,8 +550,15 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
     else:
         raise(ValueError('Method not implemented: %s' % (method)))
 
-    if verbose >= 1:
-        print(results)
+    # FIXME Store the results of the different epochs in csv files
+    for result in results:
+        if verbose > 1:
+            print(result)
+        history = result['history'].history
+        for epoch, (loss, acc) in enumerate(zip(history['loss'], history['acc'])):
+            row = dict(pid=result['pid'], epoch=epoch + 1, loss=loss, acc=acc)
+            entry_tra(row=row)
+
 
     cm_mean = np.zeros((n_c, n_c))
     acc_mean = 0
@@ -666,82 +577,3 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
                                                                        acc_mean))
     diary.save_figure(fig, filename='mean_confusion_matrix')
 
-def analyse_2(load_data, random_state=None):
-    """ Makes a Grid search on the hyperparameters of a Feed-fordwared neural
-        network
-
-    The training and validation is done in the validation set using the true
-    labels
-
-    Parameters
-    ----------
-        load_data: function
-            Function that returns a training and validation set on the form
-            X_train: ndarray (n_train_samples, n_features)
-            Z_train: ndarray (n_train_samples, n_classes)
-                Weak labels in binary as a one-hot encoding
-            z_train: ndarray (n_train_samples, )
-                Weak labels as integers
-            X_val: ndarray (n_val_samples, n_features)
-            Z_val: ndarray (n_val_samples, n_classes)
-            z_val: ndarray (n_val_samples, )
-            Y_val: ndarray (n_val_samples, n_classes)
-                True labels in binary as a encoding one-hot encoding
-            y_val: ndarray (n_val_samples, )
-                True labels as integers
-    """
-    # ## Create a Diary for all the logs and results
-    diary = Diary(name='test_1', path='results', overwrite=False,
-                  image_format='png', fig_format='svg')
-    diary.add_notebook('dataset')
-    diary.add_notebook('model')
-    diary.add_notebook('validation')
-
-    # Test for the validation error with the true labels
-    X_train, Z_train, z_train, X_val, Z_val, z_val, Y_val, y_val = load_data()
-
-    n_s = X_train.shape[0]
-    n_f = X_train.shape[1]
-    n_c = Y_val.shape[1]
-
-    print("Samples = {}\nFeatures = {}\nClasses = {}".format(n_s, n_f, n_c))
-    entry_dataset(row=['n_samples', n_s, 'n_features', n_f, 'n_classes', n_c])
-
-    # If dimension is 2, we draw a scatterplot
-    if n_f >= 2:
-        fig = plot_data(X_val, y_val, save=False, title='True labels')
-        diary.save_figure(fig, filename='true_labels')
-
-        fig = plot_data(X_val, z_val, save=False, title='Weak labels')
-        diary.save_figure(fig, filename='weak_labels')
-
-    # FIXME See if it is possible to add a seed to Keras model
-    param_grid = {'input_dim': [n_f],
-                  'output_size': [n_c],
-                  'optimizer': ['sgd', 'rmsprop', 'adam', 'adadelta',
-                                'adagrad', 'nadam'],
-                  'loss': ['categorical_crossentropy'],
-                  'init': ['glorot_uniform'],
-                  'lr': [1.0],
-                  'momentum': [0.5],
-                  'decay': [0.5],
-                  'nesterov': [True],
-                  'epochs': [100],
-                  'batch_size': [100],
-                  'verbose': [verbose]
-                  }
-
-    entry_model(row=param_grid)
-
-    model = KerasClassifier(build_fn=create_model, verbose=verbose)
-
-    grid = GridSearchCV(estimator=model, param_grid=param_grid)
-    grid_result = grid.fit(X_val, Y_val)
-
-    print("Best: %f using %s" % (grid_result.best_score_,
-                                 grid_result.best_params_))
-    means = grid_result.cv_results_['mean_test_score']
-    stds = grid_result.cv_results_['std_test_score']
-    params = grid_result.cv_results_['params']
-    for mean, stdev, param in zip(means, stds, params):
-        print("%f (%f) with: %r" % (mean, stdev, param))
