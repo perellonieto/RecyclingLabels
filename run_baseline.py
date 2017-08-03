@@ -85,6 +85,11 @@ def test_1c():
 
 def main(dataset, seed, verbose, method, path_M, n_jobs, n_iterations,
          k_folds, architecture, loss):
+
+    diary = Diary(name=('{}_{}_{}'.format(dataset, method, architecture)),
+                  path='results', overwrite=False, image_format='png',
+                  fig_format='svg')
+
     print('Main arguments')
     print(locals())
     if dataset not in dataset_functions.keys():
@@ -93,10 +98,6 @@ def main(dataset, seed, verbose, method, path_M, n_jobs, n_iterations,
     training, validation, classes = dataset_functions[dataset](random_state=seed)
     X_t, Z_t, z_t = training
     X_v, Z_v, z_v, Y_v, y_v = validation
-
-    diary = Diary(name=('{}_{}_{}'.format(dataset, method, architecture)),
-                  path='results', overwrite=False, image_format='png',
-                  fig_format='svg')
 
     entry_dataset = diary.add_notebook('dataset')
     entry_dataset(row=['name', dataset,

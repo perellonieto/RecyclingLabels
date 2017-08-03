@@ -56,7 +56,7 @@ class Diary(object):
     __DESCR_FILENAME='description.txt'
 
     def __init__(self, name, path='diary', overwrite=False, image_format='png',
-                 fig_format='svg'):
+                 fig_format='svg', stdout=True, stderr=True):
         self.creation_date = datetime.datetime.now()
         self.name = name
         self.path = os.path.join(path,name)
@@ -69,7 +69,18 @@ class Diary(object):
         self.all_paths = self._create_all_paths()
         self._save_description()
 
+        if stdout:
+            self.redirect_stdout(self.path)
+        if stderr:
+            self.redirect_stderr(self.path)
+
         self.notebooks = {}
+
+    def redirect_stdout(self, path):
+        sys.stdout = open(os.path.join(path, 'stdout.txt'), 'w')
+
+    def redirect_stderr(self, path):
+        sys.stderr = open(os.path.join(path, 'stderr.txt'), 'w')
 
     def add_notebook(self, name, **kwargs):
         self.notebooks[name] = Notebook(name, self.path, **kwargs)
