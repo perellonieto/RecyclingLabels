@@ -10,6 +10,7 @@ declare -a architectures=(
 declare -a models=(
     'EM'
     'OSL'
+    'fully_supervised'
     'partially_weak'
     'fully_weak'
     )
