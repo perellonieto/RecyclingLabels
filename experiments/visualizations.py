@@ -214,3 +214,26 @@ def test_multilabel_plot():
                   [1, 1, 1]])
     plot_multilabel_scatter(X, Y)
     plt.show()
+
+
+def plot_errorbar(matrix, fmt='--o', title='errorbar', elinewidth=0.5,
+                  errorevery=0.2, **kwargs):
+    """
+
+    errorevery: float
+        Percentage of errorbars with respect to the number of samples
+    """
+    if type(matrix) is list:
+        matrix = np.array(matrix)
+
+    errorevery = int(matrix.shape[1] * errorevery)
+
+    x = range(matrix.shape[1])
+    means = matrix.mean(axis=0)
+    stds = matrix.std(axis=0)
+
+    fig = newfig(title)
+    ax = fig.add_subplot(111)
+    ax.set_title(title)
+    ax.errorbar(x=x, y=means, xerr=0, yerr=stds, errorevery=errorevery, **kwargs)
+    return fig

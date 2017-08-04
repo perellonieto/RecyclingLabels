@@ -420,7 +420,7 @@ def main(results_path='results', summary_path='', filter_rows={},
                     df_filtered = df[df[filter_by_column] == filtered_row]
                     df2 = pd.pivot_table(df_filtered, values=value,
                                          index=index, columns=column)
-                    if df2.columns.dtype in ['object', 'string']:
+                    if df2.columns.dtype in ['object', 'str']:
                         for norm in normalizations:
                             title = r'Heat-map by {}'.format( filtered_row)
                             fig = plot_df_heatmap(df2, normalize=norm, title=title)
@@ -472,6 +472,6 @@ def parse_arguments():
 
 
 if __name__ == '__main__':
-    __test_1()
-    #args = parse_arguments()
-    #main(**vars(args))
+    #__test_1()
+    args = parse_arguments()
+    main(**vars(args))

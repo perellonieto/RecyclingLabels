@@ -40,9 +40,9 @@ def parse_arguments():
                         100 hidden units and dropout 0.5), mlp100d100d, (MLP
                         with two hidden layers of 100 units and dropout of 0.5
                         after each of them).''')
-    parser.add_argument('-M', '--path-M', dest='path_M', type=str,
-                        default='data/M.npy',
-                        help='Path to the precomputed mixing matrix M')
+    parser.add_argument('-r', '--path-results', dest='path', type=str,
+                        default='results',
+                        help='Folder to store all the results')
     parser.add_argument('-v', '--verbose', dest='verbose', type=int,
                         default=0,
                         help='Verbosity level being 0 the minimum value')
@@ -89,11 +89,11 @@ def test_1c():
     analyse_true_labels(X_v, Y_v, y_v, random_state=0, classes=classes)
 
 
-def main(dataset, seed, verbose, method, path_M, n_jobs, n_iterations,
+def main(dataset, seed, verbose, method, path, n_jobs, n_iterations,
          k_folds, architecture, loss, stdout, stderr):
 
     diary = Diary(name=('{}_{}_{}'.format(dataset, method, architecture)),
-                  path='results', overwrite=False, image_format='png',
+                  path=path, overwrite=False, image_format='png',
                   fig_format='svg', stdout=stdout, stderr=stderr)
 
     print('Main arguments')

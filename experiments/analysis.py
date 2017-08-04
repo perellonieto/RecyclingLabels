@@ -18,12 +18,12 @@ from sklearn.metrics import accuracy_score
 from sklearn.metrics import confusion_matrix
 
 from experiments.models import MyKerasClassifier
-
 from experiments.models import create_model
 
 from experiments.visualizations import plot_data
 from experiments.visualizations import plot_confusion_matrix
 from experiments.visualizations import plot_multilabel_scatter
+from experiments.visualizations import plot_errorbar
 
 from experiments.diary import Diary
 from experiments.utils import merge_dicts
@@ -550,15 +550,29 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
     else:
         raise(ValueError('Method not implemented: %s' % (method)))
 
-    # FIXME Store the results of the different epochs in csv files
+    train_acc = []
+    train_loss = []
     for result in results:
+        train_acc.append([])
+        train_loss.append([])
         if verbose > 1:
             print(result)
         history = result['history'].history
-        for epoch, (loss, acc) in enumerate(zip(history['loss'], history['acc'])):
-            row = dict(pid=result['pid'], epoch=epoch + 1, loss=loss, acc=acc)
+        for epoch, (e_loss, e_acc) in enumerate(zip(history['loss'], history['acc'])):
+            train_acc[-1].append(e_acc)
+            train_loss[-1].append(e_loss)
+            row = dict(pid=result['pid'], epoch=epoch + 1, loss=e_loss, acc=e_acc)
             entry_tra(row=row)
 
+    fig = plot_errorbar(train_acc, errorevery=0.1,
+                        title='{}, {}, training acc'.format(
+                            architecture, method))
+    diary.save_figure(fig, filename='training_accuracy')
+
+    fig = plot_errorbar(train_loss, errorevery=0.1,
+                        title='{}, {}, training loss ({})'.format(
+                            architecture, method, loss))
+    diary.save_figure(fig, filename='training_loss')
 
     cm_mean = np.zeros((n_c, n_c))
     acc_mean = 0
@@ -576,4 +590,3 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
                                 title='Mean CM {} (acc={:.3f})'.format(method,
                                                                        acc_mean))
     diary.save_figure(fig, filename='mean_confusion_matrix')
-

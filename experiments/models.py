@@ -12,6 +12,23 @@ from experiments.metrics import w_brier_loss
 
 from keras.wrappers.scikit_learn import KerasClassifier
 
+from collections import defaultdict
+
+def _merge_histories(history_list):
+    dd = defaultdict(list)
+    for d in history_list:
+        for key, value in d.history.items():
+            if not hasattr(value, '__iter__'):
+                value = (value,)
+            [dd[key].append(v) for v in value]
+    return dict(dd)
+
+
+class FakeHistory(object):
+    def __init__(self, history):
+        self.history = history
+
+
 class MyKerasClassifier(KerasClassifier):
     """This is a modification of the KerasClassifier in order to keep the
     labels with the original values.
@@ -117,7 +134,7 @@ class MySequentialOSL(Sequential):
                                                  batch_size=batch_size,
                                                  epochs=1, verbose=verbose)
             history.append(h)
-        return history
+        return FakeHistory(_merge_histories(history))
 
     def predict_proba(self, test_x, batch_size=None):
         return self.predict(test_x, batch_size)
@@ -134,6 +151,7 @@ class MySequentialOSL(Sequential):
         D = D/np.sum(D, axis=1, keepdims=True)
 
         return D
+
 
 class MySequentialEM(Sequential):
     def fit(self, train_x, train_t_ind, M, test_x=None, test_y=None,
@@ -162,7 +180,7 @@ class MySequentialEM(Sequential):
                                                 batch_size=batch_size,
                                                 epochs=1, verbose=verbose)
             history.append(h)
-        return history
+        return FakeHistory(_merge_histories(history))
 
     def predict_proba(self, test_x, batch_size=None):
         if batch_size is None:
