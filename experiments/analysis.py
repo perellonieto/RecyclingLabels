@@ -1,24 +1,17 @@
-import sys
-import time
 import pprint
 import inspect
 import multiprocessing
 
-from scipy import sparse
 import numpy as np
 
-from sklearn.model_selection import KFold
-from sklearn.model_selection import GridSearchCV
 from sklearn.model_selection import StratifiedKFold
 # TODO Change to model_selection
 from sklearn.utils import shuffle
-from sklearn.metrics import accuracy_score
 from sklearn.metrics import confusion_matrix
 
 from experiments.models import MyKerasClassifier
 from experiments.models import create_model
 
-from experiments.visualizations import plot_data
 from experiments.visualizations import plot_confusion_matrix
 from experiments.visualizations import plot_multilabel_scatter
 from experiments.visualizations import plot_errorbar
@@ -86,7 +79,7 @@ def train_weak_Mproper_test_results(parameters):
     # 4. Evaluate the model in the validation set with true labels
     # FIXME this outputs classes from 0 to #classes - 1
     y_pred = classifier.predict(X_y_v, verbose=verbose)
-    #print('MP: predictions min: {}, max: {}'.format(min(y_pred), max(y_pred)))
+    # print('MP: predictions min: {}, max: {}'.format(min(y_pred), max(y_pred)))
     # Compute the confusion matrix
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
     results = {'pid': process_id, 'cm': cm, 'history': history}
@@ -196,8 +189,6 @@ def train_weak_fully_supervised_test_results(parameters):
         True labels for validation
     """
     process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments = parameters
-    n_c = Y_y_v.shape[1]
-    categories = range(n_c)
 
     verbose = fit_arguments.get('verbose', 0)
 
@@ -207,7 +198,7 @@ def train_weak_fully_supervised_test_results(parameters):
     history = classifier.fit(X_y_t, Z_y_t, **fit_arguments)
     # 2. Evaluate the model in the validation set with true labels
     y_pred = classifier.predict(X_y_v, verbose=verbose)
-    #print('FS: predictions min: {}, max: {}'.format(min(y_pred), max(y_pred)))
+    # print('FS: predictions min: {}, max: {}'.format(min(y_pred), max(y_pred)))
     # Compute the confusion matrix
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
     results = {'pid': process_id, 'cm': cm, 'history': history}
@@ -244,8 +235,6 @@ def train_weak_fully_weak_test_results(parameters):
         True labels for validation
     """
     process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments = parameters
-    n_c = Y_y_v.shape[1]
-    categories = range(n_c)
 
     verbose = fit_arguments.get('verbose', 0)
 
@@ -258,7 +247,7 @@ def train_weak_fully_weak_test_results(parameters):
     history = classifier.fit(X_z_t, Z_z_t, **fit_arguments)
     # 2. Evaluate the model in the validation set with true labels
     y_pred = classifier.predict(X_y_v, verbose=verbose)
-    #print('FW: predictions min: {}, max: {}'.format(min(y_pred), max(y_pred)))
+    # print('FW: predictions min: {}, max: {}'.format(min(y_pred), max(y_pred)))
     # Compute the confusion matrix
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
     results = {'pid': process_id, 'cm': cm, 'history': history}
@@ -296,8 +285,6 @@ def train_weak_partially_weak_test_results(parameters):
         True labels for validation
     """
     process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments = parameters
-    n_c = Y_y_v.shape[1]
-    categories = range(n_c)
 
     verbose = fit_arguments.get('verbose', 0)
 
@@ -311,7 +298,7 @@ def train_weak_partially_weak_test_results(parameters):
     history = classifier.fit(X_z_t, Z_z_t, **fit_arguments)
     # 2. Evaluate the model in the validation set with true labels
     y_pred = classifier.predict(X_y_v, verbose=verbose)
-    #print('PW: predictions min: {}, max: {}'.format(min(y_pred), max(y_pred)))
+    # print('PW: predictions min: {}, max: {}'.format(min(y_pred), max(y_pred)))
     # Compute the confusion matrix
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
     results = {'pid': process_id, 'cm': cm, 'history': history}
@@ -365,8 +352,6 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
     entry_val = diary.add_notebook('validation')
     entry_tra = diary.add_notebook('training')
 
-    n_s_z = X_z.shape[0]
-    n_s_y = X_y.shape[0]
     n_f = X_z.shape[1]
     n_c = Y_y.shape[1]
 
@@ -377,7 +362,6 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
 
         fig = plot_multilabel_scatter(X_y, Z_y, title='Weak labels')
         diary.save_figure(fig, filename='weak_labels')
-
 
     if method == 'OSL':
         training_method = 'OSL'
@@ -441,16 +425,18 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
                                   X_y_s[test], Y_y_s[test], fit_arguments))
             process_id += 1
 
-    #accuracies = train_weak_test_acc(map_arguments[0])
+    # accuracies = train_weak_test_acc(map_arguments[0])
     pool = multiprocessing.Pool(processes=n_jobs)
     if method == 'Mproper':
         results = pool.map(train_weak_Mproper_test_results, map_arguments)
     elif method == 'fully_supervised':
-        results = pool.map(train_weak_fully_supervised_test_results, map_arguments)
+        results = pool.map(train_weak_fully_supervised_test_results,
+                           map_arguments)
     elif method == 'fully_weak':
         results = pool.map(train_weak_fully_weak_test_results, map_arguments)
     elif method in ['partially_weak', 'OSL']:
-        results = pool.map(train_weak_partially_weak_test_results, map_arguments)
+        results = pool.map(train_weak_partially_weak_test_results,
+                           map_arguments)
     elif method == 'EM':
         results = pool.map(train_weak_EM_test_results, map_arguments)
     else:
@@ -467,7 +453,8 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
         for epoch, (e_loss, e_acc) in enumerate(zip(history['loss'], history['acc'])):
             train_acc[-1].append(e_acc)
             train_loss[-1].append(e_loss)
-            row = dict(pid=result['pid'], epoch=epoch + 1, loss=e_loss, acc=e_acc)
+            row = dict(pid=result['pid'], epoch=epoch + 1, loss=e_loss,
+                       acc=e_acc)
             entry_tra(row=row)
 
     fig = plot_errorbar(train_acc, errorevery=0.1,
@@ -487,7 +474,7 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
         pid = result['pid']
         acc = np.true_divide(np.diag(cm).sum(), cm.sum())
         entry_val(row={'pid': pid, 'acc': acc,
-                       'cm': cm.__str__().replace('\n','')})
+                       'cm': cm.__str__().replace('\n', '')})
         cm_mean += np.true_divide(cm, len(results))
         acc_mean += acc/len(results)
 
