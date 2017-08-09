@@ -1,12 +1,9 @@
-from experiments.data import load_toy_example
-from experiments.data import load_weak_blobs
-from experiments.data import load_weak_iris
-from experiments.data import load_webs
+import argparse
 
+from experiments.data import load_webs, load_weak_iris, load_weak_blobs, \
+                             load_toy_example
 from experiments.analysis import analyse_weak_labels
 from experiments.diary import Diary
-
-import argparse
 
 dataset_functions = {'toy_example': load_toy_example,
                      'blobs': load_weak_blobs,

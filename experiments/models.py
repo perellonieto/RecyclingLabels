@@ -1,18 +1,15 @@
 import numpy as np
 import scipy as sp
 
+from functools import partial
+from collections import defaultdict
+
 from keras.models import Sequential
 from keras.layers.core import Dense, Dropout
 from keras.optimizers import SGD
-
-from functools import partial
-
-from experiments.metrics import brier_loss
-from experiments.metrics import w_brier_loss
-
 from keras.wrappers.scikit_learn import KerasClassifier
 
-from collections import defaultdict
+from experiments.metrics import brier_loss, w_brier_loss
 
 
 def _merge_histories(history_list):

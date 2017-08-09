@@ -9,20 +9,14 @@ from sklearn.model_selection import StratifiedKFold
 from sklearn.utils import shuffle
 from sklearn.metrics import confusion_matrix
 
-from experiments.models import MyKerasClassifier
-from experiments.models import create_model
-
-from experiments.visualizations import plot_confusion_matrix
-from experiments.visualizations import plot_multilabel_scatter
-from experiments.visualizations import plot_errorbar
-
+from experiments.models import create_model, MyKerasClassifier
+from experiments.visualizations import plot_confusion_matrix, \
+                                       plot_multilabel_scatter, \
+                                       plot_errorbar
 from experiments.diary import Diary
 from experiments.utils import merge_dicts
 
-from wlc.WLweakener import computeVirtual
-from wlc.WLweakener import computeM
-from wlc.WLweakener import estimate_M
-from wlc.WLweakener import weak_to_index
+from wlc.WLweakener import computeVirtual, computeM, estimate_M, weak_to_index
 
 
 # TODO take a look that everything is ok
