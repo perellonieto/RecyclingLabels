@@ -4,12 +4,9 @@ from experiments.data import load_weak_iris
 from experiments.data import load_webs
 
 from experiments.analysis import analyse_weak_labels
-
 from experiments.diary import Diary
 
 import argparse
-
-import numpy as np
 
 dataset_functions = {'toy_example': load_toy_example,
                      'blobs': load_weak_blobs,
@@ -42,7 +39,7 @@ def parse_arguments():
                         after each of them).''')
     parser.add_argument('-r', '--path-results', dest='path', type=str,
                         default='results',
-                        help='Folder to store all the results')
+                        help='Path to the precomputed mixing matrix M')
     parser.add_argument('-v', '--verbose', dest='verbose', type=int,
                         default=0,
                         help='Verbosity level being 0 the minimum value')
@@ -65,28 +62,6 @@ def parse_arguments():
                         default=False, action='store_true',
                         help='If the stderr needs to be redirected')
     return parser.parse_args()
-
-
-def test_1a():
-    training, validation = load_toy_example()
-    X_t, Z_t, z_t = training
-    X_v, Z_v, z_v, Y_v, y_v = validation
-    analyse_true_labels(X_v, Y_v, y_v, random_state=0)
-
-
-def test_1b():
-    training, validation = load_weak_blobs()
-    X_t, Z_t, z_t = training
-    X_v, Z_v, z_v, Y_v, y_v = validation
-    analyse_true_labels(X_v, Y_v, y_v, random_state=0)
-
-
-def test_1c():
-    # Add class names as a return
-    training, validation, classes = load_webs()
-    X_t, Z_t, z_t = training
-    X_v, Z_v, z_v, Y_v, y_v = validation
-    analyse_true_labels(X_v, Y_v, y_v, random_state=0, classes=classes)
 
 
 def main(dataset, seed, verbose, method, path, n_jobs, n_iterations,
