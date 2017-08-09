@@ -14,6 +14,7 @@ from keras.wrappers.scikit_learn import KerasClassifier
 
 from collections import defaultdict
 
+
 def _merge_histories(history_list):
     dd = defaultdict(list)
     for d in history_list:
@@ -101,14 +102,12 @@ class MyKerasClassifier(KerasClassifier):
                 compute accuracy. You should pass `metrics=["accuracy"]` to
                 the `.compile()` method of the model.
         """
-        #y = np.searchsorted(self.classes_, y)
+        # y = np.searchsorted(self.classes_, y)
         kwargs = self.filter_sk_params(Sequential.evaluate, kwargs)
 
         loss_name = self.model.loss
         if hasattr(loss_name, '__name__'):
             loss_name = loss_name.__name__
-        if loss_name == 'categorical_crossentropy' and len(y.shape) != 2:
-            y = to_categorical(y)
 
         outputs = self.model.evaluate(x, y, **kwargs)
         if not isinstance(outputs, list):
@@ -119,6 +118,7 @@ class MyKerasClassifier(KerasClassifier):
         raise ValueError('The model is not configured to compute accuracy. '
                          'You should pass `metrics=["accuracy"]` to '
                          'the `model.compile()` method.')
+
 
 class MySequentialOSL(Sequential):
     def fit(self, train_x, train_y, test_x=None, test_y=None, batch_size=None,
@@ -162,11 +162,11 @@ class MySequentialEM(Sequential):
                 print('Epoch {} of {}'.format(n, epochs))
             predictions = self.predict_proba(train_x, batch_size=batch_size)
 
-            ## 'EM'  :Expected Log likelihood (i.e. the expected value of the
-            ##        complete data log-likelihood after the E-step). It assumes
-            ##        that a mixing matrix is known and contained in
-            ##        self.params['M']
-            ## Need to incorporate this part.
+            # 'EM'  :Expected Log likelihood (i.e. the expected value of the
+            #        complete data log-likelihood after the E-step). It assumes
+            #        that a mixing matrix is known and contained in
+            #        self.params['M']
+            # Need to incorporate this part.
             # train_t_ind is the index corresponding to the mixing matrix row
             Q = np.multiply(predictions, M[train_t_ind])
             # FIXME there are rows that sum to 0 and this becomes a NaN

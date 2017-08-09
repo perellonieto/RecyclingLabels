@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 from scipy import sparse
-from numpy.random import RandomState
 
 from sklearn.utils import shuffle
 from sklearn.datasets import make_blobs
@@ -18,7 +17,7 @@ from wlc.WLweakener import binarizeWeakLabels
 
 def make_weak_true_partition(M, X, y, true_size=0.1, random_state=None):
     n_c = len(np.unique(y))
-    classes = range(0,n_c)
+    classes = range(0, n_c)
     assert(n_c == np.max(y)+1)
     Y = label_binarize(y, classes)
     z = generateWeak(y, M, seed=random_state)
