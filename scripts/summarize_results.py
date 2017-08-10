@@ -1,16 +1,14 @@
 #!/usr/bin/env python
-import sys
 import itertools
 import os
+import six
 from os import walk
+import sys
 from argparse import ArgumentParser
 import json
 import pandas as pd
 import numpy as np
-from scipy.stats import friedmanchisquare
-from scipy.stats import wilcoxon, ranksums
-import cairocffi as cairo
-from weasyprint import HTML
+from scipy.stats import friedmanchisquare, wilcoxon, ranksums
 
 import matplotlib
 matplotlib.use('Agg')
@@ -167,9 +165,8 @@ def export_datasets_info(df, path='', stylesheets=['style.css']):
                'n_classes']
     sort_by = ['name']
     index = columns[0]
-    df_table = df.drop_duplicates(subset=columns[:-1],
-                                  keep='first').sort_values(
-                                          sort_by).set_index(index)
+    df_table = df[columns].drop_duplicates(subset=columns, keep='first'
+                                           ).sort_values(sort_by).set_index(index)
     # Export to LaTeX
     df_table.to_latex(os.path.join(path, "datasets.tex"))
 
@@ -179,21 +176,46 @@ def export_datasets_info(df, path='', stylesheets=['style.css']):
     mean_loss_best_model = mean_loss_best_model.rename(columns={'acc': 'mean(acc)'})
     df_table = pd.concat([df_table, mean_loss_best_model], axis=1)
 
-    # Export to pdf
-    html_out = df_table.to_html()
-    filename = os.path.join(path, "datasets.pdf")
-    HTML(string=html_out).write_pdf(filename, stylesheets=stylesheets)
+    # Export to svg
+    export_df(df_table, 'datasets', path=path, extension='svg')
 
     return df_table
 
 
 def export_df(df, filename, path='', extension='pdf',
               stylesheets=['style.css']):
-    if extension == 'pdf':
-        html_out = df.to_html()
-        filename = os.path.join(path, filename)
-        HTML(string=html_out).write_pdf("{}.{}".format(filename, extension),
-                                        stylesheets=stylesheets)
+    filename = os.path.join(path, filename)
+    ax = render_mpl_table(df)
+    fig = ax.figure
+    fig.tight_layout()
+    fig.savefig("{}.{}".format(filename, extension))
+
+
+def render_mpl_table(data, col_width=3.0, row_height=0.625, font_size=14,
+                     header_color='#40466e', row_colors=['#f1f1f2', 'w'],
+                     edge_color='w', bbox=[0, 0, 1, 1], header_columns=0,
+                     ax=None, **kwargs):
+    """
+    source: https://stackoverflow.com/questions/19726663/how-to-save-the-pandas-dataframe-series-data-as-a-figure
+    """
+    if ax is None:
+        size = (np.array(data.shape[::-1]) + np.array([0, 1])) * np.array([col_width, row_height])
+        fig, ax = plt.subplots(figsize=size)
+        ax.axis('off')
+
+    mpl_table = ax.table(cellText=data.values, bbox=bbox, colLabels=data.columns, **kwargs)
+
+    mpl_table.auto_set_font_size(False)
+    mpl_table.set_fontsize(font_size)
+
+    for k, cell in six.iteritems(mpl_table._cells):
+        cell.set_edgecolor(edge_color)
+        if k[0] == 0 or k[1] < header_columns:
+            cell.set_text_props(weight='bold', color='w')
+            cell.set_facecolor(header_color)
+        else:
+            cell.set_facecolor(row_colors[k[0] % len(row_colors)])
+    return ax
 
 
 def friedman_test(df, index, column):
@@ -251,14 +273,14 @@ def wilcoxon_rank_sum_test(df, index, column, signed=False,
 
 
 def main(results_path='results', summary_path='', filter_rows={},
-         filter_performance=1.0):
+         filter_performance=1.0, verbose=1):
     print('\n#########################################################')
     print('##### Making summary of folder {}'.format(results_path))
     print('#')
     results_folders, unfin_folders = get_list_results_folders(
             results_path, essentials=['description.txt', 'dataset.csv',
                                       'model.csv'],
-            finished = ['validation.csv'],
+            finished=['validation.csv'],
             return_unfinished=True)
 
     # Creates summary path if it does not exist
@@ -269,22 +291,26 @@ def main(results_path='results', summary_path='', filter_rows={},
     for uf in unfin_folders:
         u_summaries.append(extract_unfinished_summary(uf))
 
-    if len(u_summaries) > 0 :
-        dfs_unf = pd.concat(u_summaries, axis=0, ignore_index=True)
-
+    if len(u_summaries) > 0:
         print("Experiments that did not finish: {}".format(len(u_summaries)))
+        dfs_unf = pd.concat(u_summaries, axis=0, ignore_index=True)
+        if verbose > 1:
+            print(dfs_unf)
 
     f_summaries = []
     for rf in results_folders:
         f_summaries.append(extract_unfinished_summary(rf))
 
-    if len(f_summaries) == 0 :
+    if len(f_summaries) == 0:
         print("There are no finished experiments")
-        return
+        sys.exit(0)
+    else:
+        print("Experiments finished: {}".format(len(f_summaries)))
 
     dfs_fin = pd.concat(f_summaries, axis=0, ignore_index=True)
 
-    print("Experiments finished: {}".format(len(f_summaries)))
+    if len(f_summaries) > 0 and verbose > 2:
+        print(dfs_fin)
 
     summaries = []
     for rf in results_folders:
@@ -295,14 +321,16 @@ def main(results_path='results', summary_path='', filter_rows={},
     # Remove experiments with no information about the dataset
     df = df[df.name.notnull()]
 
-    print("Filtering only rows that contain")
-    for key, value in filter_rows.items():
-        print("- [{}] = {}".format(key, value))
-        if df[key].dtype == 'object':
-            df = df[df[key].str.contains(value)]
-        else:
-            df = df[df[key] == float(value)]
+    if len(filter_rows) > 0:
+        print("Filtering only rows that contain")
+        for key, value in filter_rows.items():
+            print("- [{}] = {}".format(key, value))
+            if df[key].dtype == 'object':
+                df = df[df[key].str.contains(value)]
+            else:
+                df = df[df[key] == float(value)]
 
+    # Keep only the last computed results for the same experiment
     df.sort_values(by=['date', 'time'], ascending=True, inplace=True)
     df.drop_duplicates(subset=['architecture', 'epochs', 'init', 'input_dim',
                                'loss', 'method', 'n_classes', 'n_features',
@@ -310,8 +338,27 @@ def main(results_path='results', summary_path='', filter_rows={},
                                'n_samples_with_y', 'pid', 'training_method'],
                        inplace=True, keep='last')
 
-    df_datasets = export_datasets_info(df, path=summary_path)
+    ########################################################################
+    # Export information about the datasets
+    ########################################################################
+    export_datasets_info(df, path=summary_path)
 
+    ########################################################################
+    # Export information about the experimental setup
+    ########################################################################
+    exp_setup_info = ['name', 'method', 'training_method', 'architecture',
+                      'loss', 'init', 'input_dim', 'n_classes', 'n_features',
+                      'epochs', 'n_samples_with_y', 'n_samples_without_y']
+    experimental_setup = df.groupby(exp_setup_info).size()
+    df_exp_setup = experimental_setup.to_frame().reset_index()
+    df_exp_setup.to_csv(os.path.join(summary_path, "experimental_setup.csv"),
+                        header=True)
+    # Export to pdf
+    export_df(df_exp_setup, 'experimental_setup', path=summary_path,
+              extension='svg')
+    if verbose > 0:
+        print('The different experimental setups are:')
+        print(df_exp_setup)
 
     ########################################################################
     # Boxplots by different groups
@@ -332,7 +379,7 @@ def main(results_path='results', summary_path='', filter_rows={},
             ax = df2.boxplot(vert=False)
             ax.set_title('results grouped by {}'.format(groupby))
 
-            counts =  {k: len(v) for k, v in grouped}
+            counts = {k: len(v) for k, v in grouped}
             ax.set_yticklabels(['%s\n$n$=%d' % (k, counts[k]) for k in meds.keys()])
             ax.set_xlabel(column)
             savefig_and_close(fig, '{}_{}.{}'.format(groupby, column,
@@ -354,7 +401,6 @@ def main(results_path='results', summary_path='', filter_rows={},
                                       cmap=plt.cm.Greys)
                 savefig_and_close(fig, '{}_vs_{}_{}_heatmap_count.{}'.format(
                             index, column, value, fig_extension), path=summary_path)
-
 
     ########################################################################
     # Heatmap of finished experiments name vs mixing_matrix_M
@@ -379,7 +425,7 @@ def main(results_path='results', summary_path='', filter_rows={},
         for index in indices:
             for column in columns:
                 df2 = pd.pivot_table(df, values=value, index=index,
-                        columns=column, aggfunc=len, fill_value=0).astype(int)
+                                     columns=column, aggfunc=len, fill_value=0).astype(int)
                 fig = plot_df_heatmap(df2, title='Number of experiments',
                                       cmap=plt.cm.Greys)
                 savefig_and_close(fig, '{}_vs_{}_{}_heatmap_count.{}'.format(
@@ -422,16 +468,18 @@ def main(results_path='results', summary_path='', filter_rows={},
                                          index=index, columns=column)
                     if df2.columns.dtype in ['object', 'str']:
                         for norm in normalizations:
-                            title = r'Heat-map by {}'.format( filtered_row)
+                            title = r'Heat-map by {}'.format(filtered_row)
                             fig = plot_df_heatmap(df2, normalize=norm, title=title)
                             savefig_and_close(fig, '{}_vs_{}_by_{}_{}_heatmap_{}.{}'.format(
                                         index, column, filtered_row, value, norm,
                                         fig_extension), path=summary_path)
 
-                        df2 = pd.pivot_table(df, values=value, index=index,
+                        # Export the counting of experiments of the filtered
+                        # column and value
+                        df3 = pd.pivot_table(df_filtered, values=value, index=index,
                                              columns=column, aggfunc=len,
                                              fill_value=0).astype(int)
-                        fig = plot_df_heatmap(df2, title='Number of experiments',
+                        fig = plot_df_heatmap(df3, title='Number of experiments',
                                               cmap=plt.cm.Greys)
                         savefig_and_close(fig, '{}_vs_{}_by_{}_{}_heatmap_count.{}'.format(
                                     index, column, filtered_row, value, fig_extension), path=summary_path)
@@ -439,13 +487,15 @@ def main(results_path='results', summary_path='', filter_rows={},
                         fig = plt.figure()
                         ax = fig.add_subplot(111)
                         df2.transpose().plot(ax=ax, style='.-', logx=True)
-                        ax.set_title('{} {}'.format( filtered_row, value))
+                        ax.set_title('{} {}'.format(filtered_row, value))
                         ax.set_ylabel(value)
                         lgd = ax.legend(loc='center left', bbox_to_anchor=(1, .5))
                         savefig_and_close(fig,
-                                'plot_mean_{}_vs_{}_by_{}_{}.{}'.format( index,
-                                    column, filtered_row, value,
-                                    fig_extension), path=summary_path, bbox_extra_artists=(lgd,))
+                                          'plot_mean_{}_vs_{}_by_{}_{}.{}'.format(
+                                              index, column, filtered_row,
+                                              value, fig_extension),
+                                          path=summary_path,
+                                          bbox_extra_artists=(lgd,))
 
 
 def __test_1():
@@ -468,10 +518,13 @@ def parse_arguments():
     parser.add_argument("-f", "--filter", type=json.loads,
                         default='{}', dest='filter_rows',
                         help="Dictionary with columns and filters.")
+    parser.add_argument("-v", "--verbose", type=int,
+                        default=1, dest='verbose',
+                        help="Dictionary with columns and filters.")
     return parser.parse_args()
 
 
 if __name__ == '__main__':
-    #__test_1()
+    # __test_1()
     args = parse_arguments()
     main(**vars(args))
