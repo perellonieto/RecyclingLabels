@@ -69,6 +69,8 @@ def train_weak_Mproper_test_results(parameters):
     X_t = np.concatenate((X_z_t, X_y_t), axis=0)
     np.random.seed(process_id)
     X_t, V_t = shuffle(X_t, V_t)
+    # Add validation results during training
+    fit_arguments['validation_data'] = (X_y_v, Y_y_v)
     history = classifier.fit(X_t, V_t, **fit_arguments)
     # 4. Evaluate the model in the validation set with true labels
     # FIXME this outputs classes from 0 to #classes - 1
@@ -143,6 +145,8 @@ def train_weak_EM_test_results(parameters):
     np.random.seed(process_id)
     X_t = np.concatenate((X_z_t, X_y_t), axis=0)
     X_t, Z_index_t = shuffle(X_t, Z_index_t)
+    # Add validation results during training
+    fit_arguments['validation_data'] = (X_y_v, Y_y_v)
     history = classifier.fit(X_t, Z_index_t, M=M, **fit_arguments)
     # 5. Evaluate the model in the validation set with true labels
     y_pred = classifier.predict(X_y_v, verbose=verbose)
@@ -189,6 +193,7 @@ def train_weak_fully_supervised_test_results(parameters):
     # TODO where is the randomization applied?
     np.random.seed(process_id)
     # 1. Train model with the training set that has true labels
+    fit_arguments['validation_data'] = (X_y_v, Y_y_v)
     history = classifier.fit(X_y_t, Z_y_t, **fit_arguments)
     # 2. Evaluate the model in the validation set with true labels
     y_pred = classifier.predict(X_y_v, verbose=verbose)
@@ -238,6 +243,8 @@ def train_weak_fully_weak_test_results(parameters):
     X_z_t = np.concatenate([X_z_t, X_y_t])
     Z_z_t = np.concatenate([Z_z_t, Z_y_t])
     X_z_t, Z_z_t = shuffle(X_z_t, Z_z_t, random_state=process_id)
+    # Add validation results during training
+    fit_arguments['validation_data'] = (X_y_v, Y_y_v)
     history = classifier.fit(X_z_t, Z_z_t, **fit_arguments)
     # 2. Evaluate the model in the validation set with true labels
     y_pred = classifier.predict(X_y_v, verbose=verbose)
@@ -289,6 +296,7 @@ def train_weak_partially_weak_test_results(parameters):
     X_z_t = np.concatenate([X_z_t, X_y_t])
     Z_z_t = np.concatenate([Z_z_t, Y_y_t])
     X_z_t, Z_z_t = shuffle(X_z_t, Z_z_t, random_state=process_id)
+    fit_arguments['validation_data'] = (X_y_v, Y_y_v)
     history = classifier.fit(X_z_t, Z_z_t, **fit_arguments)
     # 2. Evaluate the model in the validation set with true labels
     y_pred = classifier.predict(X_y_v, verbose=verbose)
@@ -438,28 +446,62 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
 
     train_acc = []
     train_loss = []
+    val_acc = []
+    val_loss = []
     for result in results:
         train_acc.append([])
         train_loss.append([])
+        val_acc.append([])
+        val_loss.append([])
         if verbose > 1:
             print(result)
         history = result['history'].history
-        for epoch, (e_loss, e_acc) in enumerate(zip(history['loss'], history['acc'])):
-            train_acc[-1].append(e_acc)
-            train_loss[-1].append(e_loss)
-            row = dict(pid=result['pid'], epoch=epoch + 1, loss=e_loss,
-                       acc=e_acc)
-            entry_tra(row=row)
+        if 'val_loss' in history.keys():
+            zipped = zip(history['loss'], history['acc'],
+                         history['val_loss'], history['val_acc'])
+            for epoch, (t_loss, t_acc, v_loss, v_acc) in enumerate(zipped):
+                train_acc[-1].append(t_acc)
+                train_loss[-1].append(t_loss)
+                val_acc[-1].append(v_acc)
+                val_loss[-1].append(v_loss)
+                row = dict(pid=result['pid'], epoch=epoch + 1, loss=t_loss,
+                           acc=t_acc, val_loss=v_loss, val_acc=v_acc)
+                entry_tra(row=row)
+        else:
+            zipped = zip(history['loss'], history['acc'])
+            for epoch, (t_loss, t_acc) in enumerate(zipped):
+                train_acc[-1].append(t_acc)
+                train_loss[-1].append(t_loss)
+                row = dict(pid=result['pid'], epoch=epoch + 1, loss=t_loss,
+                           acc=t_acc)
+                entry_tra(row=row)
 
-    fig = plot_errorbar(train_acc, errorevery=0.1,
-                        title='{}, {}, training acc'.format(
-                            architecture, method))
-    diary.save_figure(fig, filename='training_accuracy')
+    train_acc = np.array(train_acc)
+    train_loss = np.array(train_loss)
+    val_acc = np.array(val_acc)
+    val_loss = np.array(val_loss)
 
-    fig = plot_errorbar(train_loss, errorevery=0.1,
-                        title='{}, {}, training loss ({})'.format(
-                            architecture, method, loss))
-    diary.save_figure(fig, filename='training_loss')
+    if val_acc.shape[1] > 0:
+        fig1 = plot_errorbar([train_acc, val_acc], errorevery=0.1,
+                             title='{}, {}, training acc'.format(
+                                architecture, method),
+                             legend=['train', 'val'])
+
+        fig2 = plot_errorbar([train_loss, val_loss], errorevery=0.1,
+                             title='{}, {}, training loss ({})'.format(
+                                architecture, method, loss),
+                             legend=['train', 'val'])
+    else:
+        fig1 = plot_errorbar(train_acc, errorevery=0.1,
+                             title='{}, {}, training acc'.format(
+                                architecture, method))
+
+        fig2 = plot_errorbar(train_loss, errorevery=0.1,
+                             title='{}, {}, training loss ({})'.format(
+                                architecture, method, loss))
+
+    diary.save_figure(fig1, filename='training_accuracy')
+    diary.save_figure(fig2, filename='training_loss')
 
     cm_mean = np.zeros((n_c, n_c))
     acc_mean = 0

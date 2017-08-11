@@ -152,7 +152,7 @@ class MySequentialOSL(Sequential):
 
 class MySequentialEM(Sequential):
     def fit(self, train_x, train_t_ind, M, test_x=None, test_y=None,
-            batch_size=None, epochs=1, verbose=0):
+            batch_size=None, epochs=1, verbose=0, **kwargs):
         history = []
         for n in range(epochs):
             if verbose > 1:
@@ -175,7 +175,8 @@ class MySequentialEM(Sequential):
             h = super(MySequentialEM, self).fit(train_x[index_isfinite],
                                                 train_em_y[index_isfinite],
                                                 batch_size=batch_size,
-                                                epochs=1, verbose=verbose)
+                                                epochs=1, verbose=verbose,
+                                                **kwargs)
             history.append(h)
         return FakeHistory(_merge_histories(history))
 

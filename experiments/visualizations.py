@@ -216,24 +216,33 @@ def test_multilabel_plot():
     plt.show()
 
 
-def plot_errorbar(matrix, fmt='--o', title='errorbar', elinewidth=0.5,
-                  errorevery=0.2, **kwargs):
+def plot_errorbar(data, fmt='--o', title='errorbar', elinewidth=0.5,
+                  errorevery=0.2, legend=None, **kwargs):
     """
 
-    errorevery: float
-        Percentage of errorbars with respect to the number of samples
+    paramters
+        data: np.array or list of np.array
+            If it is a list, each np.array is considered as an errorbar line
+
+        errorevery: float
+            Percentage of errorbars with respect to the number of samples
     """
-    if type(matrix) is list:
-        matrix = np.array(matrix)
-
-    errorevery = int(matrix.shape[1] * errorevery)
-
-    x = range(matrix.shape[1])
-    means = matrix.mean(axis=0)
-    stds = matrix.std(axis=0)
 
     fig = newfig(title)
     ax = fig.add_subplot(111)
     ax.set_title(title)
-    ax.errorbar(x=x, y=means, xerr=0, yerr=stds, errorevery=errorevery, **kwargs)
+
+    if type(data) is np.ndarray:
+        data = (data,)
+
+    for matrix in data:
+        errorevery = int(matrix.shape[1] * errorevery)
+
+        x = range(matrix.shape[1])
+        means = matrix.mean(axis=0)
+        stds = matrix.std(axis=0)
+
+        ax.errorbar(x=x, y=means, xerr=0, yerr=stds, errorevery=errorevery, **kwargs)
+    if legend is not None:
+        ax.legend(legend)
     return fig
