@@ -482,21 +482,21 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
     val_loss = np.array(val_loss)
 
     if val_acc.shape[1] > 0:
-        fig1 = plot_errorbar([train_acc, val_acc], errorevery=0.1,
+        fig1 = plot_errorbar([train_acc, val_acc], perrorevery=0.1,
                              title='{}, {}, training acc'.format(
                                 architecture, method),
                              legend=['train', 'val'])
 
-        fig2 = plot_errorbar([train_loss, val_loss], errorevery=0.1,
+        fig2 = plot_errorbar([train_loss, val_loss], perrorevery=0.1,
                              title='{}, {}, training loss ({})'.format(
                                 architecture, method, loss),
                              legend=['train', 'val'])
     else:
-        fig1 = plot_errorbar(train_acc, errorevery=0.1,
+        fig1 = plot_errorbar(train_acc, perrorevery=0.1,
                              title='{}, {}, training acc'.format(
                                 architecture, method))
 
-        fig2 = plot_errorbar(train_loss, errorevery=0.1,
+        fig2 = plot_errorbar(train_loss, perrorevery=0.1,
                              title='{}, {}, training loss ({})'.format(
                                 architecture, method, loss))
 

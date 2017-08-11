@@ -216,8 +216,8 @@ def test_multilabel_plot():
     plt.show()
 
 
-def plot_errorbar(data, fmt='--o', title='errorbar', elinewidth=0.5,
-                  errorevery=0.2, legend=None, **kwargs):
+def plot_errorbar(data, fmt='--o', title='errorbar', elinewidth=1.0,
+                  perrorevery=0.2, legend=None, **kwargs):
     """
 
     paramters
@@ -235,14 +235,15 @@ def plot_errorbar(data, fmt='--o', title='errorbar', elinewidth=0.5,
     if type(data) is np.ndarray:
         data = (data,)
 
-    for matrix in data:
-        errorevery = int(matrix.shape[1] * errorevery)
+    for i, matrix in enumerate(data):
+        errorevery = int(matrix.shape[1] * perrorevery)
 
         x = range(matrix.shape[1])
         means = matrix.mean(axis=0)
         stds = matrix.std(axis=0)
 
-        ax.errorbar(x=x, y=means, xerr=0, yerr=stds, errorevery=errorevery, **kwargs)
+        ax.errorbar(x=x, y=means, yerr=stds, elinewidth=(len(data)-i)*elinewidth,
+                    errorevery=errorevery, **kwargs)
     if legend is not None:
         ax.legend(legend)
     return fig
