@@ -58,7 +58,7 @@ def weak_true_partition():
 
     pool = multiprocessing.Pool(processes=4)
     accuracies = pool.map(train_test_acc, map_arguments)
-    print accuracies
+    print(accuracies)
 
 
 # Multiprocessing training and validation
@@ -113,7 +113,7 @@ def true_labels_example(X, y):
 
     pool = multiprocessing.Pool(processes=None)
     accuracies = pool.map(train_test_acc, map_arguments)
-    print accuracies
+    print(accuracies)
     print('mean accuracy = %s' % (np.mean(accuracies)))
 
 

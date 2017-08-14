@@ -16,7 +16,7 @@ import pandas as pd
 from scipy.sparse import csr_matrix
 
 
-def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
+def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised', seed=None):
     """
     Generate a mixing matrix M, given the number of classes c.
 
@@ -51,6 +51,8 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
     -------
     M : array-like, shape = (n_classes, n_classes)
     """
+    if seed is not None:
+        np.random.seed(seed)
 
     if method == 'supervised':
 
@@ -152,7 +154,7 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised'):
     return M
 
 
-def generateWeak(y, M, dec_labels=None):
+def generateWeak(y, M, dec_labels=None, seed=None):
     """
     Generate the set of weak labels z from the ground truth labels y, given
     a mixing matrix M and, optionally, a set of possible weak labels, zset.
@@ -175,6 +177,8 @@ def generateWeak(y, M, dec_labels=None):
         z   :List of weak labels. Each weak label is an integer whose binary
             representation encodes the observed weak labels.
     """
+    if seed is not None:
+        np.random.seed(seed)
 
     z = np.zeros(y.shape, dtype=int)  # Weak labels for all labels y (int)
     d = M.shape[0]               # Number of weak labels
@@ -349,9 +353,9 @@ def main():
     #####################
     # ## A title to start
 
-    print "======================="
-    print "    Weak labels"
-    print "======================="
+    print("=======================")
+    print("    Weak labels")
+    print("=======================")
 
     ###########################################################################
     # ## PART I: Load data (samples and true labels)                         ##
@@ -367,9 +371,9 @@ def main():
     z = generateWeak(y, M, c)
     v = computeVirtual(z, c, method='quasi_IPL')
 
-    print M
-    print z
-    print v
+    print(M)
+    print(M)
+    print(M)
 
     ipdb.set_trace()
 
@@ -490,10 +494,78 @@ def newWeakCount(Z, Y, categories, reg=None):
 
 
 def weak_to_decimal(z):
+    """
+    >>> import numpy as np
+    >>> z = np.array([[ 0.,  0.,  0.,  1.],
+    ...               [ 0.,  0.,  1.,  0.],
+    ...               [ 1.,  0.,  0.,  0.]])
+    >>> weak_to_decimal(z)
+    array([1, 2, 8])
+    """
     n, n_cat = z.shape
     p2 = np.array([2**n for n in reversed(range(n_cat))])
     return np.array(z.dot(p2), dtype=int)
 
+
 def estimate_M(Z, Y, categories, reg=None):
     S0 = newWeakCount(Z, Y, categories, reg=reg)
     return S0 / np.sum(S0, axis=0)
+
+
+def bin_array_to_dec(bitlist):
+    """
+    >>> bin_array_to_dec([0, 0, 0, 0])
+    0
+    >>> bin_array_to_dec([0, 0, 0, 1])
+    1
+    >>> bin_array_to_dec([0, 1, 0, 0])
+    4
+    >>> bin_array_to_dec([1, 1, 1, 0])
+    14
+    """
+    out = 0
+    for bit in bitlist:
+        out = (out << 1) | bit
+    return out
+
+
+def weak_to_index(z, method='supervised'):
+    """ Index position of weak labels in the corresponding mixing matrix
+
+    It returns the row from the corresponding mixing matrix M where the weak
+    label must be. For a supervised method the mixing matrix is a diagonal
+    matrix withthe first row belonging to the first class and the last row
+    belonging to the last class.
+
+    With an Mproper, IPL, quasiIPL methods the mixing matrix is assumed to be
+    2**#classes, where the first row corresponds to a weak labeling with all
+    the labels to zero. The second row corresponds to the first class, and the
+    last row corresponds to all the classes to one.
+
+
+    >>> import numpy as np
+    >>> z = np.array([[ 0.,  0.,  0.,  1.],
+    ...               [ 0.,  0.,  1.,  0.],
+    ...               [ 1.,  0.,  0.,  0.]])
+    >>> weak_to_index(z, method='supervised')
+    array([0, 1, 3])
+    >>> weak_to_index(z, method='Mproper')
+    array([1, 2, 8])
+    >>> z = np.array([[ 0.,  0.,  0.,  0.],
+    ...               [ 0.,  1.,  0.,  0.],
+    ...               [ 1.,  0.,  1.,  1.]])
+    >>> weak_to_index(z, method='Mproper')
+    array([ 0,  4, 11])
+    """
+    c = z.shape[1]
+    if method in ['supervised']:
+        index = c - np.argmax(z, axis=1) - 1
+    else:
+        #index = np.array(map(bin_array_to_dec, z.astype(int)))
+        index = weak_to_decimal(z)
+    return index
+
+
+if __name__ == "__main__":
+    import doctest
+    doctest.testmod()

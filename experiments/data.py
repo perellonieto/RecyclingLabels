@@ -1,7 +1,6 @@
 import pandas as pd
 import numpy as np
 from scipy import sparse
-from numpy.random import RandomState
 
 from sklearn.utils import shuffle
 from sklearn.datasets import make_blobs
@@ -16,30 +15,29 @@ from wlc.WLweakener import generateWeak
 from wlc.WLweakener import binarizeWeakLabels
 
 
-def make_weak_true_partition(M, X, y, true_size=0.1, random_state=0):
+def make_weak_true_partition(M, X, y, true_size=0.1, random_state=None):
     n_c = len(np.unique(y))
-    classes = range(0,n_c)
+    classes = range(0, n_c)
     assert(n_c == np.max(y)+1)
     Y = label_binarize(y, classes)
-    z = generateWeak(y, M)
+    z = generateWeak(y, M, seed=random_state)
     Z = binarizeWeakLabels(z, c=n_c)
 
     # Create partition for weak and true labels
     sss = StratifiedShuffleSplit(n_splits=1, test_size=true_size,
                                  random_state=random_state)
-    weak_fold, true_fold = sss.split(X, y).next()
+    for weak_fold, true_fold in sss.split(X, y):
+        # Weaken the true labels fold using the mixing matrix M
+        X_w = X[weak_fold]
+        z_w = z[weak_fold]
+        Z_w = Z[weak_fold]
 
-    # Weaken the true labels fold using the mixing matrix M
-    X_w = X[weak_fold]
-    z_w = z[weak_fold]
-    Z_w = Z[weak_fold]
-
-    # Select the true labels fold
-    X_t = X[true_fold]
-    z_t = z[true_fold]
-    Z_t = Z[true_fold]
-    y_t = y[true_fold]
-    Y_t = Y[true_fold]
+        # Select the true labels fold
+        X_t = X[true_fold]
+        z_t = z[true_fold]
+        Z_t = Z[true_fold]
+        y_t = y[true_fold]
+        Y_t = Y[true_fold]
 
     # TODO refactor name convention of train and val, for weak and true
     return (X_w, Z_w, z_w), (X_t, Z_t, z_t, Y_t, y_t), classes
@@ -59,7 +57,7 @@ def load_webs(random_state=None):
         print("Oops!, there are unexpected weak labels in the new dataset."
               "This may cause some errors below")
 
-    X = np.load('data/X_full.npy')
+    X = np.load('data/X_full.npy', encoding='latin1')
     X = X.item()
 
     # Label dataframe
@@ -122,7 +120,7 @@ def load_weak_blobs(method='quasi_IPL', n_samples=2000, n_features=2,
     X, y = make_blobs(n_samples=n_samples, n_features=n_features,
                       centers=n_classes, random_state=random_state)
 
-    M = computeM(n_classes, method=method, alpha=0.7, beta=0.3)
+    M = computeM(n_classes, method=method, alpha=0.5, beta=0.3)
     return make_weak_true_partition(M, X, y, true_size=true_size,
                                     random_state=random_state)
 
@@ -132,6 +130,6 @@ def load_weak_iris(method='quasi_IPL', true_size=0.1, random_state=None):
     iris = load_iris()
     X = iris.data
     y = iris.target
-    M = computeM(len(np.unique(y)), method=method, alpha=0.7, beta=0.3)
+    M = computeM(len(np.unique(y)), method=method, alpha=0.5, beta=0.3)
     return make_weak_true_partition(M, X, y, true_size=true_size,
                                     random_state=random_state)

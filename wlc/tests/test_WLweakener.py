@@ -71,6 +71,8 @@ class TestWLweakener(unittest.TestCase):
         expected = np.array([[.5, .5], [0, 1], [1, 0], [np.nan, np.nan]])
         assert_array_almost_equal(z_bin, expected)
 
+        # TODO make tests for Mproper
+
     def test_generateWeak(self):
         y = np.array([0, 1, 2, 3])
         M = np.array([[1., 0., 0., 0.],
@@ -93,7 +95,7 @@ class TestWLweakener(unittest.TestCase):
 
     def test_compare_weakCount(self):
         n_classes = 7
-        categories = range(n_classes)
+        categories = list(range(n_classes))
         np.random.seed(0)
         z = np.random.randint(2**n_classes, size=500)
         Z = np.matrix([list(np.binary_repr(x, n_classes)) for x in z], dtype=int)

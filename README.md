@@ -15,5 +15,10 @@ over time by the acquisition of new true labels
 ### Installation
 
 ```bash
-./install.sh
+git clone git@github.com:perellonieto/RecyclingLabels.git
+cd RecyclingLabels
+virtualenv venv
+. venv/bin/activate
+pip install -r requirements.txt
+pip install -e .
 ```
