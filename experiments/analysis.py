@@ -23,10 +23,15 @@ from wlc.WLweakener import computeVirtual, computeM, estimate_M, weak_to_index
 def train_weak_Mproper_test_results(parameters):
     """Train a model using the Mproper approach:
 
-        1. Learn a mixing matrix using training with weak and true labels
-        2. Compute virtual labels for training set only with weak labels
-        3. Train a model using the training set with virtual labels
-        4. Evaluate the model in the validation set with true labels
+    1. Learn a mixing matrix using training with weak and true labels
+        - M = f(Z_y_t, Y_y_t)
+    2. Compute virtual labels for training set only with weak labels
+        - V_z_t = f(M, Z_z_t)
+    3. Train a model using the training set with virtual and true labels
+        - model.fit([X_z_t and X_y_t], [V_z_t and Y_y_t])
+    4. Evaluate the model in the validation set with true labels
+        - y_pred = model.predict(X_y_v)
+        - evaluate(y_pred, Y_y_v)
 
     Parameters
     ----------
@@ -63,8 +68,7 @@ def train_weak_Mproper_test_results(parameters):
     V_z_t = computeVirtual(Z_z_t, c=n_c, method='Mproper', M=M)
     # TODO where is the randomization applied?
     np.random.seed(process_id)
-    # 3. Train a model using the training set with virtual labels and true
-    #    labels
+    # 3. Train a model using the training set with virtual and true labels
     V_t = np.concatenate((V_z_t, Y_y_t), axis=0)
     X_t = np.concatenate((X_z_t, X_y_t), axis=0)
     np.random.seed(process_id)
@@ -161,7 +165,10 @@ def train_weak_fully_supervised_test_results(parameters):
     """Train a model using the fully supervised approach:
 
         1. Train model with the training set that has true labels
+            - model.fit(X_y_t, Y_y_t)
         2. Evaluate the model in the validation set with true labels
+            - y_pred = model.predict(X_y_v)
+            - evaluate(y_pred, Y_y_v)
 
     Parameters
     ----------
@@ -194,7 +201,7 @@ def train_weak_fully_supervised_test_results(parameters):
     np.random.seed(process_id)
     # 1. Train model with the training set that has true labels
     fit_arguments['validation_data'] = (X_y_v, Y_y_v)
-    history = classifier.fit(X_y_t, Z_y_t, **fit_arguments)
+    history = classifier.fit(X_y_t, Y_y_t, **fit_arguments)
     # 2. Evaluate the model in the validation set with true labels
     y_pred = classifier.predict(X_y_v, verbose=verbose)
     # print('FS: predictions min: {}, max: {}'.format(min(y_pred), max(y_pred)))
