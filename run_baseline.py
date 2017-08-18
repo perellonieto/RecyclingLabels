@@ -25,7 +25,7 @@ def parse_arguments():
                         default='supervised',
                         help='''Learning method to use between,
                                 Mproper, fully_supervised, fully_weak,
-                                partially_weak, or EM''')
+                                partially_weak, EM or OSL''')
     parser.add_argument('-a', '--architecture', dest='architecture', type=str,
                         default='lr',
                         help='''Model architecture. Possible options are: lr

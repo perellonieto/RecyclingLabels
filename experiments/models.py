@@ -119,7 +119,7 @@ class MyKerasClassifier(KerasClassifier):
 
 class MySequentialOSL(Sequential):
     def fit(self, train_x, train_y, test_x=None, test_y=None, batch_size=None,
-            epochs=1, verbose=0):
+            epochs=1, verbose=0, **kwargs):
         history = []
         for n in range(epochs):
             if verbose > 1:
@@ -129,7 +129,8 @@ class MySequentialOSL(Sequential):
 
             h = super(MySequentialOSL, self).fit(train_x, train_osl_y,
                                                  batch_size=batch_size,
-                                                 epochs=1, verbose=verbose)
+                                                 epochs=1, verbose=verbose,
+                                                 **kwargs)
             history.append(h)
         return FakeHistory(_merge_histories(history))
 

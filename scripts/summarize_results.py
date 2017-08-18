@@ -176,8 +176,10 @@ def export_datasets_info(df, path='', stylesheets=['style.css']):
     mean_loss_best_model = mean_loss_best_model.rename(columns={'acc': 'mean(acc)'})
     df_table = pd.concat([df_table, mean_loss_best_model], axis=1)
 
+    # FIXME study if this change needs to be done in export_df
+    df_table_one_index = df_table.reset_index()
     # Export to svg
-    export_df(df_table, 'datasets', path=path, extension='svg')
+    export_df(df_table_one_index, 'datasets', path=path, extension='svg')
 
     return df_table
 
