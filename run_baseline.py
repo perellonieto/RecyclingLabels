@@ -58,11 +58,13 @@ def parse_arguments():
     parser.add_argument('-e', '--stderr', dest='stderr',
                         default=False, action='store_true',
                         help='If the stderr needs to be redirected')
+    parser.add_argument('-c', '--epochs', dest='epochs', type=int,
+                        default=200, help='Number of epochs')
     return parser.parse_args()
 
 
 def main(dataset, seed, verbose, method, path, n_jobs, n_iterations,
-         k_folds, architecture, loss, stdout, stderr):
+         k_folds, architecture, loss, stdout, stderr, epochs):
 
     diary = Diary(name=('{}_{}_{}'.format(dataset, method, architecture)),
                   path=path, overwrite=False, image_format='png',
@@ -89,7 +91,7 @@ def main(dataset, seed, verbose, method, path, n_jobs, n_iterations,
                         verbose=verbose, classes=classes, method=method,
                         diary=diary, n_jobs=n_jobs, loss=loss,
                         n_iterations=n_iterations, k_folds=k_folds,
-                        architecture=architecture)
+                        architecture=architecture, epochs=epochs)
 
 
 if __name__ == '__main__':
