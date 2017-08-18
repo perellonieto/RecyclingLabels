@@ -55,8 +55,11 @@ def train_weak_Mproper_test_results(parameters):
 
     Y_y_v : array-like, with shape (n_validation_samples_with_y, n_classes)
         True labels for validation
+
+    entry_extra: Notebook
+        Notebook to save any extra information
     """
-    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments = parameters
+    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments, entry_extra = parameters
     n_c = Y_y_v.shape[1]
     categories = range(n_c)
 
@@ -121,31 +124,43 @@ def train_weak_EM_test_results(parameters):
 
     Y_y_v : array-like, with shape (n_validation_samples_with_y, n_classes)
         True labels for validation
+
+    entry_extra: Notebook
+        Notebook to save any extra information
     """
-    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments = parameters
+    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments, entry_extra = parameters
     n_c = Y_y_v.shape[1]
     categories = range(n_c)
 
     verbose = fit_arguments.get('verbose', 0)
 
     # 1. Learn a mixing matrix using training with weak and true labels
-    M_1 = estimate_M(Z_y_t, Y_y_t, categories, reg=None)
-    M_2 = computeM(c=n_c, method='supervised')
-    q_1 = M_1.shape[0] / float(M_1.shape[0] + M_2.shape[0])
-    q_2 = M_2.shape[0] / float(M_1.shape[0] + M_2.shape[0])
-    M = np.concatenate((q_1*M_1, q_2*M_2), axis=0)
+    M_0 = estimate_M(Z_y_t, Y_y_t, categories, reg=None)
+    M_1 = computeM(c=n_c, method='supervised')
+    q_0 = X_z_t.shape[0] / float(X_z_t.shape[0] + X_y_t.shape[0])
+    q_1 = X_y_t.shape[0] / float(X_z_t.shape[0] + X_y_t.shape[0])
+    M = np.concatenate((q_0*M_0, q_1*M_1), axis=0)
     #  2. Compute the index of each sample relating it to the corresponding
     #     row of the new mixing matrix
     #      - Needs to compute the individual M and their weight q
     Z_z_t_index = weak_to_index(Z_z_t, method='Mproper')
     Y_y_t_index = weak_to_index(Y_y_t, method='supervised')
-
+    if process_id == 0:
+        entry_extra(row={'q0': q_0, 'q1': q_1})
+        entry_extra(row={'M_0': "\n{}".format(np.round(M_0, decimals=3))})
+        entry_extra(row={'M_1': "\n{}".format(np.round(M_1, decimals=3))})
+        entry_extra(row={'M': "\n{}".format(np.round(M, decimals=3))})
+        entry_extra(row={'Z_y_t': "\n{}".format(np.round(Z_y_t[:5]))})
+        entry_extra(row={'Z_z_t_index': Z_z_t_index[:5]})
+        entry_extra(row={'Z_z_t': "\n{}".format(np.round(Z_z_t[:5]))})
+        entry_extra(row={'Y_y_t_index': Y_y_t_index[:5]})
+        entry_extra(row={'Y_y_t': "\n{}".format(np.round(Y_y_t[:5]))})
     # 3. Give the mixing matrix to the model for future use
     #    I need to give the matrix M to the fit function
     # 4. Train model using all the sets with instead of labels the index of
     #    the corresponding rows of the mixing matrix
     Z_index_t = np.concatenate((Z_z_t_index,
-                                Y_y_t_index + M_1.shape[0]))
+                                Y_y_t_index + M_0.shape[0]))
     np.random.seed(process_id)
     X_t = np.concatenate((X_z_t, X_y_t), axis=0)
     X_t, Z_index_t = shuffle(X_t, Z_index_t)
@@ -192,8 +207,11 @@ def train_weak_fully_supervised_test_results(parameters):
 
     Y_y_v : array-like, with shape (n_validation_samples_with_y, n_classes)
         True labels for validation
+
+    entry_extra: Notebook
+        Notebook to save any extra information
     """
-    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments = parameters
+    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments, entry_extra = parameters
 
     verbose = fit_arguments.get('verbose', 0)
 
@@ -215,7 +233,10 @@ def train_weak_fully_weak_test_results(parameters):
     """Train a model using the fully supervised approach:
 
         1. Train model with the training set that has weak labels
+            - model.fit([X_z_t and X_y_t], [Z_z_t and Z_y_t])
         2. Evaluate the model in the validation set with true labels
+            - y_pred = model.predict(X_y_v)
+            - evaluate(y_pred, Y_y_v)
 
     Parameters
     ----------
@@ -239,8 +260,11 @@ def train_weak_fully_weak_test_results(parameters):
 
     Y_y_v : array-like, with shape (n_validation_samples_with_y, n_classes)
         True labels for validation
+
+    entry_extra: Notebook
+        Notebook to save any extra information
     """
-    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments = parameters
+    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments, entry_extra = parameters
 
     verbose = fit_arguments.get('verbose', 0)
 
@@ -265,9 +289,12 @@ def train_weak_fully_weak_test_results(parameters):
 def train_weak_partially_weak_test_results(parameters):
     """Train a model using the fully supervised approach:
 
-        1. Train model with the training set that has weak labels with the true
-           labels when available
+        1. Train model with the training set with weak labels and true labels
+            when available
+            - model.fit([X_z_t and X_y_t], [Z_z_t and Y_y_t])
         2. Evaluate the model in the validation set with true labels
+            - y_pred = model.predict(X_y_v)
+            - evaluate(y_pred, Y_y_v)
 
     Parameters
     ----------
@@ -291,8 +318,11 @@ def train_weak_partially_weak_test_results(parameters):
 
     Y_y_v : array-like, with shape (n_validation_samples_with_y, n_classes)
         True labels for validation
+
+    entry_extra: Notebook
+        Notebook to save any extra information
     """
-    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments = parameters
+    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments, entry_extra = parameters
 
     verbose = fit_arguments.get('verbose', 0)
 
@@ -318,7 +348,7 @@ def train_weak_partially_weak_test_results(parameters):
 def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
                         n_iterations=2, k_folds=2, diary=None, verbose=0,
                         random_state=None, method='Mproper', n_jobs=None,
-                        architecture='lr', loss='mse'):
+                        architecture='lr', loss='mse', epochs=200):
     """ Trains a Feed-fordward neural network using cross-validation
 
     The training is done with the weak labels on the training set and
@@ -360,6 +390,7 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
     entry_model = diary.add_notebook('model')
     entry_val = diary.add_notebook('validation')
     entry_tra = diary.add_notebook('training')
+    entry_extra = diary.add_notebook('extra')
 
     n_f = X_z.shape[1]
     n_c = Y_y.shape[1]
@@ -398,7 +429,7 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
               'momentum': 0.5,
               'decay': 0.5,
               'nesterov': True,
-              'epochs': 200,
+              'epochs': epochs,
               'batch_size': 100,
               'verbose': verbose,
               'random_state': random_state,
@@ -427,11 +458,18 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
                                                     random_state=i)
         splits = skf.split(X_y_s, y_y_s)
 
-        for train, test in splits:
+        for train, valid in splits:
             map_arguments.append((process_id, classifier,
                                   X_z, Z_z,
                                   X_y_s[train], Z_y_s[train], Y_y_s[train],
-                                  X_y_s[test], Y_y_s[test], fit_arguments))
+                                  X_y_s[valid], Y_y_s[valid], fit_arguments,
+                                  entry_extra))
+            if process_id == 0:
+                entry_extra(row={'y_y_t' : y_y_s[train][:5]})
+                entry_extra(row={'Y_y_t' : "\n{}".format(Y_y_s[train][:5])})
+                entry_extra(row={'z_y_t' : z_y_s[train][:5]})
+                entry_extra(row={'Z_y_t' : "\n{}".format(Z_y_s[train][:5])})
+
             process_id += 1
 
     # accuracies = train_weak_test_acc(map_arguments[0])
