@@ -4,6 +4,19 @@ import theano.tensor as T
 
 from sklearn.metrics import log_loss
 
+
+def compute_error_matrix(p, err_func):
+    error = np.zeros((len(p), len(p)))
+    for i, p_prior in enumerate(p):
+        for j, p_pred in enumerate(p):
+            error[i,j] = err_func(p_pred, float(i==j))
+    return error
+
+
+def compute_expected_error(p, e):
+    return np.sum(p*e.sum(axis=1))
+
+
 def brier_score(target, predicted, class_weights, per_class=False):
     """Brier score between target and predicted
 
