@@ -15,6 +15,7 @@ from experiments.visualizations import plot_confusion_matrix, \
                                        plot_errorbar
 from experiments.diary import Diary
 from experiments.utils import merge_dicts
+from experiments.metrics import compute_expected_error, compute_error_matrix
 
 from wlc.WLweakener import computeVirtual, computeM, estimate_M, weak_to_index
 
@@ -66,7 +67,7 @@ def train_weak_Mproper_test_results(parameters):
     verbose = fit_arguments.get('verbose', 0)
 
     # 1. Learn a mixing matrix using training with weak and true labels
-    M = estimate_M(Z_y_t, Y_y_t, categories, reg=None)
+    M = estimate_M(Z_y_t, Y_y_t, categories, reg='Complete')
     # 2. Compute virtual labels for training set only with weak labels
     V_z_t = computeVirtual(Z_z_t, c=n_c, method='Mproper', M=M)
     # TODO where is the randomization applied?
@@ -135,7 +136,7 @@ def train_weak_EM_test_results(parameters):
     verbose = fit_arguments.get('verbose', 0)
 
     # 1. Learn a mixing matrix using training with weak and true labels
-    M_0 = estimate_M(Z_y_t, Y_y_t, categories, reg=None)
+    M_0 = estimate_M(Z_y_t, Y_y_t, categories, reg='Complete')
     M_1 = computeM(c=n_c, method='supervised')
     q_0 = X_z_t.shape[0] / float(X_z_t.shape[0] + X_y_t.shape[0])
     q_1 = X_y_t.shape[0] / float(X_z_t.shape[0] + X_y_t.shape[0])
@@ -145,7 +146,7 @@ def train_weak_EM_test_results(parameters):
     #      - Needs to compute the individual M and their weight q
     Z_z_t_index = weak_to_index(Z_z_t, method='Mproper')
     Y_y_t_index = weak_to_index(Y_y_t, method='supervised')
-    if process_id == 0:
+    if process_id == 0 and entry_extra is not None:
         entry_extra(row={'q0': q_0, 'q1': q_1})
         entry_extra(row={'M_0': "\n{}".format(np.round(M_0, decimals=3))})
         entry_extra(row={'M_1': "\n{}".format(np.round(M_1, decimals=3))})
@@ -155,12 +156,14 @@ def train_weak_EM_test_results(parameters):
         entry_extra(row={'Z_z_t': "\n{}".format(np.round(Z_z_t[:5]))})
         entry_extra(row={'Y_y_t_index': Y_y_t_index[:5]})
         entry_extra(row={'Y_y_t': "\n{}".format(np.round(Y_y_t[:5]))})
+        Z_y_t_index = weak_to_index(Z_y_t, method='Mproper')
     # 3. Give the mixing matrix to the model for future use
     #    I need to give the matrix M to the fit function
     # 4. Train model using all the sets with instead of labels the index of
     #    the corresponding rows of the mixing matrix
     Z_index_t = np.concatenate((Z_z_t_index,
                                 Y_y_t_index + M_0.shape[0]))
+    from IPython import embed; embed()
     np.random.seed(process_id)
     X_t = np.concatenate((X_z_t, X_y_t), axis=0)
     X_t, Z_index_t = shuffle(X_t, Z_index_t)
@@ -395,6 +398,16 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
     n_f = X_z.shape[1]
     n_c = Y_y.shape[1]
 
+
+    prior_y = np.true_divide(Y_y.sum(axis=0), Y_y.sum())
+    brier_score = lambda yp, yt: (yp - yt)**2
+    error_matrix = compute_error_matrix(prior_y, brier_score)
+    expected_error = compute_expected_error(prior_y, error_matrix)
+    entry_extra(row={'expected_error': expected_error})
+
+    # FIXME remove this when the multiprocessing pool problem is solved
+    entry_extra = None
+
     # If dimension is 2, we draw a 2D scatterplot
     if n_f >= 2:
         fig = plot_multilabel_scatter(X_y, Y_y, title='True labels')
@@ -459,12 +472,15 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
         splits = skf.split(X_y_s, y_y_s)
 
         for train, valid in splits:
+            # FIXME entry_extra can not be pickled
+            # see here:
+            # https://stackoverflow.com/questions/1816958/cant-pickle-type-instancemethod-when-using-multiprocessing-pool-map
             map_arguments.append((process_id, classifier,
                                   X_z, Z_z,
                                   X_y_s[train], Z_y_s[train], Y_y_s[train],
                                   X_y_s[valid], Y_y_s[valid], fit_arguments,
                                   entry_extra))
-            if process_id == 0:
+            if process_id == 0 and entry_extra is not None:
                 entry_extra(row={'y_y_t' : y_y_s[train][:5]})
                 entry_extra(row={'Y_y_t' : "\n{}".format(Y_y_s[train][:5])})
                 entry_extra(row={'z_y_t' : z_y_s[train][:5]})
@@ -485,7 +501,8 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
         results = pool.map(train_weak_partially_weak_test_results,
                            map_arguments)
     elif method == 'EM':
-        results = pool.map(train_weak_EM_test_results, map_arguments)
+        results = [train_weak_EM_test_results(map_arguments[0])]
+        #results = pool.map(train_weak_EM_test_results, map_arguments)
     else:
         raise(ValueError('Method not implemented: %s' % (method)))
 
