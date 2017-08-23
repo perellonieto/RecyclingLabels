@@ -559,7 +559,9 @@ def weak_to_index(z, method='supervised'):
     """
     c = z.shape[1]
     if method in ['supervised']:
-        index = c - np.argmax(z, axis=1) - 1
+        # FIXME which of both is correct?
+        index = np.argmax(z, axis=1)
+        #index = c - np.argmax(z, axis=1) - 1
     else:
         #index = np.array(map(bin_array_to_dec, z.astype(int)))
         index = weak_to_decimal(z)
