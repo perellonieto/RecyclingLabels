@@ -25,9 +25,9 @@ pip install -e .
 
 ### Tutorial
 
-The script `tutorial.py` runs an example of the Recycling Labels approach on
-the specified dataset from the options iris, blobs and webs. It generates a
-markdown. For example, to run the tutorial on iris dataset execute:
+The script [tutorial.py][tutorial.py] runs an example of the Recycling Labels
+approach on the specified dataset from the options iris, blobs and webs. It
+generates a markdown. For example, to run the tutorial on iris dataset execute:
 
 ```bash
 python tutorial.py iris
@@ -40,3 +40,9 @@ example:
 python tutorial.py iris > tutorial_iris.markdown
 pandoc tutorial_iris.markdown > tutorial_iris.html
 ```
+
+The markdown for iris, blobs and webs is already computed and available here:
+
+- **iris : ** [tutorial_iris.markdown][tutorial_iris.markdown]
+- **blobs : ** [tutorial_blobs.markdown][tutorial_blobs.markdown]
+- **webs : ** [tutorial_webs.markdown][tutorial_webs.markdown]
