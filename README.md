@@ -43,6 +43,6 @@ pandoc tutorial_iris.markdown > tutorial_iris.html
 
 The markdown for iris, blobs and webs is already computed and available here:
 
-- **iris:** [tutorial_iris.markdown](tutorial_iris.markdown=)
+- **iris:** [tutorial_iris.markdown](tutorial_iris.markdown)
 - **blobs:** [tutorial_blobs.markdown](tutorial_blobs.markdown)
 - **webs:** [tutorial_webs.markdown](tutorial_webs.markdown)
