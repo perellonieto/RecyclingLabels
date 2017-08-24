@@ -548,7 +548,7 @@ def weak_to_index(z, method='supervised'):
     ...               [ 0.,  0.,  1.,  0.],
     ...               [ 1.,  0.,  0.,  0.]])
     >>> weak_to_index(z, method='supervised')
-    array([0, 1, 3])
+    array([3, 2, 0])
     >>> weak_to_index(z, method='Mproper')
     array([1, 2, 8])
     >>> z = np.array([[ 0.,  0.,  0.,  0.],

@@ -86,7 +86,7 @@ def train_weak_Mproper_test_results(parameters):
     # print('MP: predictions min: {}, max: {}'.format(min(y_pred), max(y_pred)))
     # Compute the confusion matrix
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
-    results = {'pid': process_id, 'cm': cm, 'history': history}
+    results = {'pid': process_id, 'cm': cm, 'history': history.history}
     return results
 
 
@@ -163,7 +163,6 @@ def train_weak_EM_test_results(parameters):
     #    the corresponding rows of the mixing matrix
     Z_index_t = np.concatenate((Z_z_t_index,
                                 Y_y_t_index + M_0.shape[0]))
-    from IPython import embed; embed()
     np.random.seed(process_id)
     X_t = np.concatenate((X_z_t, X_y_t), axis=0)
     X_t, Z_index_t = shuffle(X_t, Z_index_t)
@@ -174,7 +173,7 @@ def train_weak_EM_test_results(parameters):
     y_pred = classifier.predict(X_y_v, verbose=verbose)
     # Compute the confusion matrix
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
-    results = {'pid': process_id, 'cm': cm, 'history': history}
+    results = {'pid': process_id, 'cm': cm, 'history': history.history}
     return results
 
 
@@ -228,7 +227,7 @@ def train_weak_fully_supervised_test_results(parameters):
     # print('FS: predictions min: {}, max: {}'.format(min(y_pred), max(y_pred)))
     # Compute the confusion matrix
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
-    results = {'pid': process_id, 'cm': cm, 'history': history}
+    results = {'pid': process_id, 'cm': cm, 'history': history.history}
     return results
 
 
@@ -285,7 +284,7 @@ def train_weak_fully_weak_test_results(parameters):
     # print('FW: predictions min: {}, max: {}'.format(min(y_pred), max(y_pred)))
     # Compute the confusion matrix
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
-    results = {'pid': process_id, 'cm': cm, 'history': history}
+    results = {'pid': process_id, 'cm': cm, 'history': history.history}
     return results
 
 
@@ -343,7 +342,7 @@ def train_weak_partially_weak_test_results(parameters):
     # print('PW: predictions min: {}, max: {}'.format(min(y_pred), max(y_pred)))
     # Compute the confusion matrix
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
-    results = {'pid': process_id, 'cm': cm, 'history': history}
+    results = {'pid': process_id, 'cm': cm, 'history': history.history}
     return results
 
 
@@ -404,9 +403,6 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
     error_matrix = compute_error_matrix(prior_y, brier_score)
     expected_error = compute_expected_error(prior_y, error_matrix)
     entry_extra(row={'expected_error': expected_error})
-
-    # FIXME remove this when the multiprocessing pool problem is solved
-    entry_extra = None
 
     # If dimension is 2, we draw a 2D scatterplot
     if n_f >= 2:
@@ -472,37 +468,47 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
         splits = skf.split(X_y_s, y_y_s)
 
         for train, valid in splits:
-            # FIXME entry_extra can not be pickled
-            # see here:
-            # https://stackoverflow.com/questions/1816958/cant-pickle-type-instancemethod-when-using-multiprocessing-pool-map
-            map_arguments.append((process_id, classifier,
-                                  X_z, Z_z,
-                                  X_y_s[train], Z_y_s[train], Y_y_s[train],
-                                  X_y_s[valid], Y_y_s[valid], fit_arguments,
-                                  entry_extra))
-            if process_id == 0 and entry_extra is not None:
+            if process_id == 0:
                 entry_extra(row={'y_y_t' : y_y_s[train][:5]})
                 entry_extra(row={'Y_y_t' : "\n{}".format(Y_y_s[train][:5])})
                 entry_extra(row={'z_y_t' : z_y_s[train][:5]})
                 entry_extra(row={'Z_y_t' : "\n{}".format(Z_y_s[train][:5])})
 
+            if n_jobs is not None and n_jobs > 1:
+                # FIXME entry_extra can not be pickled
+                # see here:
+                # https://stackoverflow.com/questions/1816958/cant-pickle-type-instancemethod-when-using-multiprocessing-pool-map
+                # FIXME remove this when the multiprocessing pool problem is solved
+                entry_extra = None
+
+            map_arguments.append((process_id, classifier,
+                                  X_z, Z_z,
+                                  X_y_s[train], Z_y_s[train], Y_y_s[train],
+                                  X_y_s[valid], Y_y_s[valid], fit_arguments,
+                                  entry_extra))
             process_id += 1
 
     # accuracies = train_weak_test_acc(map_arguments[0])
-    pool = multiprocessing.Pool(processes=n_jobs)
+    if n_jobs is None or n_jobs == 1:
+        my_map = map
+    else:
+        pool = multiprocessing.Pool(processes=n_jobs)
+        my_map = pool.map
+        # FIXME remove this when the multiprocessing pool problem is solved
+        entry_extra = None
+
     if method == 'Mproper':
-        results = pool.map(train_weak_Mproper_test_results, map_arguments)
+        results = my_map(train_weak_Mproper_test_results, map_arguments)
     elif method == 'fully_supervised':
-        results = pool.map(train_weak_fully_supervised_test_results,
+        results = my_map(train_weak_fully_supervised_test_results,
                            map_arguments)
     elif method == 'fully_weak':
-        results = pool.map(train_weak_fully_weak_test_results, map_arguments)
+        results = my_map(train_weak_fully_weak_test_results, map_arguments)
     elif method in ['partially_weak', 'OSL']:
-        results = pool.map(train_weak_partially_weak_test_results,
+        results = my_map(train_weak_partially_weak_test_results,
                            map_arguments)
     elif method == 'EM':
-        results = [train_weak_EM_test_results(map_arguments[0])]
-        #results = pool.map(train_weak_EM_test_results, map_arguments)
+        results = my_map(train_weak_EM_test_results, map_arguments)
     else:
         raise(ValueError('Method not implemented: %s' % (method)))
 
@@ -517,7 +523,7 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
         val_loss.append([])
         if verbose > 1:
             print(result)
-        history = result['history'].history
+        history = result['history']
         if 'val_loss' in history.keys():
             zipped = zip(history['loss'], history['acc'],
                          history['val_loss'], history['val_acc'])
