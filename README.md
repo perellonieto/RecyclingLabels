@@ -22,3 +22,21 @@ virtualenv venv
 pip install -r requirements.txt
 pip install -e .
 ```
+
+### Tutorial
+
+The script `tutorial.py` runs an example of the Recycling Labels approach on
+the specified dataset from the options iris, blobs and webs. It generates a
+markdown. For example, to run the tutorial on iris dataset execute:
+
+```bash
+python tutorial.py iris
+```
+
+The generated output can be rendered to html for example using pandoc. For
+example:
+
+```bash
+python tutorial.py iris > tutorial_iris.markdown
+pandoc tutorial_iris.markdown > tutorial_iris.html
+```
