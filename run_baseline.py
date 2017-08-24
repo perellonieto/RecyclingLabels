@@ -91,7 +91,7 @@ def main(dataset, seed, verbose, method, path, n_jobs, n_iterations,
     if method == 'fully_supervised':
         fully_s_set_size = (z_v.shape[0]/k_folds)*(k_folds-1)
         others_set_size = z_v.shape[0] + fully_s_set_size
-        epochs = (epochs*others_set_size)/fully_s_set_size
+        epochs = int((epochs*others_set_size)/fully_s_set_size)
 
     analyse_weak_labels(X_z=X_t, Z_z=Z_t, z_z=z_t, X_y=X_v, Z_y=Z_v,
                         z_y=z_v, Y_y=Y_v, y_y=y_v, random_state=seed,
