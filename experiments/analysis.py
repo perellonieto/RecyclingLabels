@@ -399,10 +399,17 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
 
 
     prior_y = np.true_divide(Y_y.sum(axis=0), Y_y.sum())
+    entry_extra(row={'prior_distribution': prior_y})
     brier_score = lambda yp, yt: (yp - yt)**2
     error_matrix = compute_error_matrix(prior_y, brier_score)
-    expected_error = compute_expected_error(prior_y, error_matrix)
-    entry_extra(row={'expected_error': expected_error})
+    expected_bs = compute_expected_error(prior_y, error_matrix)
+    entry_extra(row={'expected_brier_score': expected_bs})
+    log_loss = lambda yp, yt: -yt*np.log(yp)
+    error_matrix = compute_error_matrix(prior_y, log_loss)
+    expected_ll = compute_expected_error(prior_y, error_matrix)
+    entry_extra(row={'expected_log_loss': expected_ll})
+    entry_extra(row={'expected_accuracy': max(prior_y)})
+    entry_extra(row={'mean_acc_Y_Z': (Z_y == Y_y).mean(axis=0)})
 
     # If dimension is 2, we draw a 2D scatterplot
     if n_f >= 2:
