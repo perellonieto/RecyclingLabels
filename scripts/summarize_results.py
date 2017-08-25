@@ -334,7 +334,9 @@ def main(results_path='results', summary_path='', filter_rows={},
 
     # Keep only the last computed results for the same experiment
     df.sort_values(by=['date', 'time'], ascending=True, inplace=True)
-    df.drop_duplicates(subset=['architecture', 'epochs', 'init', 'input_dim',
+    # FIXME I removed the epochs because I had to repeat some experiments with
+    # additional epochs. However, in the future I should add it
+    df.drop_duplicates(subset=['architecture', 'init', 'input_dim',
                                'loss', 'method', 'n_classes', 'n_features',
                                'name', 'n_samples_without_y',
                                'n_samples_with_y', 'pid', 'training_method'],
