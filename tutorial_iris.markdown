@@ -158,8 +158,114 @@ Expected Log-loss: $\mathbb{E}_{y\sim P(y)} [\Psi_{LL}(S, y)] = \sum_{j=1}^K P(y
 </pre>
 
 
-# ESTIMATION OF THE MIXING MATRIX M ###
+# EXAMPLE OF ESTIMATION OF THE MIXING MATRIX M ###
+
 From now, $M_0$ is for the weak set and $M_1$ for the **full set** that contains the true labels
+
+Lets imagine our full set of weak and true labels is this small sample
+
+- z = [2 5 3 4 5 5]
+
+- y = [1 0 1 0 2 0]
+
+We can estimate the probability of each weak label given the true
+         label by counting first the number of occurrences of both happening at
+         the same time
+
+<pre>
+   0  1  2
+0  0  0  0
+1  0  0  0
+2  0  1  0
+3  0  1  0
+4  1  0  0
+5  2  0  1
+6  0  0  0
+7  0  0  0
+</pre>
+
+
+Where there is one column per true label and one row per each
+         possible weak label
+
+Then we can compute the probability of each weak label given the true
+         label by dividing every column by its sum. If we do that, we will get
+         a possible estimation of $M_0$
+
+Estimated $M_0$
+
+<pre>
+     0    1    2
+0 0.00 0.00 0.00
+1 0.00 0.00 0.00
+2 0.00 0.50 0.00
+3 0.00 0.50 0.00
+4 0.33 0.00 0.00
+5 0.67 0.00 1.00
+6 0.00 0.00 0.00
+7 0.00 0.00 0.00
+</pre>
+
+
+However, because given a small data size it is possible that some of
+         the weak labels does not occur. We can apply a Laplace correction by
+         adding one count to each possible weak label given the true label
+
+<pre>
+   0  1  2
+0  1  1  1
+1  1  1  1
+2  1  2  1
+3  1  2  1
+4  2  1  1
+5  3  1  2
+6  1  1  1
+7  1  1  1
+</pre>
+
+
+Estimated $M_0$ with Laplace correction
+
+<pre>
+     0    1    2
+0 0.09 0.10 0.11
+1 0.09 0.10 0.11
+2 0.09 0.20 0.11
+3 0.09 0.20 0.11
+4 0.18 0.10 0.11
+5 0.27 0.10 0.22
+6 0.09 0.10 0.11
+7 0.09 0.10 0.11
+</pre>
+
+
+The mixing matrix for the clean data $M_1$
+
+<pre>
+     0    1    2
+0 1.00 0.00 0.00
+1 0.00 1.00 0.00
+2 0.00 0.00 1.00
+</pre>
+
+
+# ESTIMATION OF THE MIXING MATRIX M FOR ALL DATA ###
+
+Now lets do the same but with the full set of weak and true labels
+
+This is the count
+
+<pre>
+[[ 0.  0.  0.]
+ [ 0.  0.  1.]
+ [ 0.  3.  0.]
+ [ 0.  2.  3.]
+ [ 2.  0.  0.]
+ [ 3.  0.  1.]
+ [ 0.  0.  0.]
+ [ 0.  0.  0.]]
+</pre>
+
 
 Estimated $M_0$ without Laplace correction
 

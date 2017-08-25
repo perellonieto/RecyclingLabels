@@ -5,10 +5,17 @@ from experiments.data import load_webs, load_weak_iris, load_weak_blobs
 from experiments.metrics import compute_expected_error, compute_error_matrix
 
 from wlc.WLweakener import computeM, estimate_M, weak_to_index
+from wlc.WLweakener import weakCount, newWeakCount
 from wlc.WLweakener import generateWeak
 from wlc.WLweakener import binarizeWeakLabels
 
 from sklearn.preprocessing import label_binarize
+
+# TODO Should we add pandas as a dependency? It is not necessary for most of
+# the code
+import pandas as pd
+pd.set_option('display.max_rows', 64)
+pd.options.display.float_format = '{:,.2f}'.format
 
 print("Most of the following floats are limited to a precision of 2 decimals")
 np.set_printoptions(precision=2)
@@ -49,7 +56,7 @@ load_dataset = {'blobs': load_weak_blobs,
                 'iris': load_weak_iris,
                 'webs': load_webs}
 
-if sys.argv > 1:
+if len(sys.argv) > 1:
     if str(sys.argv[1]) not in load_dataset:
         print("Wrong argument: Optional datasets are")
         print(load_dataset.keys())
@@ -134,8 +141,41 @@ print("\nExpected Log-loss: $\mathbb{E}_{y\sim P(y)} [\Psi_{LL}(S, y)] = \sum_{j
 expected_ll = compute_expected_error(prior_y, ll_matrix)
 print_code(expected_ll)
 
-print("\n# ESTIMATION OF THE MIXING MATRIX M ###")
-print("From now, $M_0$ is for the weak set and $M_1$ for the **full set** that contains the true labels")
+print("\n# EXAMPLE OF ESTIMATION OF THE MIXING MATRIX M ###")
+print("\nFrom now, $M_0$ is for the weak set and $M_1$ for the **full set** that contains the true labels")
+print("\nLets imagine our full set of weak and true labels is this small sample")
+print("\n- z = {}".format(z_s))
+print("\n- y = {}".format(y_s))
+print('''\nWe can estimate the probability of each weak label given the true
+         label by counting first the number of occurrences of both happening at
+         the same time''')
+M_0_count = newWeakCount(Z_s, Y_s, classes, reg=None).todense().astype(int)
+print_code(pd.DataFrame(M_0_count))
+print('''\nWhere there is one column per true label and one row per each
+         possible weak label''')
+print('''\nThen we can compute the probability of each weak label given the true
+         label by dividing every column by its sum. If we do that, we will get
+         a possible estimation of $M_0$''')
+## 1. Learn a mixing matrix using training with weak and true labels
+print("\nEstimated $M_0$")
+M_0 = estimate_M(Z_s, Y_s, classes, reg=None)
+print_code(pd.DataFrame(M_0))
+print('''\nHowever, because given a small data size it is possible that some of
+         the weak labels does not occur. We can apply a Laplace correction by
+         adding one count to each possible weak label given the true label''')
+print_code(pd.DataFrame(M_0_count+1))
+print("\nEstimated $M_0$ with Laplace correction")
+M_0 = estimate_M(Z_s, Y_s, classes, reg='Complete')
+print_code(pd.DataFrame(M_0))
+print("\nThe mixing matrix for the clean data $M_1$")
+M_1 = computeM(c=n_c, method='supervised')
+print_code(pd.DataFrame(M_1))
+
+print("\n# ESTIMATION OF THE MIXING MATRIX M FOR ALL DATA ###")
+print("\nNow lets do the same but with the full set of weak and true labels")
+print('''\nThis is the count''')
+M_0_count = newWeakCount(Z_v, Y_v, classes, reg=None).todense()
+print_code(M_0_count)
 ## 1. Learn a mixing matrix using training with weak and true labels
 print("\nEstimated $M_0$ without Laplace correction")
 M_0 = estimate_M(Z_v, Y_v, classes, reg=None)
