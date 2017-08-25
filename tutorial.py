@@ -51,6 +51,26 @@ def print_code(text):
     print(text)
     print('</pre>\n')
 
+def print_matrix(matrix, columns=None, rows=None, form="{}"):
+    n_rows = matrix.shape[0]
+    n_cols = matrix.shape[1]
+    if columns is None:
+        columns = range(n_cols)
+    if rows is None:
+        rows = range(n_rows)
+
+    header = '| | **' + "** | **".join(map(str, columns)) + '** |\n'
+    hline = '|' + ' :-: |'*(n_cols+1) + '\n'
+    body = ''
+    for i, values in enumerate(matrix):
+        body += '| **{}** | '.format(rows[i])
+        body += ' | '.join(map(form.format, np.array(values).flatten())) + ' |\n'
+
+    print('\n' + header + hline + body + '\n')
+
+
+
+
 
 load_dataset = {'blobs': load_weak_blobs,
                 'iris': load_weak_iris,
@@ -95,7 +115,7 @@ if dataset in ['iris', 'blobs']:
     print("\n- method = {}\n- alpha = {}\n- beta = {}".format(mixing_method, alpha, beta))
     print("\nResulting mixing matrix M")
     M = computeM(n_c, method=mixing_method, alpha=alpha, beta=beta)
-    print_code(M)
+    print_matrix(M, form='{:.2f}')
     print("\nBinarize the true labels and store in Y")
     Y_s = label_binarize(y_s, classes)
     print_code(Y_s)
@@ -128,7 +148,10 @@ print("\nWe show the performance of a simple model that always predicts the prio
 print("\n## BRIER SCORE #")
 print("Error matrix with Brier score: $\Psi_{BS} = BS(P(Y), I)$")
 bs_matrix = compute_error_matrix(prior_y, brier_score)
-print_code(bs_matrix)
+form = "{0:0" + str(n_c) + "b}"
+y_classes = range(n_c)
+columns = map(form.format, [2**c for c in reversed(y_classes)])
+print_matrix(bs_matrix, rows=map('{:.2f}'.format, prior_y), columns=columns, form='{:.2f}')
 print("\nExpected Brier score: $\mathbb{E}_{y\sim P(y)} [\Psi_{BS}(S, y)] = \sum_{j=1}^K P(y=j) \Psi_{BS}(S, y_j)$")
 expected_bs = compute_expected_error(prior_y, bs_matrix)
 print_code(expected_bs)
@@ -136,7 +159,7 @@ print_code(expected_bs)
 print("\n## LOG-LOSS #")
 print("Error matrix with Log-loss: $\Psi_{LL} = LL(P(Y), I)$")
 ll_matrix = compute_error_matrix(prior_y, log_loss)
-print_code(ll_matrix)
+print_matrix(ll_matrix, rows=map('{:.2f}'.format, prior_y), columns=columns, form='{:.2f}')
 print("\nExpected Log-loss: $\mathbb{E}_{y\sim P(y)} [\Psi_{LL}(S, y)] = \sum_{j=1}^K P(y=j) \Psi_{LL}(S, y_j)$")
 expected_ll = compute_expected_error(prior_y, ll_matrix)
 print_code(expected_ll)
@@ -150,7 +173,7 @@ print('''\nWe can estimate the probability of each weak label given the true
          label by counting first the number of occurrences of both happening at
          the same time''')
 M_0_count = newWeakCount(Z_s, Y_s, classes, reg=None).todense().astype(int)
-print_code(pd.DataFrame(M_0_count))
+print_matrix(M_0_count)
 print('''\nWhere there is one column per true label and one row per each
          possible weak label''')
 print('''\nThen we can compute the probability of each weak label given the true
@@ -159,33 +182,33 @@ print('''\nThen we can compute the probability of each weak label given the true
 ## 1. Learn a mixing matrix using training with weak and true labels
 print("\nEstimated $M_0$")
 M_0 = estimate_M(Z_s, Y_s, classes, reg=None)
-print_code(pd.DataFrame(M_0))
+print_matrix(M_0, form='{:.2f}')
 print('''\nHowever, because given a small data size it is possible that some of
          the weak labels does not occur. We can apply a Laplace correction by
          adding one count to each possible weak label given the true label''')
-print_code(pd.DataFrame(M_0_count+1))
+print_matrix(M_0_count+1, form="{:.0f}")
 print("\nEstimated $M_0$ with Laplace correction")
 M_0 = estimate_M(Z_s, Y_s, classes, reg='Complete')
-print_code(pd.DataFrame(M_0))
+print_matrix(M_0, form='{:.2f}')
 print("\nThe mixing matrix for the clean data $M_1$")
 M_1 = computeM(c=n_c, method='supervised')
-print_code(pd.DataFrame(M_1))
+print_matrix(M_1, form='{:.2f}')
 
 print("\n# ESTIMATION OF THE MIXING MATRIX M FOR ALL DATA ###")
 print("\nNow lets do the same but with the full set of weak and true labels")
 print('''\nThis is the count''')
-M_0_count = newWeakCount(Z_v, Y_v, classes, reg=None).todense()
-print_code(M_0_count)
+M_0_count = newWeakCount(Z_v, Y_v, classes, reg=None).todense().astype(int)
+print_matrix(M_0_count)
 ## 1. Learn a mixing matrix using training with weak and true labels
 print("\nEstimated $M_0$ without Laplace correction")
 M_0 = estimate_M(Z_v, Y_v, classes, reg=None)
-print_code(M_0)
+print_matrix(M_0, form='{:.2f}')
 print("\nEstimated $M_0$ with Laplace correction")
 M_0 = estimate_M(Z_v, Y_v, classes, reg='Complete')
-print_code(M_0)
+print_matrix(M_0, form='{:.2f}')
 print("\nThe mixing matrix for the clean data $M_1$")
 M_1 = computeM(c=n_c, method='supervised')
-print_code(M_1)
+print_matrix(M_1, form='{:.2f}')
 
 print("\n## COMBINATION OF BOTH MATRICES FOR THE FULL DATASET ###")
 print("\nProportion of samples with weak ($q_0$) and with true labels ($q_1$)\n")
@@ -195,7 +218,7 @@ q_1 = len(y_v) / float(len(z_t) + len(y_v))
 print("- $q_1$ = {}".format(q_1))
 print("\nComposition of mixing matrices $M = [q_0*M_0 \mathtt{ , } q_1*M_1]^T$")
 M = np.concatenate((q_0*M_0, q_1*M_1), axis=0)
-print_code(M)
+print_matrix(M, form='{:.2f}')
 print("\nThe corresponding indices of the weak labels to the rows of the matrix M")
 Z_s_index = weak_to_index(Z_s, method='Mproper')
 print_code(Z_s_index)
