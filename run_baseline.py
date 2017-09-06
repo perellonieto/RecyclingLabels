@@ -34,9 +34,9 @@ def parse_arguments():
                         with 100 units in a hidden layer and Softmax), mlp60dm
                         (MLP with 60 hidden units, dropout 0.5 and SoftMax),
                         mlp30ds45dm, (MLP
-                        with two hidden layers of 30 units, dropout of 0.5, 
-                        SoftMax, layer of 45 units, dropout of 0.5, and
-                        SoftMax).''')
+                        with two hidden layers of 30 units, dropout of 0.5,
+                        Sigmoid activation, layer of 45 units, dropout of 0.5,
+                        and SoftMax).''')
     parser.add_argument('-r', '--path-results', dest='path', type=str,
                         default='results',
                         help='Path to the precomputed mixing matrix M')
