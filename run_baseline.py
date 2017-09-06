@@ -22,18 +22,21 @@ def parse_arguments():
                         default=None,
                         help='Seed for the random number generator')
     parser.add_argument('-m', '--method', dest='method', type=str,
-                        default='supervised',
+                        default='fully_supervised',
                         help='''Learning method to use between,
                                 Mproper, fully_supervised, fully_weak,
                                 partially_weak, EM or OSL''')
     parser.add_argument('-a', '--architecture', dest='architecture', type=str,
                         default='lr',
                         help='''Model architecture. Possible options are: lr
-                        (logistic regression), mlp100 (Multilayer Perceptron
-                        with 100 units in a hidden layer), mlp100d (MLP with
-                        100 hidden units and dropout 0.5), mlp100d100d, (MLP
-                        with two hidden layers of 100 units and dropout of 0.5
-                        after each of them).''')
+                        (logistic regression); or a MLP with the following
+                        specification: mlp100m (Multilayer Perceptron
+                        with 100 units in a hidden layer and Softmax), mlp60dm
+                        (MLP with 60 hidden units, dropout 0.5 and SoftMax),
+                        mlp30ds45dm, (MLP
+                        with two hidden layers of 30 units, dropout of 0.5, 
+                        SoftMax, layer of 45 units, dropout of 0.5, and
+                        SoftMax).''')
     parser.add_argument('-r', '--path-results', dest='path', type=str,
                         default='results',
                         help='Path to the precomputed mixing matrix M')
