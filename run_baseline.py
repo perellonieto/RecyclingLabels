@@ -1,13 +1,15 @@
 import argparse
 
+from functools import partial
+
 from experiments.data import load_webs, load_weak_iris, load_weak_blobs, \
                              load_toy_example
 from experiments.analysis import analyse_weak_labels
 from experiments.diary import Diary
 
 dataset_functions = {'toy_example': load_toy_example,
-                     'blobs': load_weak_blobs,
-                     'iris': load_weak_iris,
+                     'blobs': partial(load_weak_blobs, method='random_weak'),
+                     'iris': partial(load_weak_iris, method='random_weak'),
                      'webs': load_webs}
 
 
