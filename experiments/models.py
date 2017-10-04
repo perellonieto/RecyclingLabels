@@ -5,7 +5,7 @@ from functools import partial
 from collections import defaultdict
 
 from keras.models import Sequential
-from keras.layers.core import Dense, Dropout
+from keras.layers.core import Dense, Dropout, Activation
 from keras.optimizers import SGD
 from keras.wrappers.scikit_learn import KerasClassifier
 
@@ -208,30 +208,38 @@ def create_model(input_dim=1, output_size=1, optimizer='rmsprop',
         raise(ValueError('Training method %s not implemented' %
                          (training_method)))
 
+    previous_layer = input_dim
     if architecture == 'lr':
         model.add(Dense(output_size, input_shape=(input_dim,),
                         kernel_initializer='glorot_uniform',
                         activation='softmax'))
-    elif architecture == 'mlp100':
-        model.add(Dense(100, input_dim=input_dim, kernel_initializer=init,
-                        activation='sigmoid'))
-        model.add(Dense(output_size, input_dim=100, kernel_initializer=init,
-                        activation='softmax'))
-    elif architecture == 'mlp100d':
-        model.add(Dense(100, input_dim=input_dim, kernel_initializer=init,
-                        activation='sigmoid'))
-        model.add(Dropout(0.5))
-        model.add(Dense(output_size, input_dim=100, kernel_initializer=init,
-                        activation='softmax'))
-    elif architecture == 'mlp100d100d':
-        model.add(Dense(100, input_dim=input_dim, kernel_initializer=init,
-                        activation='sigmoid'))
-        model.add(Dropout(0.5))
-        model.add(Dense(100, input_dim=100, kernel_initializer=init,
-                        activation='sigmoid'))
-        model.add(Dropout(0.5))
-        model.add(Dense(output_size, input_dim=100, kernel_initializer=init,
-                        activation='softmax'))
+    elif architecture.startswith('mlp'):
+        architecture = architecture[3:]
+        while len(architecture) > 0:
+            if architecture[0] == 'd':
+                model.add(Dropout(0.5))
+                architecture = architecture[1:]
+            elif architecture[0] == 's':
+                model.add(Activation('sigmoid'))
+                architecture = architecture[1:]
+            elif architecture[0] == 'm':
+                model.add(Dense(output_size, input_dim=previous_layer,
+                                kernel_initializer=init))
+                model.add(Activation('softmax'))
+                architecture = architecture[1:]
+            elif architecture[0].isdigit():
+                i = 1
+                while len(architecture) > i and architecture[i].isdigit():
+                    i += 1
+                actual_layer = int(architecture[:i])
+                model.add(Dense(actual_layer, input_dim=previous_layer,
+                                kernel_initializer=init))
+                architecture = architecture[i:]
+                previous_layer = actual_layer
+            else:
+                raise(ValueError, 'Architecture with a wrong specification')
+    else:
+        raise(ValueError, 'Architecture with a wrong specification')
 
     if optimizer == 'sgd':
         optimizer = SGD(lr=lr, momentum=momentum, decay=decay,
