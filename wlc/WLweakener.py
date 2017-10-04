@@ -78,6 +78,11 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised', seed=None):
 
         # Supervised component: Identity matrix with size d x c.
         Ic = np.zeros((d, c))
+        # Avoid problem in Python3
+        try:
+            xrange
+        except NameError:
+            xrange = range
         for i in xrange(c):
             Ic[2**(c-i-1), i] = 1
 
