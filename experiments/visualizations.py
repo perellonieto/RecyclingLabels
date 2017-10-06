@@ -194,10 +194,12 @@ def plot_multilabel_scatter(X, Y, cmap=cm.get_cmap('Accent'), edgecolor=None,
         theta2s = np.cumsum(np.true_divide(y, y.sum())*360.0)
         theta1 = 0
         for i, theta2 in enumerate(theta2s):
-            w = Wedge(x[:2], radius, theta1, theta2, ec=edgecolor, lw=linewidth,
-                      fc=cmap(np.true_divide(i, n_classes)), **kwargs)
-            ax.add_patch(w)
-            theta1 = theta2
+            # Do not draw samples with no label
+            if np.isfinite(theta2):
+                w = Wedge(x[:2], radius, theta1, theta2, ec=edgecolor, lw=linewidth,
+                          fc=cmap(np.true_divide(i, n_classes)), **kwargs)
+                ax.add_patch(w)
+                theta1 = theta2
     ax.set_xlim([X_min[0]-X_std[0], X_max[0]+X_std[0]])
     ax.set_ylim([X_min[1]-X_std[1], X_max[1]+X_std[1]])
     ax.axis('equal')

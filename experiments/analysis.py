@@ -413,10 +413,13 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
 
     # If dimension is 2, we draw a 2D scatterplot
     if n_f >= 2:
-        fig = plot_multilabel_scatter(X_y, Y_y, title='True labels')
+        n_subsample = 50 if X_y.shape[0] > 50 else X_y.shape[0]
+        fig = plot_multilabel_scatter(X_y[:n_subsample],
+                                      Y_y[:n_subsample], title='True labels')
         diary.save_figure(fig, filename='true_labels')
 
-        fig = plot_multilabel_scatter(X_y, Z_y, title='Weak labels')
+        fig = plot_multilabel_scatter(X_y[:n_subsample],
+                                      Z_y[:n_subsample], title='Weak labels')
         diary.save_figure(fig, filename='weak_labels')
 
     if method == 'OSL':
