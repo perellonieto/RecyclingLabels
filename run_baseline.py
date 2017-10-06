@@ -9,6 +9,9 @@ from experiments.diary import Diary
 
 dataset_functions = {'toy_example': load_toy_example,
                      'blobs': partial(load_weak_blobs, method='random_weak'),
+                     'unbalanced': partial(load_weak_blobs,
+                                           method='random_weak',
+                                           n_samples=[100, 300, 1200, 1200, 5600, 1400]),
                      'iris': partial(load_weak_iris, method='random_weak'),
                      'webs': load_webs}
 
@@ -19,7 +22,7 @@ def parse_arguments():
     parser.add_argument('-d', '--dataset', dest='dataset', type=str,
                         default='iris',
                         help='''Name of the dataset to use: iris, toy_example,
-                                blobs, webs''')
+                                blobs, unbalanced, webs''')
     parser.add_argument('-s', '--seed', dest='seed', type=int,
                         default=None,
                         help='Seed for the random number generator')
