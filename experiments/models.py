@@ -195,7 +195,7 @@ def create_model(input_dim=1, output_size=1, optimizer='rmsprop',
     """
     Parameters
     ----------
-    architecture: string: lr, mlp100, mlp100d, mlp100d100d
+    architecture: string: lr, mlp100m, mlp100dm, mlp100ds100dm
     """
 
     if training_method == 'supervised':
