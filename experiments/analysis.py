@@ -1,3 +1,4 @@
+import os
 import pprint
 import inspect
 import multiprocessing
@@ -18,6 +19,15 @@ from experiments.utils import merge_dicts
 from experiments.metrics import compute_expected_error, compute_error_matrix
 
 from wlc.WLweakener import computeVirtual, computeM, estimate_M, weak_to_index
+
+
+def save_model(path, model):
+    print("Saving model to {}".format(path))
+    model_json = model.to_json()
+    with open(os.path.join(path, "model.json"), "w") as json_file:
+        json_file.write(model_json)
+    # serialize weights to HDF5
+    model.save_weights(os.path.join(path, "model.h5"))
 
 
 # TODO take a look that everything is ok
@@ -57,10 +67,10 @@ def train_weak_Mproper_test_results(parameters):
     Y_y_v : array-like, with shape (n_validation_samples_with_y, n_classes)
         True labels for validation
 
-    entry_extra: Notebook
+    n_extra: Notebook
         Notebook to save any extra information
     """
-    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments, entry_extra = parameters
+    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments, n_extra, diary_path = parameters
     n_c = Y_y_v.shape[1]
     categories = range(n_c)
 
@@ -87,6 +97,10 @@ def train_weak_Mproper_test_results(parameters):
     # Compute the confusion matrix
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
     results = {'pid': process_id, 'cm': cm, 'history': history.history}
+
+    if process_id == 0 and diary_path is not None:
+        save_model(diary_path, classifier.model)
+
     return results
 
 
@@ -126,10 +140,10 @@ def train_weak_EM_test_results(parameters):
     Y_y_v : array-like, with shape (n_validation_samples_with_y, n_classes)
         True labels for validation
 
-    entry_extra: Notebook
+    n_extra: Notebook
         Notebook to save any extra information
     """
-    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments, entry_extra = parameters
+    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments, n_extra, diary_path = parameters
     n_c = Y_y_v.shape[1]
     categories = range(n_c)
 
@@ -146,16 +160,16 @@ def train_weak_EM_test_results(parameters):
     #      - Needs to compute the individual M and their weight q
     Z_z_t_index = weak_to_index(Z_z_t, method='Mproper')
     Y_y_t_index = weak_to_index(Y_y_t, method='supervised')
-    if process_id == 0 and entry_extra is not None:
-        entry_extra(row={'q0': q_0, 'q1': q_1})
-        entry_extra(row={'M_0': "\n{}".format(np.round(M_0, decimals=3))})
-        entry_extra(row={'M_1': "\n{}".format(np.round(M_1, decimals=3))})
-        entry_extra(row={'M': "\n{}".format(np.round(M, decimals=3))})
-        entry_extra(row={'Z_y_t': "\n{}".format(np.round(Z_y_t[:5]))})
-        entry_extra(row={'Z_z_t_index': Z_z_t_index[:5]})
-        entry_extra(row={'Z_z_t': "\n{}".format(np.round(Z_z_t[:5]))})
-        entry_extra(row={'Y_y_t_index': Y_y_t_index[:5]})
-        entry_extra(row={'Y_y_t': "\n{}".format(np.round(Y_y_t[:5]))})
+    if process_id == 0 and n_extra is not None:
+        n_extra.add_entry(row={'q0': q_0, 'q1': q_1})
+        n_extra.add_entry(row={'M_0': "\n{}".format(np.round(M_0, decimals=3))})
+        n_extra.add_entry(row={'M_1': "\n{}".format(np.round(M_1, decimals=3))})
+        n_extra.add_entry(row={'M': "\n{}".format(np.round(M, decimals=3))})
+        n_extra.add_entry(row={'Z_y_t': "\n{}".format(np.round(Z_y_t[:5]))})
+        n_extra.add_entry(row={'Z_z_t_index': Z_z_t_index[:5]})
+        n_extra.add_entry(row={'Z_z_t': "\n{}".format(np.round(Z_z_t[:5]))})
+        n_extra.add_entry(row={'Y_y_t_index': Y_y_t_index[:5]})
+        n_extra.add_entry(row={'Y_y_t': "\n{}".format(np.round(Y_y_t[:5]))})
         Z_y_t_index = weak_to_index(Z_y_t, method='Mproper')
     # 3. Give the mixing matrix to the model for future use
     #    I need to give the matrix M to the fit function
@@ -174,6 +188,10 @@ def train_weak_EM_test_results(parameters):
     # Compute the confusion matrix
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
     results = {'pid': process_id, 'cm': cm, 'history': history.history}
+
+    if process_id == 0 and diary_path is not None:
+        save_model(diary_path, classifier.model)
+
     return results
 
 
@@ -210,10 +228,10 @@ def train_weak_fully_supervised_test_results(parameters):
     Y_y_v : array-like, with shape (n_validation_samples_with_y, n_classes)
         True labels for validation
 
-    entry_extra: Notebook
+    n_extra: Notebook
         Notebook to save any extra information
     """
-    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments, entry_extra = parameters
+    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments, n_extra, diary_path = parameters
 
     verbose = fit_arguments.get('verbose', 0)
 
@@ -228,6 +246,10 @@ def train_weak_fully_supervised_test_results(parameters):
     # Compute the confusion matrix
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
     results = {'pid': process_id, 'cm': cm, 'history': history.history}
+
+    if process_id == 0 and diary_path is not None:
+        save_model(diary_path, classifier.model)
+
     return results
 
 
@@ -263,10 +285,10 @@ def train_weak_fully_weak_test_results(parameters):
     Y_y_v : array-like, with shape (n_validation_samples_with_y, n_classes)
         True labels for validation
 
-    entry_extra: Notebook
+    n_extra: Notebook
         Notebook to save any extra information
     """
-    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments, entry_extra = parameters
+    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments, n_extra, diary_path = parameters
 
     verbose = fit_arguments.get('verbose', 0)
 
@@ -285,6 +307,10 @@ def train_weak_fully_weak_test_results(parameters):
     # Compute the confusion matrix
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
     results = {'pid': process_id, 'cm': cm, 'history': history.history}
+
+    if process_id == 0 and diary_path is not None:
+        save_model(diary_path, classifier.model)
+
     return results
 
 
@@ -321,10 +347,10 @@ def train_weak_partially_weak_test_results(parameters):
     Y_y_v : array-like, with shape (n_validation_samples_with_y, n_classes)
         True labels for validation
 
-    entry_extra: Notebook
+    n_extra: Notebook
         Notebook to save any extra information
     """
-    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments, entry_extra = parameters
+    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments, n_extra, diary_path = parameters
 
     verbose = fit_arguments.get('verbose', 0)
 
@@ -343,6 +369,10 @@ def train_weak_partially_weak_test_results(parameters):
     # Compute the confusion matrix
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
     results = {'pid': process_id, 'cm': cm, 'history': history.history}
+
+    if process_id == 0 and diary_path is not None:
+        save_model(diary_path, classifier.model)
+
     return results
 
 
@@ -350,7 +380,8 @@ def train_weak_partially_weak_test_results(parameters):
 def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
                         n_iterations=2, k_folds=2, diary=None, verbose=0,
                         random_state=None, method='Mproper', n_jobs=None,
-                        architecture='lr', loss='mse', epochs=200):
+                        architecture='lr', loss='mse', epochs=200,
+                        path_model=None):
     """ Trains a Feed-fordward neural network using cross-validation
 
     The training is done with the weak labels on the training set and
@@ -382,6 +413,10 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
     y_y : array-like, with shape (n_samples_with_y, )
         True labels in decimal
 
+    path_model : String or None
+        If a string, it is the path with the folder that contains a model.json
+        and the weights.h5 that will be used as initialisation for the
+        training.
     """
     # Test performance on validation true labels
     # ## Create a Diary for all the logs and results
@@ -389,27 +424,27 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
         diary = Diary(name='weak_labels', path='results', overwrite=False,
                       image_format='png', fig_format='svg')
 
-    entry_model = diary.add_notebook('model')
-    entry_val = diary.add_notebook('validation')
-    entry_tra = diary.add_notebook('training')
-    entry_extra = diary.add_notebook('extra')
+    n_model = diary.add_notebook('model')
+    n_val = diary.add_notebook('validation')
+    n_tra = diary.add_notebook('training')
+    n_extra = diary.add_notebook('extra')
 
     n_f = X_z.shape[1]
     n_c = Y_y.shape[1]
 
 
     prior_y = np.true_divide(Y_y.sum(axis=0), Y_y.sum())
-    entry_extra(row={'prior_distribution': prior_y})
+    n_extra.add_entry(row={'prior_distribution': prior_y})
     brier_score = lambda yp, yt: (yp - yt)**2
     error_matrix = compute_error_matrix(prior_y, brier_score)
     expected_bs = compute_expected_error(prior_y, error_matrix)
-    entry_extra(row={'expected_brier_score': expected_bs})
+    n_extra.add_entry(row={'expected_brier_score': expected_bs})
     log_loss = lambda yp, yt: -yt*np.log(yp)
     error_matrix = compute_error_matrix(prior_y, log_loss)
     expected_ll = compute_expected_error(prior_y, error_matrix)
-    entry_extra(row={'expected_log_loss': expected_ll})
-    entry_extra(row={'expected_accuracy': max(prior_y)})
-    entry_extra(row={'mean_acc_Y_Z': (Z_y == Y_y).mean(axis=0)})
+    n_extra.add_entry(row={'expected_log_loss': expected_ll})
+    n_extra.add_entry(row={'expected_accuracy': max(prior_y)})
+    n_extra.add_entry(row={'mean_acc_Y_Z': (Z_y == Y_y).mean(axis=0)})
 
     # If dimension is 2, we draw a 2D scatterplot
     if n_f >= 2:
@@ -453,10 +488,11 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
               'verbose': verbose,
               'random_state': random_state,
               'training_method': training_method,
-              'architecture': architecture
+              'architecture': architecture,
+              'path_model': path_model
               }
 
-    entry_model(row=merge_dicts(params, {'method': method}))
+    n_model.add_entry(row=merge_dicts(params, {'method': method}))
 
     make_arguments = {key: value for key, value in params.items()
                       if key in inspect.getargspec(create_model)[0]}
@@ -479,23 +515,23 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
 
         for train, valid in splits:
             if process_id == 0:
-                entry_extra(row={'y_y_t' : y_y_s[train][:5]})
-                entry_extra(row={'Y_y_t' : "\n{}".format(Y_y_s[train][:5])})
-                entry_extra(row={'z_y_t' : z_y_s[train][:5]})
-                entry_extra(row={'Z_y_t' : "\n{}".format(Z_y_s[train][:5])})
+                n_extra.add_entry(row={'y_y_t' : y_y_s[train][:5]})
+                n_extra.add_entry(row={'Y_y_t' : "\n{}".format(Y_y_s[train][:5])})
+                n_extra.add_entry(row={'z_y_t' : z_y_s[train][:5]})
+                n_extra.add_entry(row={'Z_y_t' : "\n{}".format(Z_y_s[train][:5])})
 
             if n_jobs is not None and n_jobs > 1:
-                # FIXME entry_extra can not be pickled
+                # FIXME n_extra can not be pickled
                 # see here:
                 # https://stackoverflow.com/questions/1816958/cant-pickle-type-instancemethod-when-using-multiprocessing-pool-map
                 # FIXME remove this when the multiprocessing pool problem is solved
-                entry_extra = None
+                n_extra = None
 
             map_arguments.append((process_id, classifier,
                                   X_z, Z_z,
                                   X_y_s[train], Z_y_s[train], Y_y_s[train],
                                   X_y_s[valid], Y_y_s[valid], fit_arguments,
-                                  entry_extra))
+                                  n_extra, diary.path))
             process_id += 1
 
     # accuracies = train_weak_test_acc(map_arguments[0])
@@ -505,7 +541,7 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
         pool = multiprocessing.Pool(processes=n_jobs)
         my_map = pool.map
         # FIXME remove this when the multiprocessing pool problem is solved
-        entry_extra = None
+        n_extra = None
 
     if method == 'Mproper':
         results = my_map(train_weak_Mproper_test_results, map_arguments)
@@ -544,7 +580,7 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
                 val_loss[-1].append(v_loss)
                 row = dict(pid=result['pid'], epoch=epoch + 1, loss=t_loss,
                            acc=t_acc, val_loss=v_loss, val_acc=v_acc)
-                entry_tra(row=row)
+                n_tra.add_entry(row=row)
         else:
             zipped = zip(history['loss'], history['acc'])
             for epoch, (t_loss, t_acc) in enumerate(zipped):
@@ -552,7 +588,7 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
                 train_loss[-1].append(t_loss)
                 row = dict(pid=result['pid'], epoch=epoch + 1, loss=t_loss,
                            acc=t_acc)
-                entry_tra(row=row)
+                n_tra.add_entry(row=row)
 
     train_acc = np.array(train_acc)
     train_loss = np.array(train_loss)
@@ -587,7 +623,7 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
         cm = result['cm']
         pid = result['pid']
         acc = np.true_divide(np.diag(cm).sum(), cm.sum())
-        entry_val(row={'pid': pid, 'acc': acc,
+        n_val.add_entry(row={'pid': pid, 'acc': acc,
                        'cm': cm.__str__().replace('\n', '')})
         cm_mean += np.true_divide(cm, len(results))
         acc_mean += acc/len(results)

@@ -29,18 +29,19 @@ __email__ = "miquel@perellonieto.com"
 __status__ = "Development"
 
 class Notebook(object):
-    def __init__(self, name, path, verbose=False):
+    def __init__(self, name, diary, verbose=False):
         self.name = name
         self.filename = "{}.csv".format(name)
-        self.path = path
+        self.diary = diary
         self.entry_number = 0
         self.verbose = verbose
 
-    def add_entry(self, row, general_entry_number=0):
+    def add_entry(self, row):
+        general_entry_number = self.diary.increase_entry_number()
         self.entry_number += 1
         if type(row) is dict:
             row = sum([[key, value] for key, value in row.items()], [])
-        with open(os.path.join(self.path, self.filename), 'a') as csvfile:
+        with open(os.path.join(self.diary.path, self.filename), 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter=',', quotechar='|',
                     quoting=csv.QUOTE_NONNUMERIC)
             now = datetime.datetime.now()
@@ -83,8 +84,8 @@ class Diary(object):
         sys.stderr = open(os.path.join(path, 'stderr.txt'), 'w')
 
     def add_notebook(self, name, **kwargs):
-        self.notebooks[name] = Notebook(name, self.path, **kwargs)
-        return partial(self.add_entry, notebook_name=name)
+        self.notebooks[name] = Notebook(name, self, **kwargs)
+        return self.notebooks[name]
 
     def _create_all_paths(self):
         original_path = self.path
@@ -113,8 +114,11 @@ class Diary(object):
             f.write(self.__str__())
 
     def add_entry(self, notebook_name, row):
+        self.notebooks[notebook_name].add_entry(row)
+
+    def increase_entry_number(self):
         self.entry_number += 1
-        self.notebooks[notebook_name].add_entry(row, self.entry_number)
+        return self.entry_number
 
     def save_image(self, image, filename='', extension=None):
         if extension == None:

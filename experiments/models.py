@@ -1,3 +1,5 @@
+import os
+import json
 import numpy as np
 import scipy as sp
 
@@ -191,7 +193,7 @@ def create_model(input_dim=1, output_size=1, optimizer='rmsprop',
                  init='glorot_uniform', lr=1, momentum=0.0, decay=0.0,
                  nesterov=False, loss='mean_squared_error',
                  class_weights=None, training_method='supervised',
-                 architecture='lr'):
+                 architecture='lr', path_model=None):
     """
     Parameters
     ----------
@@ -261,4 +263,17 @@ def create_model(input_dim=1, output_size=1, optimizer='rmsprop',
 
     model.compile(loss=loss, optimizer=optimizer,
                   metrics=['acc'])
+
+    if path_model is not None:
+        with open(os.path.join(path_model, "model.json"), "r") as json_file:
+            saved_model_json = json.loads(json_file.read())
+
+        model_json = json.loads(model.to_json())
+        # The classes are allowed to be different, as soon as the rest is equal
+        saved_model_json['class_name'] = model_json['class_name']
+        if model_json != saved_model_json:
+            raise ValueError("The model defined and the model to load are different")
+        # Get serialized weights from HDF5
+        model.load_weights(os.path.join(path_model, "model.h5"))
+
     return model

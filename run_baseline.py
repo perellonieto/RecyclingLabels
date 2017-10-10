@@ -68,11 +68,14 @@ def parse_arguments():
                         help='If the stderr needs to be redirected')
     parser.add_argument('-c', '--epochs', dest='epochs', type=int,
                         default=200, help='Number of epochs')
+    parser.add_argument('-t', '--path-model', dest='path_model', type=str,
+                        default=None,
+                        help='Path to the model and weights')
     return parser.parse_args()
 
 
 def main(dataset, seed, verbose, method, path, n_jobs, n_iterations,
-         k_folds, architecture, loss, stdout, stderr, epochs):
+         k_folds, architecture, loss, stdout, stderr, epochs, path_model):
 
     diary = Diary(name=('{}_{}_{}'.format(dataset, method, architecture)),
                   path=path, overwrite=False, image_format='png',
@@ -87,8 +90,8 @@ def main(dataset, seed, verbose, method, path, n_jobs, n_iterations,
     X_t, Z_t, z_t = training
     X_v, Z_v, z_v, Y_v, y_v = validation
 
-    entry_dataset = diary.add_notebook('dataset')
-    entry_dataset(row=['name', dataset,
+    n_dataset = diary.add_notebook('dataset')
+    n_dataset.add_entry(row=['name', dataset,
                        'n_samples_without_y', X_t.shape[0],
                        'n_samples_with_y', X_v.shape[0],
                        'n_features', X_t.shape[1],
@@ -106,7 +109,8 @@ def main(dataset, seed, verbose, method, path, n_jobs, n_iterations,
                         verbose=verbose, classes=classes, method=method,
                         diary=diary, n_jobs=n_jobs, loss=loss,
                         n_iterations=n_iterations, k_folds=k_folds,
-                        architecture=architecture, epochs=epochs)
+                        architecture=architecture, epochs=epochs,
+                        path_model=path_model)
 
 
 if __name__ == '__main__':
