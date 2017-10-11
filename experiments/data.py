@@ -5,6 +5,7 @@ from scipy import sparse
 from sklearn.utils import shuffle
 from sklearn.datasets import load_iris
 from sklearn.preprocessing import label_binarize
+from sklearn.preprocessing import scale
 from sklearn.model_selection import StratifiedShuffleSplit
 
 from sklearn.model_selection import train_test_split
@@ -137,7 +138,7 @@ def make_weak_true_partition(M, X, y, true_size=0.1, random_state=None):
     return (X_w, Z_w, z_w), (X_t, Z_t, z_t, Y_t, y_t), classes
 
 
-def load_webs(random_state=None):
+def load_webs(random_state=None, standardize=True):
     categories = ['blog', 'inmo', 'parking', 'b2c', 'no_b2c', 'Other']
     n_cat = len(categories)
 
@@ -183,6 +184,10 @@ def load_webs(random_state=None):
         Z_train = Z_train
         z_train = z_train
         X_val = X_val.toarray()
+
+    if standardize:
+        X_train = scale(X_train)
+        X_val = scale(X_val)
 
     return (X_train, Z_train, z_train), (X_val, Z_val, z_val, Y_val, y_val), categories
 
