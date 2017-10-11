@@ -9,3 +9,4 @@ scipy>=0.19.0
 pytz>=2016.10
 python-dateutil>=2.2
 Pillow>=4.2
+h5py>=2.7.1
