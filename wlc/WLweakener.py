@@ -15,6 +15,8 @@ import time
 import pandas as pd
 from scipy.sparse import csr_matrix
 
+from copy import deepcopy
+
 
 def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised', seed=None):
     """
@@ -271,7 +273,7 @@ def computeVirtual(z, c, method='IPL', M=None, dec_labels=None):
     """
     v = None
     if len(z.shape) > 1 and z.shape[1] >= 2:
-        v = z
+        v = deepcopy(z).astype(float)
         z = weak_to_decimal(z)
 
     if method in ['supervised', 'IPL']:
