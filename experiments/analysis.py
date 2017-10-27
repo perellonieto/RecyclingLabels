@@ -21,13 +21,13 @@ from experiments.metrics import compute_expected_error, compute_error_matrix
 from wlc.WLweakener import computeVirtual, computeM, estimate_M, weak_to_index
 
 
-def save_model(path, model):
+def save_model(path, model, process_id):
     print("Saving model to {}".format(path))
     model_json = model.to_json()
-    with open(os.path.join(path, "model.json"), "w") as json_file:
+    with open(os.path.join(path, "model_{}.json".format(process_id)), "w") as json_file:
         json_file.write(model_json)
     # serialize weights to HDF5
-    model.save_weights(os.path.join(path, "model.h5"))
+    model.save_weights(os.path.join(path, "model_{}.h5".format(process_id)))
 
 
 # TODO take a look that everything is ok
@@ -69,15 +69,18 @@ def train_weak_Mproper_test_results(parameters):
 
     n_extra: Notebook
         Notebook to save any extra information
+
+    M: mixing matrix M
     """
-    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments, n_extra, diary_path = parameters
+    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments, n_extra, diary_path, M = parameters
     n_c = Y_y_v.shape[1]
     categories = range(n_c)
 
     verbose = fit_arguments.get('verbose', 0)
 
     # 1. Learn a mixing matrix using training with weak and true labels
-    M = estimate_M(Z_y_t, Y_y_t, categories, reg='Complete')
+    if M is None:
+        M = estimate_M(Z_y_t, Y_y_t, categories, reg='Complete')
     # 2. Compute virtual labels for training set only with weak labels
     V_z_t = computeVirtual(Z_z_t, c=n_c, method='Mproper', M=M)
     # TODO where is the randomization applied?
@@ -98,8 +101,8 @@ def train_weak_Mproper_test_results(parameters):
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
     results = {'pid': process_id, 'cm': cm, 'history': history.history}
 
-    if process_id == 0 and diary_path is not None:
-        save_model(diary_path, classifier.model)
+    if diary_path is not None:
+        save_model(diary_path, classifier.model, process_id)
 
     return results
 
@@ -142,15 +145,18 @@ def train_weak_EM_test_results(parameters):
 
     n_extra: Notebook
         Notebook to save any extra information
+
+    M: mixing matrix M
     """
-    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments, n_extra, diary_path = parameters
+    process_id, classifier, X_z_t, Z_z_t, X_y_t, Z_y_t, Y_y_t, X_y_v, Y_y_v, fit_arguments, n_extra, diary_path, M = parameters
     n_c = Y_y_v.shape[1]
     categories = range(n_c)
 
     verbose = fit_arguments.get('verbose', 0)
 
     # 1. Learn a mixing matrix using training with weak and true labels
-    M_0 = estimate_M(Z_y_t, Y_y_t, categories, reg='Complete')
+    if M is None:
+        M_0 = estimate_M(Z_y_t, Y_y_t, categories, reg='Complete')
     M_1 = computeM(c=n_c, method='supervised')
     q_0 = X_z_t.shape[0] / float(X_z_t.shape[0] + X_y_t.shape[0])
     q_1 = X_y_t.shape[0] / float(X_z_t.shape[0] + X_y_t.shape[0])
@@ -189,8 +195,8 @@ def train_weak_EM_test_results(parameters):
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
     results = {'pid': process_id, 'cm': cm, 'history': history.history}
 
-    if process_id == 0 and diary_path is not None:
-        save_model(diary_path, classifier.model)
+    if diary_path is not None:
+        save_model(diary_path, classifier.model, process_id)
 
     return results
 
@@ -247,8 +253,8 @@ def train_weak_fully_supervised_test_results(parameters):
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
     results = {'pid': process_id, 'cm': cm, 'history': history.history}
 
-    if process_id == 0 and diary_path is not None:
-        save_model(diary_path, classifier.model)
+    if diary_path is not None:
+        save_model(diary_path, classifier.model, process_id)
 
     return results
 
@@ -308,8 +314,8 @@ def train_weak_fully_weak_test_results(parameters):
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
     results = {'pid': process_id, 'cm': cm, 'history': history.history}
 
-    if process_id == 0 and diary_path is not None:
-        save_model(diary_path, classifier.model)
+    if diary_path is not None:
+        save_model(diary_path, classifier.model, process_id)
 
     return results
 
@@ -370,8 +376,8 @@ def train_weak_partially_weak_test_results(parameters):
     cm = confusion_matrix(np.argmax(Y_y_v, axis=1), y_pred)
     results = {'pid': process_id, 'cm': cm, 'history': history.history}
 
-    if process_id == 0 and diary_path is not None:
-        save_model(diary_path, classifier.model)
+    if diary_path is not None:
+        save_model(diary_path, classifier.model, process_id)
 
     return results
 
@@ -381,7 +387,7 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
                         n_iterations=2, k_folds=2, diary=None, verbose=0,
                         random_state=None, method='Mproper', n_jobs=None,
                         architecture='lr', loss='mse', epochs=200,
-                        path_model=None):
+                        path_model=None, file_M=None):
     """ Trains a Feed-fordward neural network using cross-validation
 
     The training is done with the weak labels on the training set and
@@ -499,11 +505,15 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
     fit_arguments = {key: value for key, value in params.items()
                      if key in inspect.getargspec(create_model().fit)[0]}
 
-    classifier = MyKerasClassifier(build_fn=create_model, **make_arguments)
-
     if verbose >= 1:
         pp = pprint.PrettyPrinter(indent=2)
         print(pp.pprint(create_model().get_config()))
+
+    if file_M is None:
+        M = None
+    else:
+        M = np.loadtxt(file_M)
+        np.savetxt(os.path.join(diary.path, 'M.csv'), M)
 
     map_arguments = []
     skf = StratifiedKFold(n_splits=k_folds, shuffle=False)
@@ -527,11 +537,25 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
                 # FIXME remove this when the multiprocessing pool problem is solved
                 n_extra = None
 
-            map_arguments.append((process_id, classifier,
-                                  X_z, Z_z,
-                                  X_y_s[train], Z_y_s[train], Y_y_s[train],
-                                  X_y_s[valid], Y_y_s[valid], fit_arguments,
-                                  n_extra, diary.path))
+            make_arguments['model_num'] = process_id
+            classifier = MyKerasClassifier(build_fn=create_model,
+                                           **make_arguments)
+
+            if method in ['Mproper', 'EM']:
+                parameters = (process_id, classifier,
+                              X_z, Z_z,
+                              X_y_s[train], Z_y_s[train], Y_y_s[train],
+                              X_y_s[valid], Y_y_s[valid], fit_arguments,
+                              n_extra, diary.path, M)
+            else:
+                parameters = (process_id, classifier,
+                              X_z, Z_z,
+                              X_y_s[train], Z_y_s[train], Y_y_s[train],
+                              X_y_s[valid], Y_y_s[valid], fit_arguments,
+                              n_extra, diary.path)
+
+            map_arguments.append(parameters)
+
             process_id += 1
 
     # accuracies = train_weak_test_acc(map_arguments[0])
@@ -596,21 +620,26 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
     val_loss = np.array(val_loss)
 
     if val_acc.shape[1] > 0:
-        fig1 = plot_errorbar([train_acc, val_acc], perrorevery=0.1,
+        if len(train_acc) > 10:
+            perrorevery = 0.1
+        else:
+            perrorevery = 1
+
+        fig1 = plot_errorbar([train_acc, val_acc], perrorevery=perrorevery,
                              title='{}, {}, training acc'.format(
                                 architecture, method),
                              legend=['train', 'val'])
 
-        fig2 = plot_errorbar([train_loss, val_loss], perrorevery=0.1,
+        fig2 = plot_errorbar([train_loss, val_loss], perrorevery=perrorevery,
                              title='{}, {}, training loss ({})'.format(
                                 architecture, method, loss),
                              legend=['train', 'val'])
     else:
-        fig1 = plot_errorbar(train_acc, perrorevery=0.1,
+        fig1 = plot_errorbar(train_acc, perrorevery=perrorevery,
                              title='{}, {}, training acc'.format(
                                 architecture, method))
 
-        fig2 = plot_errorbar(train_loss, perrorevery=0.1,
+        fig2 = plot_errorbar(train_loss, perrorevery=perrorevery,
                              title='{}, {}, training loss ({})'.format(
                                 architecture, method, loss))
 

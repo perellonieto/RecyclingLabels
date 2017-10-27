@@ -31,6 +31,9 @@ def parse_arguments():
                         help='''Learning method to use between,
                                 Mproper, fully_supervised, fully_weak,
                                 partially_weak, EM or OSL''')
+    parser.add_argument('-M', '--file-M', dest='file_M', type=str,
+                        default=None,
+                        help='''File with a precomputed M''')
     parser.add_argument('-a', '--architecture', dest='architecture', type=str,
                         default='lr',
                         help='''Model architecture. Possible options are: lr
@@ -75,7 +78,8 @@ def parse_arguments():
 
 
 def main(dataset, seed, verbose, method, path, n_jobs, n_iterations,
-         k_folds, architecture, loss, stdout, stderr, epochs, path_model):
+         k_folds, architecture, loss, stdout, stderr, epochs, path_model,
+         file_M):
 
     diary = Diary(name=('{}_{}_{}'.format(dataset, method, architecture)),
                   path=path, overwrite=False, image_format='png',
@@ -109,7 +113,7 @@ def main(dataset, seed, verbose, method, path, n_jobs, n_iterations,
                         diary=diary, n_jobs=n_jobs, loss=loss,
                         n_iterations=n_iterations, k_folds=k_folds,
                         architecture=architecture, epochs=epochs,
-                        path_model=path_model)
+                        path_model=path_model, file_M=file_M)
 
 
 if __name__ == '__main__':
