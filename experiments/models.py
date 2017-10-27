@@ -274,6 +274,7 @@ def create_model(input_dim=1, output_size=1, optimizer='rmsprop',
         if model_json != saved_model_json:
             raise ValueError("The model defined and the model to load are different")
         # Get serialized weights from HDF5
+        print("Loading initial weights from {}".format(path_model))
         model.load_weights(os.path.join(path_model, "model.h5"))
 
     return model
