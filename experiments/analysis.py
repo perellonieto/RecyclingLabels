@@ -157,6 +157,8 @@ def train_weak_EM_test_results(parameters):
     # 1. Learn a mixing matrix using training with weak and true labels
     if M is None:
         M_0 = estimate_M(Z_y_t, Y_y_t, categories, reg='Complete')
+    else:
+        M_0 = M
     M_1 = computeM(c=n_c, method='supervised')
     q_0 = X_z_t.shape[0] / float(X_z_t.shape[0] + X_y_t.shape[0])
     q_1 = X_y_t.shape[0] / float(X_z_t.shape[0] + X_y_t.shape[0])
