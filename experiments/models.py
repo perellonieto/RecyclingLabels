@@ -170,7 +170,7 @@ class MySequentialEM(Sequential):
             # train_t_ind is the index corresponding to the mixing matrix row
             Q = np.multiply(predictions, M[train_t_ind])
             # FIXME there are rows that sum to 0 and this becomes a NaN
-            train_em_y = Q / np.sum(Q, axis=1)
+            train_em_y = Q / np.sum(Q, axis=1).reshape(-1, 1)
             # The train_em_y are floats
             # FIXME I am training with a subsample of the data
             #   as some of the samples are zero for all the row
