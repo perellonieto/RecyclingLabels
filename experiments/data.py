@@ -83,7 +83,7 @@ def make_blobs(n_samples=100, n_features=2, centers=3, cluster_std=1.0,
     y = []
 
     n_centers = centers.shape[0]
-    if len(n_samples) > 1:
+    if not isinstance(n_samples, int):
         if len(n_samples) != len(centers):
             raise ValueError("If n_samples is an array, it needs to be of length = centers")
         n_samples_per_center = n_samples
