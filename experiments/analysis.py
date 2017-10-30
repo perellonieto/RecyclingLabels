@@ -22,7 +22,7 @@ from wlc.WLweakener import computeVirtual, computeM, estimate_M, weak_to_index
 
 
 def save_model(path, model, process_id):
-    print("Saving model to {}".format(path))
+    print("Saving model to {}".format(os.path.join(path, "model_{}.h5".format(process_id))))
     model_json = model.to_json()
     with open(os.path.join(path, "model_{}.json".format(process_id)), "w") as json_file:
         json_file.write(model_json)
@@ -80,7 +80,8 @@ def train_weak_Mproper_test_results(parameters):
 
     # 1. Learn a mixing matrix using training with weak and true labels
     if M is None:
-        M = estimate_M(Z_y_t, Y_y_t, categories, reg='Complete')
+        #M = estimate_M(Z_y_t, Y_y_t, categories, reg='Complete')
+        M = estimate_M(Z_y_t, Y_y_t, categories, reg='Partial')
     # 2. Compute virtual labels for training set only with weak labels
     V_z_t = computeVirtual(Z_z_t, c=n_c, method='Mproper', M=M)
     # TODO where is the randomization applied?
@@ -156,7 +157,9 @@ def train_weak_EM_test_results(parameters):
 
     # 1. Learn a mixing matrix using training with weak and true labels
     if M is None:
-        M_0 = estimate_M(Z_y_t, Y_y_t, categories, reg='Complete')
+        # M_0 = estimate_M(Z_y_t, Y_y_t, categories, reg='Complete')
+        M_0 = estimate_M(Z_y_t, Y_y_t, categories, reg='Partial')
+        # M_0 = estimate_M(Z_y_t, Y_y_t, categories, reg=None)
     else:
         M_0 = M
     M_1 = computeM(c=n_c, method='supervised')
@@ -499,6 +502,23 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
               'architecture': architecture,
               'path_model': path_model
               }
+    #params = {'input_dim': n_f,
+    #          'output_size': n_c,
+    #          'optimizer': 'sgd',
+    #          'loss': loss,
+    #          'init': 'glorot_uniform',
+    #          'lr': 1.0,
+    #          'momentum': 0,
+    #          'decay': 0,
+    #          'nesterov': False,
+    #          'epochs': epochs,
+    #          'batch_size': 100,
+    #          'verbose': verbose,
+    #          'random_state': random_state,
+    #          'training_method': training_method,
+    #          'architecture': architecture,
+    #          'path_model': path_model
+    #          }
 
     n_model.add_entry(row=merge_dicts(params, {'method': method}))
 
@@ -526,18 +546,19 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
         splits = skf.split(X_y_s, y_y_s)
 
         for train, valid in splits:
-            if process_id == 0:
-                n_extra.add_entry(row={'y_y_t' : y_y_s[train][:5]})
-                n_extra.add_entry(row={'Y_y_t' : "\n{}".format(Y_y_s[train][:5])})
-                n_extra.add_entry(row={'z_y_t' : z_y_s[train][:5]})
-                n_extra.add_entry(row={'Z_y_t' : "\n{}".format(Z_y_s[train][:5])})
+            n_extra.add_entry(row={'pid': process_id, 'y_y_t' : y_y_s[train][:5]})
+            n_extra.add_entry(row={'pid': process_id, 'Y_y_t' : "\n{}".format(Y_y_s[train][:5])})
+            n_extra.add_entry(row={'pid': process_id, 'z_y_t' : z_y_s[train][:5]})
+            n_extra.add_entry(row={'pid': process_id, 'Z_y_t' : "\n{}".format(Z_y_s[train][:5])})
 
             if n_jobs is not None and n_jobs > 1:
                 # FIXME n_extra can not be pickled
                 # see here:
                 # https://stackoverflow.com/questions/1816958/cant-pickle-type-instancemethod-when-using-multiprocessing-pool-map
                 # FIXME remove this when the multiprocessing pool problem is solved
-                n_extra = None
+                n_extra_aux = None
+            else:
+                n_extra_aux = n_extra
 
             make_arguments['model_num'] = process_id
             classifier = MyKerasClassifier(build_fn=create_model,
@@ -548,13 +569,13 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
                               X_z, Z_z,
                               X_y_s[train], Z_y_s[train], Y_y_s[train],
                               X_y_s[valid], Y_y_s[valid], fit_arguments,
-                              n_extra, diary.path, M)
+                              n_extra_aux, diary.path, M)
             else:
                 parameters = (process_id, classifier,
                               X_z, Z_z,
                               X_y_s[train], Z_y_s[train], Y_y_s[train],
                               X_y_s[valid], Y_y_s[valid], fit_arguments,
-                              n_extra, diary.path)
+                              n_extra_aux, diary.path)
 
             map_arguments.append(parameters)
 
@@ -622,10 +643,7 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
     val_loss = np.array(val_loss)
 
     if val_acc.shape[1] > 0:
-        if len(train_acc) > 10:
-            perrorevery = 0.1
-        else:
-            perrorevery = 1
+        perrorevery = 0.1
 
         fig1 = plot_errorbar([train_acc, val_acc], perrorevery=perrorevery,
                              title='{}, {}, training acc'.format(

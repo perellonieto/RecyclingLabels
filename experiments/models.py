@@ -10,6 +10,7 @@ from keras.models import Sequential
 from keras.layers.core import Dense, Dropout, Activation
 from keras.optimizers import SGD
 from keras.wrappers.scikit_learn import KerasClassifier
+from keras.initializers import glorot_uniform
 
 from experiments.metrics import brier_loss, w_brier_loss
 
@@ -35,7 +36,6 @@ class MyKerasClassifier(KerasClassifier):
 
     Implementation of the scikit-learn classifier API for Keras.
     """
-
     # I change the function fit to avoid any modification of the labels
     def fit(self, x, y, **kwargs):
         """Constructs a new model with `build_fn` & fit the model to `(x, y)`.
@@ -200,6 +200,9 @@ def create_model(input_dim=1, output_size=1, optimizer='rmsprop',
     architecture: string: lr, mlp100m, mlp100dm, mlp100ds100dm
     """
 
+    if init == 'glorot_uniform':
+        init = glorot_uniform(seed=model_num+1)
+
     if training_method == 'supervised':
         model = Sequential()
     elif training_method == 'OSL':
@@ -213,7 +216,7 @@ def create_model(input_dim=1, output_size=1, optimizer='rmsprop',
     previous_layer = input_dim
     if architecture == 'lr':
         model.add(Dense(output_size, input_shape=(input_dim,),
-                        kernel_initializer='glorot_uniform',
+                        kernel_initializer=init,
                         activation='softmax'))
     elif architecture.startswith('mlp'):
         architecture = architecture[3:]
@@ -274,8 +277,10 @@ def create_model(input_dim=1, output_size=1, optimizer='rmsprop',
         if model_json != saved_model_json:
             raise ValueError("The model defined and the model to load are different")
         # Get serialized weights from HDF5
-        print("Loading initial weights from {}".format(path_model))
+        print("Loading initial weights from {}".format(os.path.join(path_model,
+                                            "model_{}.h5".format(model_num))))
         model.load_weights(os.path.join(path_model,
             "model_{}.h5".format(model_num)))
 
+    print(model.get_weights()[0][0][-10:])
     return model

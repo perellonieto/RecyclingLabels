@@ -176,7 +176,8 @@ def load_webs(random_state=None, standardize=True):
     X_train, Z_train, z_train = shuffle(X_train, Z_train, z_train,
                                         random_state=random_state)
     X_val, Z_val, z_val, Y_val, y_val = shuffle(X_val, Z_val, z_val, Y_val,
-                                                y_val)
+                                                y_val,
+                                                random_state=random_state)
 
     # TODO is it possible to keep the matrices sparse with Keras?
     if sparse.issparse(X_train):
