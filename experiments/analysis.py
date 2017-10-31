@@ -193,7 +193,7 @@ def train_weak_EM_test_results(parameters):
     X_t, Z_index_t = shuffle(X_t, Z_index_t)
     # Add validation results during training
     fit_arguments['validation_data'] = (X_y_v, Y_y_v)
-    history = classifier.fit(X_t, Z_index_t, M=M, **fit_arguments)
+    history = classifier.fit(X_t, Z_index_t, M=M, X_y_t=X_y_t, Y_y_t=Y_y_t, **fit_arguments)
     # 5. Evaluate the model in the validation set with true labels
     y_pred = classifier.predict(X_y_v, verbose=verbose)
     # Compute the confusion matrix
@@ -605,66 +605,27 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
     else:
         raise(ValueError('Method not implemented: %s' % (method)))
 
-    train_acc = []
-    train_loss = []
-    val_acc = []
-    val_loss = []
-    for result in results:
-        train_acc.append([])
-        train_loss.append([])
-        val_acc.append([])
-        val_loss.append([])
-        if verbose > 1:
-            print(result)
-        history = result['history']
-        if 'val_loss' in history.keys():
-            zipped = zip(history['loss'], history['acc'],
-                         history['val_loss'], history['val_acc'])
-            for epoch, (t_loss, t_acc, v_loss, v_acc) in enumerate(zipped):
-                train_acc[-1].append(t_acc)
-                train_loss[-1].append(t_loss)
-                val_acc[-1].append(v_acc)
-                val_loss[-1].append(v_loss)
-                row = dict(pid=result['pid'], epoch=epoch + 1, loss=t_loss,
-                           acc=t_acc, val_loss=v_loss, val_acc=v_acc)
-                n_tra.add_entry(row=row)
-        else:
-            zipped = zip(history['loss'], history['acc'])
-            for epoch, (t_loss, t_acc) in enumerate(zipped):
-                train_acc[-1].append(t_acc)
-                train_loss[-1].append(t_loss)
-                row = dict(pid=result['pid'], epoch=epoch + 1, loss=t_loss,
-                           acc=t_acc)
-                n_tra.add_entry(row=row)
+    dict_results = {}
+    keys_results = [key for key in results[0]['history'].keys()]
+    for key in keys_results:
+        dict_results[key] = np.array([result['history'][key] for result in results])
 
-    train_acc = np.array(train_acc)
-    train_loss = np.array(train_loss)
-    val_acc = np.array(val_acc)
-    val_loss = np.array(val_loss)
+    for i in range(len(results)):
+        pid = results[i]['pid']
+        for epoch in range(epochs):
+            row = dict(pid=pid, epoch=epoch + 1)
+            for key in keys_results:
+                row[key] = dict_results[key][i][epoch]
+            n_tra.add_entry(row=row)
 
-    if val_acc.shape[1] > 0:
-        perrorevery = 0.1
-
-        fig1 = plot_errorbar([train_acc, val_acc], perrorevery=perrorevery,
-                             title='{}, {}, training acc'.format(
-                                architecture, method),
-                             legend=['train', 'val'])
-
-        fig2 = plot_errorbar([train_loss, val_loss], perrorevery=perrorevery,
-                             title='{}, {}, training loss ({})'.format(
-                                architecture, method, loss),
-                             legend=['train', 'val'])
-    else:
-        fig1 = plot_errorbar(train_acc, perrorevery=perrorevery,
-                             title='{}, {}, training acc'.format(
-                                architecture, method))
-
-        fig2 = plot_errorbar(train_loss, perrorevery=perrorevery,
-                             title='{}, {}, training loss ({})'.format(
-                                architecture, method, loss))
-
-    diary.save_figure(fig1, filename='training_accuracy')
-    diary.save_figure(fig2, filename='training_loss')
+    perrorevery = 0.1
+    for measure in ['acc', 'loss']:
+        legend = [key for key in dict_results.keys() if measure in key]
+        fig = plot_errorbar([dict_results[key] for key in legend],
+                            perrorevery=perrorevery, legend=legend,
+                            title='{}, {}, training acc'.format( architecture,
+                                method))
+        diary.save_figure(fig, filename=measure)
 
     cm_mean = np.zeros((n_c, n_c))
     acc_mean = 0

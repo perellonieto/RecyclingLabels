@@ -14,6 +14,8 @@ from keras.initializers import glorot_uniform
 
 from experiments.metrics import brier_loss, w_brier_loss
 
+import copy
+
 
 def _merge_histories(history_list):
     dd = defaultdict(list)
@@ -154,8 +156,14 @@ class MySequentialOSL(Sequential):
 
 
 class MySequentialEM(Sequential):
-    def fit(self, train_x, train_t_ind, M, test_x=None, test_y=None,
-            batch_size=None, epochs=1, verbose=0, **kwargs):
+    def fit(self, train_x, train_t_ind, M, X_y_t=None, Y_y_t=None, test_x=None,
+            test_y=None, batch_size=None, epochs=1, verbose=0, **kwargs):
+        '''
+
+
+        X_y_t: Samples with true labels for training
+        Y_y_t: True labels of the previous samples
+        '''
         history = []
         for n in range(epochs):
             if verbose > 1:
@@ -180,6 +188,12 @@ class MySequentialEM(Sequential):
                                                 batch_size=batch_size,
                                                 epochs=1, verbose=verbose,
                                                 **kwargs)
+            if (X_y_t is not None) and (Y_y_t is not None):
+                e_loss, e_acc = self.evaluate(X_y_t, Y_y_t, verbose=verbose)
+                h.history['virtual_loss'] = h.history.pop('loss')
+                h.history['virtual_acc'] = h.history.pop('acc')
+                h.history['train_loss'] = e_loss
+                h.history['train_acc'] = e_acc
             history.append(h)
         return FakeHistory(_merge_histories(history))
 
