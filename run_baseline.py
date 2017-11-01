@@ -14,6 +14,13 @@ dataset_functions = {'toy_example': load_toy_example,
                      'unbalanced': partial(load_weak_blobs,
                                            method='random_weak',
                                            n_samples=[100, 300, 1200, 1200, 5600, 1400]),
+                     'blobs_webs': partial(load_weak_blobs,
+                                           method='random_weak',
+                                           n_samples=[1000, 3000, 12000, 12000,
+                                                      56000, 14000],
+                                           n_features=2099,
+                                           n_classes=6,
+                                           true_size=0.02),
                      'iris': partial(load_weak_iris, method='random_weak'),
                      'webs': load_webs}
 
@@ -37,7 +44,7 @@ def parse_arguments():
     parser.add_argument('-d', '--dataset', dest='dataset', type=str,
                         default='iris',
                         help='''Name of the dataset to use: iris, toy_example,
-                                blobs, unbalanced, webs''')
+                                blobs, unbalanced, webs, blobs_webs''')
     parser.add_argument('-e', '--stderr', dest='stderr',
                         default=False, action='store_true',
                         help='If the stderr needs to be redirected')
