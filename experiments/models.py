@@ -302,8 +302,6 @@ def create_model(input_dim=1, output_size=1, optimizer='rmsprop',
 
     if init == 'glorot_uniform':
         init = glorot_uniform(seed=model_num+1)
-        # FIXME remove next line
-        init = glorot_uniform(seed=2)
 
     if training_method == 'supervised':
         model = MySequential()
