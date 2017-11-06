@@ -12,6 +12,8 @@ from keras.optimizers import SGD
 from keras.wrappers.scikit_learn import KerasClassifier
 from keras.initializers import glorot_uniform
 
+from sklearn.metrics import confusion_matrix
+
 from experiments.metrics import brier_loss, w_brier_loss
 
 import copy
@@ -23,7 +25,10 @@ def _merge_histories(history_list):
         for key, value in d.history.items():
             if not hasattr(value, '__iter__'):
                 value = (value,)
-            [dd[key].append(v) for v in value]
+            if isinstance(value, np.ndarray):
+                dd[key].append(value)
+            else:
+                [dd[key].append(v) for v in value]
     return dict(dd)
 
 
@@ -121,9 +126,66 @@ class MyKerasClassifier(KerasClassifier):
                          'the `model.compile()` method.')
 
 
-class MySequentialOSL(Sequential):
-    def fit(self, train_x, train_y, test_x=None, test_y=None, batch_size=None,
+class MySequential(Sequential):
+    def fit(self, train_x, train_y, batch_size=None, epochs=1, verbose=0,
+            **kwargs):
+        history = []
+        for n in range(epochs):
+            if verbose > 1:
+                print('Epoch {} of {}'.format(n, epochs))
+            h = super(MySequential, self).fit(train_x, train_y,
+                                              batch_size=batch_size,
+                                              epochs=1, verbose=verbose,
+                                              **kwargs)
+            h.history['train_y_loss'] = h.history.pop('loss')
+            h.history['train_y_acc'] = h.history.pop('acc')
+            h.history['val_y_loss'] = h.history.pop('val_loss')
+            h.history['val_y_acc'] = h.history.pop('val_acc')
+            # TODO do I need the training CM?
+            prediction_y = self.predict_classes(train_x, verbose=0)
+            h.history['train_y_cm'] = confusion_matrix(train_y.argmax(axis=1), prediction_y)
+            if 'validation_data' in kwargs.keys():
+                prediction_y = self.predict_classes(kwargs['validation_data'][0], verbose=0)
+                h.history['val_y_cm'] = confusion_matrix(kwargs['validation_data'][1].argmax(axis=1), prediction_y)
+            history.append(h)
+        return FakeHistory(_merge_histories(history))
+
+
+class MySequentialWeak(Sequential):
+    def fit(self, train_x, train_y, X_y_t=None, Y_y_t=None, batch_size=None,
             epochs=1, verbose=0, **kwargs):
+        history = []
+        for n in range(epochs):
+            if verbose > 1:
+                print('Epoch {} of {}'.format(n, epochs))
+            h = super(MySequentialWeak, self).fit(train_x, train_y,
+                                                  batch_size=batch_size,
+                                                  epochs=1, verbose=verbose,
+                                                  **kwargs)
+            h.history['train_z_loss'] = h.history.pop('loss')
+            h.history['train_z_acc'] = h.history.pop('acc')
+            h.history['val_y_loss'] = h.history.pop('val_loss')
+            h.history['val_y_acc'] = h.history.pop('val_acc')
+            if (X_y_t is not None) and (Y_y_t is not None):
+                e_loss, e_acc = self.evaluate(X_y_t, Y_y_t, verbose=verbose)
+                h.history['train_y_loss'] = e_loss
+                h.history['train_y_acc'] = e_acc
+            # TODO do I need the training CM?
+            prediction_y = self.predict_classes(X_y_t, verbose=0)
+            h.history['train_y_cm'] = confusion_matrix(Y_y_t.argmax(axis=1), prediction_y)
+            if 'validation_data' in kwargs.keys():
+                prediction_y = self.predict_classes(kwargs['validation_data'][0], verbose=0)
+                h.history['val_y_cm'] = confusion_matrix(kwargs['validation_data'][1].argmax(axis=1), prediction_y)
+            history.append(h)
+        return FakeHistory(_merge_histories(history))
+
+
+class MySequentialOSL(Sequential):
+    def fit(self, train_x, train_y, test_x=None, test_y=None, X_y_t=None,
+            Y_y_t=None, batch_size=None,
+            epochs=1, verbose=0, **kwargs):
+        if 'epochs' in kwargs.keys():
+            kwargs.pop('epochs')
         history = []
         for n in range(epochs):
             if verbose > 1:
@@ -135,6 +197,20 @@ class MySequentialOSL(Sequential):
                                                  batch_size=batch_size,
                                                  epochs=1, verbose=verbose,
                                                  **kwargs)
+            h.history['train_z_loss'] = h.history.pop('loss')
+            h.history['train_z_acc'] = h.history.pop('acc')
+            h.history['val_y_loss'] = h.history.pop('val_loss')
+            h.history['val_y_acc'] = h.history.pop('val_acc')
+            if (X_y_t is not None) and (Y_y_t is not None):
+                e_loss, e_acc = self.evaluate(X_y_t, Y_y_t, verbose=verbose)
+                h.history['train_y_loss'] = e_loss
+                h.history['train_y_acc'] = e_acc
+            # TODO do I need the training CM?
+            prediction_y = self.predict_classes(X_y_t, verbose=0)
+            h.history['train_y_cm'] = confusion_matrix(Y_y_t.argmax(axis=1), prediction_y)
+            if 'validation_data' in kwargs.keys():
+                prediction_y = self.predict_classes(kwargs['validation_data'][0], verbose=0)
+                h.history['val_y_cm'] = confusion_matrix(kwargs['validation_data'][1].argmax(axis=1), prediction_y)
             history.append(h)
         return FakeHistory(_merge_histories(history))
 
@@ -165,6 +241,8 @@ class MySequentialEM(Sequential):
         Y_y_t: True labels of the previous samples
         '''
         history = []
+        if 'epochs' in kwargs.keys():
+            kwargs.pop('epochs')
         for n in range(epochs):
             if verbose > 1:
                 print('Epoch {} of {}'.format(n, epochs))
@@ -188,12 +266,20 @@ class MySequentialEM(Sequential):
                                                 batch_size=batch_size,
                                                 epochs=1, verbose=verbose,
                                                 **kwargs)
+            h.history['train_z_loss'] = h.history.pop('loss')
+            h.history['train_z_acc'] = h.history.pop('acc')
+            h.history['val_y_loss'] = h.history.pop('val_loss')
+            h.history['val_y_acc'] = h.history.pop('val_acc')
             if (X_y_t is not None) and (Y_y_t is not None):
                 e_loss, e_acc = self.evaluate(X_y_t, Y_y_t, verbose=verbose)
-                h.history['virtual_loss'] = h.history.pop('loss')
-                h.history['virtual_acc'] = h.history.pop('acc')
-                h.history['train_loss'] = e_loss
-                h.history['train_acc'] = e_acc
+                h.history['train_y_loss'] = e_loss
+                h.history['train_y_acc'] = e_acc
+            # TODO do I need the training CM?
+            prediction_y = self.predict_classes(X_y_t, verbose=0)
+            h.history['train_y_cm'] = confusion_matrix(Y_y_t.argmax(axis=1), prediction_y)
+            if 'validation_data' in kwargs.keys():
+                prediction_y = self.predict_classes(kwargs['validation_data'][0], verbose=0)
+                h.history['val_y_cm'] = confusion_matrix(kwargs['validation_data'][1].argmax(axis=1), prediction_y)
             history.append(h)
         return FakeHistory(_merge_histories(history))
 
@@ -216,9 +302,13 @@ def create_model(input_dim=1, output_size=1, optimizer='rmsprop',
 
     if init == 'glorot_uniform':
         init = glorot_uniform(seed=model_num+1)
+        # FIXME remove next line
+        init = glorot_uniform(seed=2)
 
     if training_method == 'supervised':
-        model = Sequential()
+        model = MySequential()
+    elif training_method == 'weak':
+        model = MySequentialWeak()
     elif training_method == 'OSL':
         model = MySequentialOSL()
     elif training_method == 'EM':

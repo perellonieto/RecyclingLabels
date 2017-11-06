@@ -40,7 +40,7 @@ class Notebook(object):
         general_entry_number = self.diary.increase_entry_number()
         self.entry_number += 1
         if type(row) is dict:
-            row = sum([[key, value] for key, value in row.items()], [])
+            row = sum([[key, str(value).replace('\n', '\\n')] for key, value in row.items()], [])
         with open(os.path.join(self.diary.path, self.filename), 'a') as csvfile:
             writer = csv.writer(csvfile, delimiter=',', quotechar='|',
                     quoting=csv.QUOTE_NONNUMERIC)
@@ -67,32 +67,35 @@ class Diary(object):
         self.fig_format = fig_format
         self.entry_number = 0
 
-        self.all_paths = self._create_all_paths()
+        self.all_paths = self._create_all_paths(overwrite)
         self._save_description()
 
-        if stdout:
+        self.stdout = stdout
+        self.stderr = stderr
+
+        if self.stdout:
             self.redirect_stdout(self.path)
-        if stderr:
+        if self.stderr:
             self.redirect_stderr(self.path)
 
         self.notebooks = {}
 
-    def redirect_stdout(self, path):
-        sys.stdout = open(os.path.join(path, 'stdout.txt'), 'w')
+    def redirect_stdout(self, path, filename='stdout.txt'):
+        sys.stdout = open(os.path.join(path, filename), 'w')
 
-    def redirect_stderr(self, path):
-        sys.stderr = open(os.path.join(path, 'stderr.txt'), 'w')
+    def redirect_stderr(self, path, filename='stderr.txt'):
+        sys.stderr = open(os.path.join(path, filename), 'w')
 
     def add_notebook(self, name, **kwargs):
         self.notebooks[name] = Notebook(name, self, **kwargs)
         return self.notebooks[name]
 
-    def _create_all_paths(self):
+    def _create_all_paths(self, overwrite):
         original_path = self.path
         created = False
         i = 0
         while not created:
-            while self.overwrite == False and os.path.exists(self.path):
+            while overwrite == False and os.path.exists(self.path):
                 self.path = "{}_{}".format(original_path,i)
                 i +=1
 
@@ -144,6 +147,31 @@ class Diary(object):
                 "Image_format : {}\nFigure_format : {}"
                 "").format(self.creation_date, self.name, self.path,
                         self.overwrite, self.image_format, self.fig_format)
+
+    def get_shared_vars(self):
+        s_vars = vars(self)
+        s_vars['notebooks'] = {}
+        return s_vars
+
+    def set_shared_vars(self, s_vars):
+        for key, value in s_vars.iteritems():
+            self.__dict__[key] = value
+
+class SharedDiary(Diary):
+    def __init__(self, s_vars, unique_id):
+        self.set_shared_vars(s_vars)
+        self.creation_date = datetime.datetime.now()
+        self.uid = unique_id
+
+        if self.stdout:
+            self.redirect_stdout(self.path, 'stdout_uid_{}.txt'.format(self.uid))
+        if self.stderr:
+            self.redirect_stderr(self.path, 'stderr_uid_{}.txt'.format(self.uid))
+
+    def add_notebook(self, name, **kwargs):
+        name = '{}_uid_{}'.format(name, self.uid)
+        return super(SharedDiary, self).add_notebook(name, **kwargs)
+
 
 if __name__ == "__main__":
     diary = Diary(name='world', path='hello', overwrite=False)

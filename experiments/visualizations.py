@@ -18,8 +18,8 @@ def savefig_and_close(fig, figname, path='', bbox_extra_artists=None):
     plt.close(fig)
 
 
-def newfig(name):
-    fig = plt.figure(name, figsize=(6, 4))
+def newfig(name, **kwargs):
+    fig = plt.figure(name, **kwargs)
     fig.clf()
     return fig
 
@@ -180,26 +180,36 @@ def test_dual_half_circle_main():
     ax.axis('equal')
     plt.show()
 
-def plot_multilabel_scatter(X, Y, cmap=cm.get_cmap('Accent'), edgecolor=None,
-                            linewidth=0.0, title=None, **kwargs):
+def plot_multilabel_scatter(X, Y, cmap=cm.get_cmap('Accent'), edgecolor='k',
+                            linewidth=0.4, title=None, fig=None,
+                            radius_scaler=100.0, **kwargs):
     X_std = X.std(axis=0)
     X_min = X.min(axis=0)
     X_max = X.max(axis=0)
     n_classes = Y.shape[1]
 
-    radius = (X.max() - X.min())/100.0
+    radius = (X.max() - X.min())/radius_scaler
 
-    fig, ax = plt.subplots()
+    if fig is None:
+        fig, ax = plt.subplots()
+    else:
+        ax = fig.add_subplot(111)
     for x, y in zip(X, Y):
         theta2s = np.cumsum(np.true_divide(y, y.sum())*360.0)
         theta1 = 0
-        for i, theta2 in enumerate(theta2s):
-            # Do not draw samples with no label
-            if np.isfinite(theta2):
-                w = Wedge(x[:2], radius, theta1, theta2, ec=edgecolor, lw=linewidth,
-                          fc=cmap(np.true_divide(i, n_classes)), **kwargs)
-                ax.add_patch(w)
-                theta1 = theta2
+        if np.isfinite(theta2s[0]):
+            for i, theta2 in enumerate(theta2s):
+                if theta1 != theta2:
+                    w = Wedge(x[:2], radius, theta1, theta2, ec=edgecolor, lw=linewidth,
+                              fc=cmap(np.true_divide(i, n_classes)), **kwargs)
+                    ax.add_patch(w)
+                    theta1 = theta2
+        else:
+            # Not belong to any class
+            w = Wedge(x[:2], radius, 0, 360, ec='black', lw=linewidth,
+                      fc='white', **kwargs)
+            ax.add_patch(w)
+
     ax.set_xlim([X_min[0]-X_std[0], X_max[0]+X_std[0]])
     ax.set_ylim([X_min[1]-X_std[1], X_max[1]+X_std[1]])
     ax.axis('equal')
@@ -239,13 +249,16 @@ def plot_errorbar(data, fmt='--o', title='errorbar', elinewidth=1.0,
 
     for i, matrix in enumerate(data):
         errorevery = int(matrix.shape[1] * perrorevery)
+        if errorevery < 1:
+            errorevery = 1
 
         x = range(matrix.shape[1])
         means = matrix.mean(axis=0)
         stds = matrix.std(axis=0)
 
         ax.errorbar(x=x, y=means, yerr=stds, elinewidth=(len(data)-i)*elinewidth,
-                    errorevery=errorevery, **kwargs)
+                    errorevery=errorevery, capthick=(len(data)-i)*elinewidth,
+                    capsize=4, **kwargs)
     if legend is not None:
         ax.legend(legend)
     return fig
