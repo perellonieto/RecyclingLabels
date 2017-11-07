@@ -154,7 +154,7 @@ class Diary(object):
         return s_vars
 
     def set_shared_vars(self, s_vars):
-        for key, value in s_vars.iteritems():
+        for key, value in s_vars.items():
             self.__dict__[key] = value
 
 class SharedDiary(Diary):
