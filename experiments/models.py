@@ -11,6 +11,7 @@ from keras.layers.core import Dense, Dropout, Activation
 from keras.optimizers import SGD
 from keras.wrappers.scikit_learn import KerasClassifier
 from keras.initializers import glorot_uniform
+from keras.regularizers import l1l2
 
 from sklearn.metrics import confusion_matrix
 
@@ -315,10 +316,13 @@ def create_model(input_dim=1, output_size=1, optimizer='rmsprop',
         raise(ValueError('Training method %s not implemented' %
                          (training_method)))
 
+    reg = l1l2(l1=0.00, l2=0.001)
+
     previous_layer = input_dim
     if architecture == 'lr':
         model.add(Dense(output_size, input_shape=(input_dim,),
                         kernel_initializer=init,
+                        W_regularizer=reg,
                         activation='softmax'))
     elif architecture.startswith('mlp'):
         architecture = architecture[3:]
