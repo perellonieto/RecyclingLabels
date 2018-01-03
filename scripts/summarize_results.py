@@ -138,8 +138,13 @@ def get_dataframe_from_csv(folder, filename, keep_time=False):
 
 def extract_summary(folder):
     dataset_df = get_dataframe_from_csv(folder, 'dataset.csv', keep_time=True)
-    results_df = get_dataframe_from_csv(folder, 'validation.csv',
+    results_df = get_dataframe_from_csv(folder, 'training.csv',
                                         keep_time=False)
+
+    best_epoch = results_df.groupby(as_index='pid', by='epoch')['val_y_loss'].mean().argmin()
+    # FIXME the best epoch could be computed for all the summaries later on
+    # However, it seems easier at this point
+    results_df['best_epoch'] = best_epoch
     model_df = get_dataframe_from_csv(folder, 'model.csv', keep_time=False)
 
     dataset_df['folder'] = folder
@@ -210,7 +215,7 @@ def render_mpl_table(data, col_width=3.0, row_height=0.625, font_size=14,
     mpl_table.auto_set_font_size(False)
     mpl_table.set_fontsize(font_size)
 
-    for k, cell in six.iteritems(mpl_table._cells):
+    for k, cell in six.items(mpl_table._cells):
         cell.set_edgecolor(edge_color)
         if k[0] == 0 or k[1] < header_columns:
             cell.set_text_props(weight='bold', color='w')
@@ -282,7 +287,7 @@ def main(results_path='results', summary_path='', filter_rows={},
     results_folders, unfin_folders = get_list_results_folders(
             results_path, essentials=['description.txt', 'dataset.csv',
                                       'model.csv'],
-            finished=['validation.csv'],
+            finished=['validation.csv', 'training.csv'],
             return_unfinished=True)
 
     # Creates summary path if it does not exist
