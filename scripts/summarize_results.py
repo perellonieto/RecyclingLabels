@@ -166,9 +166,9 @@ def extract_unfinished_summary(folder):
 
 
 def export_datasets_info(df, path='', stylesheets=['style.css']):
-    columns = ['name', 'n_samples_without_y', 'n_samples_with_y', 'n_features',
+    columns = ['dataset', 'n_samples_without_y', 'n_samples_with_y', 'n_features',
                'n_classes']
-    sort_by = ['name']
+    sort_by = ['dataset']
     index = columns[0]
     df_table = df[columns].drop_duplicates(subset=columns, keep='first'
                                            ).sort_values(sort_by).set_index(index)
@@ -176,9 +176,11 @@ def export_datasets_info(df, path='', stylesheets=['style.css']):
     df_table.to_latex(os.path.join(path, "datasets.tex"))
 
     # Add mean performance of best model
-    best_model = df.groupby('architecture')['acc'].mean().argmax()
-    mean_loss_best_model = df[df['architecture'] == best_model][['name', 'acc']].groupby(by='name').mean().round(decimals=2)
-    mean_loss_best_model = mean_loss_best_model.rename(columns={'acc': 'mean(acc)'})
+    best_model = df.groupby('architecture')['val_y_acc'].mean().argmax()
+    mean_loss_best_model = df[df['architecture'] == best_model][['dataset',
+        'val_y_acc']].groupby(by='dataset').mean().round(decimals=2)
+    mean_loss_best_model = mean_loss_best_model.rename(columns={'val_y_acc':
+        'mean(val_y_acc)'})
     df_table = pd.concat([df_table, mean_loss_best_model], axis=1)
 
     # FIXME study if this change needs to be done in export_df
@@ -215,7 +217,7 @@ def render_mpl_table(data, col_width=3.0, row_height=0.625, font_size=14,
     mpl_table.auto_set_font_size(False)
     mpl_table.set_fontsize(font_size)
 
-    for k, cell in six.items(mpl_table._cells):
+    for k, cell in six.iteritems(mpl_table._cells):
         cell.set_edgecolor(edge_color)
         if k[0] == 0 or k[1] < header_columns:
             cell.set_text_props(weight='bold', color='w')
@@ -254,12 +256,12 @@ def wilcoxon_rank_sum_test(df, index, column, signed=False,
         # sim), dataset (column name) and mixing_matrix_M
         if i == 0:
             experiments = df[df[index] == index1][['sim', 'mixing_matrix_M',
-                                                   'name']].values
+                                                   'dataset']].values
         else:
             np.testing.assert_equal(experiments,
                                     df[df[index] == index1][['sim',
                                                              'mixing_matrix_M',
-                                                             'name']].values)
+                                                             'dataset']].values)
     stat = []
     for (index1, index2) in itertools.combinations(indices, 2):
         if index1 != index2:
@@ -326,7 +328,7 @@ def main(results_path='results', summary_path='', filter_rows={},
     df = pd.concat(summaries, axis=0, ignore_index=True)
 
     # Remove experiments with no information about the dataset
-    df = df[df.name.notnull()]
+    df = df[df.dataset.notnull()]
 
     if len(filter_rows) > 0:
         print("Filtering only rows that contain")
@@ -343,7 +345,7 @@ def main(results_path='results', summary_path='', filter_rows={},
     # additional epochs. However, in the future I should add it
     df.drop_duplicates(subset=['architecture', 'init', 'input_dim',
                                'loss', 'method', 'n_classes', 'n_features',
-                               'name', 'n_samples_without_y',
+                               'dataset', 'n_samples_without_y',
                                'n_samples_with_y', 'pid', 'training_method'],
                        inplace=True, keep='last')
 
@@ -355,9 +357,11 @@ def main(results_path='results', summary_path='', filter_rows={},
     ########################################################################
     # Export information about the experimental setup
     ########################################################################
-    exp_setup_info = ['name', 'method', 'training_method', 'architecture',
+    exp_setup_info = ['dataset', 'method', 'training_method', 'architecture',
                       'loss', 'init', 'input_dim', 'n_classes', 'n_features',
-                      'epochs', 'n_samples_with_y', 'n_samples_without_y']
+                      'epochs', 'n_samples_with_y', 'n_samples_without_y',
+                      'lr', 'l1', 'l2', 'optimizer', 'nesterov', 'decay',
+                      'momentum']
     experimental_setup = df.groupby(exp_setup_info).size()
     df_exp_setup = experimental_setup.to_frame().reset_index()
     df_exp_setup.to_csv(os.path.join(summary_path, "experimental_setup.csv"),
@@ -372,8 +376,8 @@ def main(results_path='results', summary_path='', filter_rows={},
     ########################################################################
     # Boxplots by different groups
     ########################################################################
-    groups_by = ['architecture', 'name', 'method']
-    columns = ['acc']
+    groups_by = ['architecture', 'dataset', 'method']
+    columns = ['val_y_acc']
     for groupby in groups_by:
         for column in columns:
             # grouped = df[idx].groupby([groupby])
@@ -398,8 +402,8 @@ def main(results_path='results', summary_path='', filter_rows={},
     # Heatmap of models vs architecture
     ########################################################################
     indices = ['architecture']
-    columns = ['name']
-    values = ['acc']
+    columns = ['dataset']
+    values = ['val_y_acc']
     for value in values:
         for index in indices:
             for column in columns:
@@ -412,14 +416,14 @@ def main(results_path='results', summary_path='', filter_rows={},
                             index, column, value, fig_extension), path=summary_path)
 
     ########################################################################
-    # Heatmap of finished experiments name vs mixing_matrix_M
+    # Heatmap of finished experiments dataset vs mixing_matrix_M
     ########################################################################
-    df2 = pd.pivot_table(df, values='acc', index='name', columns='architecture',
+    df2 = pd.pivot_table(df, values='val_y_acc', index='dataset', columns='architecture',
                          aggfunc=len)
     df2 = df2.fillna(0).astype(int)
     fig = plot_df_heatmap(df2, title='Number of experiments',
                           cmap=plt.cm.Greys)
-    savefig_and_close(fig, 'name_vs_architecture_heatmap_count.{}'.format(
+    savefig_and_close(fig, 'dataset_vs_architecture_heatmap_count.{}'.format(
                         fig_extension), path=summary_path)
 
     ########################################################################
@@ -427,8 +431,8 @@ def main(results_path='results', summary_path='', filter_rows={},
     ########################################################################
     # TODO annotate axis
     indices = ['method']
-    columns = ['architecture', 'name']
-    values = ['acc']
+    columns = ['architecture', 'dataset']
+    values = ['val_y_acc']
     normalizations = [None, 'rows', 'cols']
     for value in values:
         for index in indices:
@@ -461,12 +465,12 @@ def main(results_path='results', summary_path='', filter_rows={},
     ########################################################################
     # Heatmap of method vs architecture for every dataset
     ########################################################################
-    filter_by_column = 'name'
+    filter_by_column = 'dataset'
     filter_values = df[filter_by_column].unique()
     # TODO change columns and indices
     indices = ['method']
     columns = ['architecture', 'n_samples_with_y', 'n_classes', 'n_features']
-    values = ['acc']
+    values = ['val_y_acc']
     normalizations = [None, 'rows', 'cols']
     for filtered_row in filter_values:
         for value in values:
@@ -505,6 +509,34 @@ def main(results_path='results', summary_path='', filter_rows={},
                                               value, fig_extension),
                                           path=summary_path,
                                           bbox_extra_artists=(lgd,))
+
+    ########################################################################
+    # Boxplots by Experimental setup and dataset
+    ########################################################################
+    filter_by_column = 'dataset'
+    filter_values = df[filter_by_column].unique()
+    groupby = exp_setup_info
+    columns = ['val_y_acc']
+    for filtered_row in filter_values:
+        for column in columns:
+            df_filtered = df[df[filter_by_column] == filtered_row]
+            grouped = df_filtered.groupby(groupby)
+
+            df2 = pd.DataFrame({col: vals[column] for col, vals in grouped})
+            meds = df2.median()
+            meds.sort_values(ascending=False, inplace=True)
+            df2 = df2[meds.index]
+
+            fig = plt.figure(figsize=(10, len(meds)/2+3))
+            ax = df2.boxplot(vert=False)
+            ax.set_title('results grouped by experimental setup')
+
+            counts = {k: len(v) for k, v in grouped}
+            ax.set_yticklabels(['%s\n$n$=%d' % (k, counts[k]) for k in meds.keys()])
+            ax.set_xlabel(column)
+            savefig_and_close(fig, '{}_{}_{}.{}'.format(filter_by_column,
+                filtered_row, column, fig_extension), path=summary_path)
+
 
 
 def __test_1():

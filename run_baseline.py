@@ -207,7 +207,7 @@ def main(dataset=DEFAULT['dataset'], seed=DEFAULT['seed'],
         X_v, Z_v, z_v, Y_v, y_v = X_v[train_indx], Z_v[train_indx], z_v[train_indx], Y_v[train_indx], y_v[train_indx]
 
     n_dataset = diary.add_notebook('dataset')
-    n_dataset.add_entry(row=['name', dataset,
+    n_dataset.add_entry(row=['dataset', dataset,
                        'n_samples_without_y', X_t.shape[0],
                        'n_samples_with_y', X_v.shape[0],
                        'n_features', X_t.shape[1],
