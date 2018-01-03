@@ -3,7 +3,7 @@ import numpy as np
 from scipy import sparse
 
 from sklearn.utils import shuffle
-from sklearn.datasets import load_iris
+from sklearn.datasets import load_iris, make_classification
 from sklearn.preprocessing import label_binarize
 from sklearn.preprocessing import scale
 from sklearn.model_selection import StratifiedShuffleSplit
@@ -237,3 +237,26 @@ def load_weak_iris(method='quasi_IPL', true_size=0.1, random_state=None):
                  seed=random_state)
     return make_weak_true_partition(M, X, y, true_size=true_size,
                                     random_state=random_state)
+
+
+def load_classification(n_samples=1000, n_features=20, n_classes=6,
+                        random_state=None, n_informative=10, n_redundant=2,
+                        n_repeated=0, n_clusters_per_class=2):
+    X, y = make_classification(n_samples=n_samples, n_features=n_features,
+                               n_classes=n_classes, random_state=random_state,
+                               n_redundant=n_redundant,
+                               n_informative=n_informative,
+                               n_clusters_per_class=n_clusters_per_class)
+    if n_classes == 2:
+        Y = np.vstack([1-y, y]).T
+    else:
+        Y = label_binarize(y, range(n_classes))
+    # FIXME z should not be exactly y
+    Z = Y
+
+    p2 = np.array([2**n for n in reversed(range(n_classes))])
+    z = Z.dot(p2)
+
+    X_train, X_val, Z_train, Z_val, z_train, z_val, Y_train, Y_val, y_train, y_val = train_test_split(X, Z, z, Y, y, test_size=0.5, random_state=random_state)
+
+    return (X_train, Z_train, z_train), (X_val, Z_val, z_val, Y_val, y_val), None

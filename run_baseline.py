@@ -6,7 +6,7 @@ from functools import partial
 from sklearn.model_selection import StratifiedShuffleSplit
 from collections import Counter
 from experiments.data import load_webs, load_weak_iris, load_weak_blobs, \
-                             load_toy_example
+                             load_toy_example, load_classification
 from experiments.analysis import analyse_weak_labels
 from experiments.diary import Diary
 
@@ -14,7 +14,11 @@ DEFAULT = {'dataset': 'iris',
            'seed': 42,
            'verbose': 0,
            'epochs': 200,
+           'lr': 1.0,
+           'l1': 0.0,
+           'l2': 0.001,
            'architecture': 'lr',
+           'optimizer': 'rmsprop',
            'method': 'fully_supervised',
            'n_jobs': None,
            'n_iterations': 2,
@@ -44,8 +48,16 @@ dataset_functions = {'toy_example': load_toy_example,
                                            true_size=0.02),
                      'iris': partial(load_weak_iris, method='random_weak',
                                      true_size=0.3),
-                     'webs': load_webs}
-
+                     'webs': load_webs,
+                     'classification': partial(load_classification,
+                                               n_samples=10000,
+                                               n_features=2,
+                                               n_classes=2,
+                                               n_informative=2,
+                                               n_redundant=0,
+                                               n_repeated=0,
+                                               n_clusters_per_class=1),
+                     }
 
 def function_accepts_M(f):
     if type(dataset_functions[dataset]) is partial:
@@ -56,7 +68,8 @@ def function_accepts_M(f):
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='''Runs a test with a toy
-                                                example or a real dataset''')
+                                                example or a real dataset''',
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-a', '--architecture', dest='architecture', type=str,
                         default=DEFAULT['architecture'],
                         help='''Model architecture. Possible options are: lr
@@ -118,6 +131,19 @@ def parse_arguments():
     parser.add_argument('-v', '--verbose', dest='verbose', type=int,
                         default=DEFAULT['verbose'],
                         help='Verbosity level being 0 the minimum value')
+    parser.add_argument('--lr', dest='lr', type=float,
+                        default=DEFAULT['lr'],
+                        help='Initial learning rate')
+    parser.add_argument('--l1', dest='l1', type=float,
+                        default=DEFAULT['l1'],
+                        help='L1 regularization')
+    parser.add_argument('--l2', dest='l2', type=float,
+                        default=DEFAULT['l2'],
+                        help='L2 regularization')
+    parser.add_argument('--optimizer', dest='optimizer', type=str,
+                        default=DEFAULT['optimizer'],
+                        help=('Optimization method: rmsprop, adagrad, '
+                              'adadelta, adam, adamax, nadam, tfoptimizer'))
     return parser.parse_args()
 
 
@@ -130,7 +156,8 @@ def main(dataset=DEFAULT['dataset'], seed=DEFAULT['seed'],
          stderr=DEFAULT['stderr'], epochs=DEFAULT['epochs'],
          path_model=DEFAULT['path_model'],
          file_M=DEFAULT['file_M'], prop_weak=DEFAULT['prop_weak'],
-         prop_clean=DEFAULT['prop_clean']):
+         prop_clean=DEFAULT['prop_clean'], lr=DEFAULT['lr'], l1=DEFAULT['l1'],
+         l2=DEFAULT['l2'], optimizer=DEFAULT['optimizer']):
 
     diary = Diary(name=('{}_{}_{}'.format(dataset, method, architecture)),
                   path=path_results, overwrite=False, image_format='png',
@@ -200,7 +227,8 @@ def main(dataset=DEFAULT['dataset'], seed=DEFAULT['seed'],
                         diary=diary, n_jobs=n_jobs, loss=loss,
                         n_iterations=n_iterations, k_folds=k_folds,
                         architecture=architecture, epochs=epochs,
-                        path_model=path_model, file_M=file_M)
+                        path_model=path_model, file_M=file_M, lr=lr, l1=l1,
+                        l2=l2, optimizer=optimizer)
 
 
 if __name__ == '__main__':

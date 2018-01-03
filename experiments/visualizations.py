@@ -9,6 +9,8 @@ import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.patches import Wedge
 
+from textwrap import wrap
+
 
 def savefig_and_close(fig, figname, path='', bbox_extra_artists=None):
     filename = os.path.join(path, figname)
@@ -128,6 +130,8 @@ def plot_heatmap(M, columns=None, rows=None, cmap=plt.cm.Blues, colorbar=False,
     im = ax.imshow(M, interpolation='nearest', cmap=cmap)
     if colorbar:
         fig.colorbar(im)
+    if h_size < 4:
+        title = "\n".join(wrap(title, 30))
     ax.set_title(title)
     column_tick_marks = np.arange(len(columns))
     ax.set_xticks(column_tick_marks)
@@ -145,15 +149,14 @@ def plot_heatmap(M, columns=None, rows=None, cmap=plt.cm.Blues, colorbar=False,
     for i, j in itertools.product(range(M.shape[0]), range(M.shape[1])):
         # fontsize is adjusted for different number of digits
         if are_ints:
-            ax.text(j, i, M[i, j], horizontalalignment="center",
-                    verticalalignment="center", color="white" if M[i, j] >
-                    thresh else "black")
+            num_text = str(M[i, j])
         else:
-            if np.isfinite(M[i, j]):
-                ax.text(j, i, '{:0.2f}'.format(MyFloat(M[i, j])),
-                        horizontalalignment="center",
-                        verticalalignment="center",
-                        color="white" if M[i, j] > thresh else "black")
+            num_text = '{:0.2f}'.format(MyFloat(M[i, j]))
+
+        if np.isfinite(M[i, j]):
+            ax.text(j, i, num_text, horizontalalignment="center",
+                    verticalalignment="center", color="white" if M[i, j] >
+                    thresh else "black", fontsize=16-len(num_text))
 
     fig.tight_layout()
     return fig

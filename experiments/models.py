@@ -294,7 +294,8 @@ def create_model(input_dim=1, output_size=1, optimizer='rmsprop',
                  init='glorot_uniform', lr=1, momentum=0.0, decay=0.0,
                  nesterov=False, loss='mean_squared_error',
                  class_weights=None, training_method='supervised',
-                 architecture='lr', path_model=None, model_num=0):
+                 architecture='lr', path_model=None, model_num=0, l1=0.00,
+                 l2=0.001):
     """
     Parameters
     ----------
@@ -316,7 +317,7 @@ def create_model(input_dim=1, output_size=1, optimizer='rmsprop',
         raise(ValueError('Training method %s not implemented' %
                          (training_method)))
 
-    reg = l1_l2(l1=0.00, l2=0.001)
+    reg = l1_l2(l1=l1, l2=l2)
 
     previous_layer = input_dim
     if architecture == 'lr':
@@ -335,7 +336,7 @@ def create_model(input_dim=1, output_size=1, optimizer='rmsprop',
                 architecture = architecture[1:]
             elif architecture[0] == 'm':
                 model.add(Dense(output_size, input_dim=previous_layer,
-                                kernel_initializer=init))
+                                kernel_initializer=init, W_regularizer=reg))
                 model.add(Activation('softmax'))
                 architecture = architecture[1:]
             elif architecture[0].isdigit():
@@ -344,7 +345,7 @@ def create_model(input_dim=1, output_size=1, optimizer='rmsprop',
                     i += 1
                 actual_layer = int(architecture[:i])
                 model.add(Dense(actual_layer, input_dim=previous_layer,
-                                kernel_initializer=init))
+                                kernel_initializer=init, W_regularizer=reg))
                 architecture = architecture[i:]
                 previous_layer = actual_layer
             else:

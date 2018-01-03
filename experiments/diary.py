@@ -142,7 +142,12 @@ class Diary(object):
     def save_figure(self, fig, filename=None, extension=None):
         if extension == None:
             extension = self.fig_format
-        fig.tight_layout()
+
+        try:
+            fig.tight_layout()
+        except ValueError:
+            pass
+
         if filename is None:
             filename = fig.get_label()
 
