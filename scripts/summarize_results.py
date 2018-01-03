@@ -339,15 +339,19 @@ def main(results_path='results', summary_path='', filter_rows={},
             else:
                 df = df[df[key] == float(value)]
 
+    # Definition of a different experiment setup
+    exp_setup_info = ['dataset', 'method', 'training_method', 'architecture',
+                      'loss', 'init', 'input_dim', 'n_classes', 'n_features',
+                      'epochs', 'n_samples_with_y', 'n_samples_without_y',
+                      'lr', 'l1', 'l2', 'optimizer', 'nesterov', 'decay',
+                      'momentum']
+
     # Keep only the last computed results for the same experiment
     df.sort_values(by=['date', 'time'], ascending=True, inplace=True)
+
     # FIXME I removed the epochs because I had to repeat some experiments with
     # additional epochs. However, in the future I should add it
-    df.drop_duplicates(subset=['architecture', 'init', 'input_dim',
-                               'loss', 'method', 'n_classes', 'n_features',
-                               'dataset', 'n_samples_without_y',
-                               'n_samples_with_y', 'pid', 'training_method'],
-                       inplace=True, keep='last')
+    df.drop_duplicates(subset=exp_setup_info, inplace=True, keep='last')
 
     ########################################################################
     # Export information about the datasets
@@ -357,11 +361,6 @@ def main(results_path='results', summary_path='', filter_rows={},
     ########################################################################
     # Export information about the experimental setup
     ########################################################################
-    exp_setup_info = ['dataset', 'method', 'training_method', 'architecture',
-                      'loss', 'init', 'input_dim', 'n_classes', 'n_features',
-                      'epochs', 'n_samples_with_y', 'n_samples_without_y',
-                      'lr', 'l1', 'l2', 'optimizer', 'nesterov', 'decay',
-                      'momentum']
     experimental_setup = df.groupby(exp_setup_info).size()
     df_exp_setup = experimental_setup.to_frame().reset_index()
     df_exp_setup.to_csv(os.path.join(summary_path, "experimental_setup.csv"),
