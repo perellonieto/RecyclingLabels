@@ -1,4 +1,5 @@
 import argparse
+import inspect
 
 import numpy as np
 from functools import partial
@@ -9,11 +10,31 @@ from experiments.data import load_webs, load_weak_iris, load_weak_blobs, \
 from experiments.analysis import analyse_weak_labels
 from experiments.diary import Diary
 
+DEFAULT = {'dataset': 'iris',
+           'seed': 42,
+           'verbose': 0,
+           'epochs': 200,
+           'architecture': 'lr',
+           'method': 'fully_supervised',
+           'n_jobs': None,
+           'n_iterations': 2,
+           'k_folds': 2,
+           'path_results': 'results',
+           'loss': 'mse',
+           'stdout': None,
+           'stderr': None,
+           'path_model': None,
+           'file_M': None,
+           'prop_weak': 1.0,
+           'prop_clean': 1.0,
+           }
+
 dataset_functions = {'toy_example': load_toy_example,
                      'blobs': partial(load_weak_blobs, method='random_weak'),
                      'unbalanced': partial(load_weak_blobs,
                                            method='random_weak',
-                                           n_samples=[100, 300, 1200, 1200, 5600, 1400]),
+                                           n_samples=[100, 300, 1200, 1200,
+                                                      5600, 1400]),
                      'blobs_webs': partial(load_weak_blobs,
                                            method='random_weak',
                                            n_samples=[1000, 3000, 12000, 12000,
@@ -22,15 +43,22 @@ dataset_functions = {'toy_example': load_toy_example,
                                            n_classes=6,
                                            true_size=0.02),
                      'iris': partial(load_weak_iris, method='random_weak',
-                         true_size=0.3),
+                                     true_size=0.3),
                      'webs': load_webs}
+
+
+def function_accepts_M(f):
+    if type(dataset_functions[dataset]) is partial:
+        return 'M' in inspect.getargspec(dataset_functions[dataset].func).args
+    else:
+        return 'M' in inspect.getargspec(dataset_functions[dataset]).args
 
 
 def parse_arguments():
     parser = argparse.ArgumentParser(description='''Runs a test with a toy
                                                 example or a real dataset''')
     parser.add_argument('-a', '--architecture', dest='architecture', type=str,
-                        default='lr',
+                        default=DEFAULT['architecture'],
                         help='''Model architecture. Possible options are: lr
                         (logistic regression); or a MLP with the following
                         specification: mlp100m (Multilayer Perceptron
@@ -41,64 +69,71 @@ def parse_arguments():
                         Sigmoid activation, layer of 45 units, dropout of 0.5,
                         and SoftMax).''')
     parser.add_argument('-c', '--epochs', dest='epochs', type=int,
-                        default=200, help='Number of epochs')
+                        default=DEFAULT['epochs'], help='Number of epochs')
     parser.add_argument('-d', '--dataset', dest='dataset', type=str,
-                        default='iris',
+                        default=DEFAULT['dataset'],
                         help='''Name of the dataset to use: iris, toy_example,
                                 blobs, unbalanced, webs, blobs_webs''')
     parser.add_argument('-e', '--stderr', dest='stderr',
-                        default=False, action='store_true',
+                        default=DEFAULT['stderr'], action='store_true',
                         help='If the stderr needs to be redirected')
     parser.add_argument('-f', '--prop-weak', dest='prop_weak', type=float,
-                        default=1.0,
+                        default=DEFAULT['prop_weak'],
                         help='Proportion of weak portion to keep')
     parser.add_argument('-g', '--prop-clean', dest='prop_clean', type=float,
-                        default=1.0,
+                        default=DEFAULT['prop_clean'],
                         help='Proportion of clean portion to keep')
-    parser.add_argument('-i', '--iterations', dest='n_iterations', type=int,
-                        default=2,
+    parser.add_argument('-i', '--n-iterations', dest='n_iterations', type=int,
+                        default=DEFAULT['n_iterations'],
                         help='Number of iterations to repeat the validation')
     parser.add_argument('-k', '--k-folds', dest='k_folds', type=int,
-                        default=2,
+                        default=DEFAULT['k_folds'],
                         help='Number of folds for the cross-validation')
     parser.add_argument('-l', '--loss', dest='loss', type=str,
-                        default='mse',
+                        default=DEFAULT['loss'],
                         help='Number of iterations to repeat the validation')
     parser.add_argument('-M', '--file-M', dest='file_M', type=str,
-                        default=None,
+                        default=DEFAULT['file_M'],
                         help='''File with a precomputed M''')
     parser.add_argument('-m', '--method', dest='method', type=str,
-                        default='fully_supervised',
+                        default=DEFAULT['method'],
                         help='''Learning method to use between,
                                 Mproper, fully_supervised, fully_weak,
                                 partially_weak, EM or OSL''')
     parser.add_argument('-o', '--stdout', dest='stdout',
-                        default=False, action='store_true',
+                        default=DEFAULT['stdout'], action='store_true',
                         help='If the stdout needs to be redirected')
     parser.add_argument('-p', '--processes', dest='n_jobs', type=int,
-                        default=None,
+                        default=DEFAULT['n_jobs'],
                         help='Number of concurrent processes')
-    parser.add_argument('-r', '--path-results', dest='path', type=str,
-                        default='results',
+    parser.add_argument('-r', '--path-results', dest='path_results', type=str,
+                        default=DEFAULT['path_results'],
                         help='Path to the precomputed mixing matrix M')
     parser.add_argument('-s', '--seed', dest='seed', type=int,
-                        default=None,
+                        default=DEFAULT['seed'],
                         help='Seed for the random number generator')
     parser.add_argument('-t', '--path-model', dest='path_model', type=str,
-                        default=None,
+                        default=DEFAULT['path_model'],
                         help='Path to the model and weights')
     parser.add_argument('-v', '--verbose', dest='verbose', type=int,
-                        default=0,
+                        default=DEFAULT['verbose'],
                         help='Verbosity level being 0 the minimum value')
     return parser.parse_args()
 
 
-def main(dataset, seed, verbose, method, path, n_jobs, n_iterations,
-         k_folds, architecture, loss, stdout, stderr, epochs, path_model,
-         file_M, prop_weak, prop_clean):
+def main(dataset=DEFAULT['dataset'], seed=DEFAULT['seed'],
+         verbose=DEFAULT['verbose'], method=DEFAULT['method'],
+         path_results=DEFAULT['path_results'], n_jobs=DEFAULT['n_jobs'],
+         n_iterations=DEFAULT['n_iterations'],
+         k_folds=DEFAULT['k_folds'], architecture=DEFAULT['architecture'],
+         loss=DEFAULT['loss'], stdout=DEFAULT['stdout'],
+         stderr=DEFAULT['stderr'], epochs=DEFAULT['epochs'],
+         path_model=DEFAULT['path_model'],
+         file_M=DEFAULT['file_M'], prop_weak=DEFAULT['prop_weak'],
+         prop_clean=DEFAULT['prop_clean']):
 
     diary = Diary(name=('{}_{}_{}'.format(dataset, method, architecture)),
-                  path=path, overwrite=False, image_format='png',
+                  path=path_results, overwrite=False, image_format='png',
                   fig_format='svg', stdout=stdout, stderr=stderr)
 
     print('Main arguments')
@@ -106,7 +141,18 @@ def main(dataset, seed, verbose, method, path, n_jobs, n_iterations,
     if dataset not in dataset_functions.keys():
         raise ValueError("Dataset not available: %s" % (dataset))
 
-    training, validation, classes = dataset_functions[dataset](random_state=seed)
+    if file_M is None:
+        M = None
+    else:
+        M = np.loadtxt(file_M)
+
+    if M is not None and function_accepts_M(dataset_functions[dataset]):
+        training, validation, classes = dataset_functions[dataset](
+                random_state=seed, M=M)
+    else:
+        training, validation, classes = dataset_functions[dataset](
+                random_state=seed)
+
     X_t, Z_t, z_t = training
     X_v, Z_v, z_v, Y_v, y_v = validation
 
