@@ -339,12 +339,13 @@ def main(results_path='results', summary_path='', filter_rows={},
             else:
                 df = df[df[key] == float(value)]
 
+    df['basename'] = df.folder.apply(os.path.basename)
     # Definition of a different experiment setup
-    exp_setup_info = ['dataset', 'method', 'training_method', 'architecture',
-                      'loss', 'init', 'input_dim', 'n_classes', 'n_features',
-                      'epochs', 'n_samples_with_y', 'n_samples_without_y',
-                      'lr', 'l1', 'l2', 'optimizer', 'nesterov', 'decay',
-                      'momentum']
+    exp_setup_info = ['basename', 'dataset', 'method', 'training_method',
+                      'architecture', 'loss', 'init', 'input_dim', 'n_classes',
+                      'n_features', 'epochs', 'n_samples_with_y',
+                      'n_samples_without_y', 'lr', 'l1', 'l2', 'optimizer',
+                      'nesterov', 'decay', 'momentum']
     exp_setup_with_repetitions = list(exp_setup_info).append('pid')
 
     # Keep only the last computed results for the same experiment
