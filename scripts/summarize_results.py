@@ -282,7 +282,7 @@ def wilcoxon_rank_sum_test(df, index, column, signed=False,
 
 
 def main(results_path='results', summary_path='', filter_rows={},
-         filter_performance=1.0, verbose=1):
+         filter_performance=1.0, verbose=1, gui=False):
     print('\n#########################################################')
     print('##### Making summary of folder {}'.format(results_path))
     print('#')
@@ -345,13 +345,13 @@ def main(results_path='results', summary_path='', filter_rows={},
                       'epochs', 'n_samples_with_y', 'n_samples_without_y',
                       'lr', 'l1', 'l2', 'optimizer', 'nesterov', 'decay',
                       'momentum']
+    exp_setup_with_repetitions = list(exp_setup_info).append('pid')
 
     # Keep only the last computed results for the same experiment
     df.sort_values(by=['date', 'time'], ascending=True, inplace=True)
 
-    # FIXME I removed the epochs because I had to repeat some experiments with
-    # additional epochs. However, in the future I should add it
-    df.drop_duplicates(subset=exp_setup_info, inplace=True, keep='last')
+    df.drop_duplicates(subset=exp_setup_with_repetitions, inplace=True,
+                       keep='last')
 
     ########################################################################
     # Export information about the datasets
@@ -536,6 +536,9 @@ def main(results_path='results', summary_path='', filter_rows={},
             savefig_and_close(fig, '{}_{}_{}.{}'.format(filter_by_column,
                 filtered_row, column, fig_extension), path=summary_path)
 
+    if gui:
+        import dfgui
+        dfgui.show(df)
 
 
 def __test_1():
@@ -561,6 +564,9 @@ def parse_arguments():
     parser.add_argument("-v", "--verbose", type=int,
                         default=1, dest='verbose',
                         help="Dictionary with columns and filters.")
+    parser.add_argument("-g", "--gui", default=False,
+                        action='store_true', dest='gui',
+                        help="Open a GUI with the dataframe.")
     return parser.parse_args()
 
 
