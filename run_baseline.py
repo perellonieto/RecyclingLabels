@@ -31,6 +31,10 @@ DEFAULT = {'dataset': 'iris',
            'file_M': None,
            'prop_weak': 1.0,
            'prop_clean': 1.0,
+           'momentum': 0.5,
+           'decay': 0.5,
+           'nesterov': True,
+           'batch_size': 100,
            }
 
 dataset_functions = {'toy_example': load_toy_example,
@@ -146,6 +150,18 @@ def parse_arguments():
                         default=DEFAULT['optimizer'],
                         help=('Optimization method: rmsprop, adagrad, '
                               'adadelta, adam, adamax, nadam, tfoptimizer'))
+    parser.add_argument('--decay', dest='decay', type=float,
+                        default=DEFAULT['decay'],
+                        help='decay')
+    parser.add_argument('--momentum', dest='momentum', type=float,
+                        default=DEFAULT['momentum'],
+                        help='Momentum')
+    parser.add_argument('--nesterov', dest='nesterov', type=bool,
+                        default=DEFAULT['nesterov'],
+                        help='nesterov')
+    parser.add_argument('--batch-size', dest='batch_size', type=int,
+                        default=DEFAULT['batch_size'],
+                        help='batch_size')
     return parser.parse_args()
 
 
@@ -159,7 +175,9 @@ def main(dataset=DEFAULT['dataset'], seed=DEFAULT['seed'],
          path_model=DEFAULT['path_model'],
          file_M=DEFAULT['file_M'], prop_weak=DEFAULT['prop_weak'],
          prop_clean=DEFAULT['prop_clean'], lr=DEFAULT['lr'], l1=DEFAULT['l1'],
-         l2=DEFAULT['l2'], optimizer=DEFAULT['optimizer']):
+         l2=DEFAULT['l2'], optimizer=DEFAULT['optimizer'],
+         momentum=DEFAULT['momentum'], decay=DEFAULT['decay'],
+         nesterov=DEFAULT['nesterov'], batch_size=DEFAULT['batch_size']):
 
     diary = Diary(name=('{}_{}_{}'.format(dataset, method, architecture)),
                   path=path_results, overwrite=False, image_format='png',
@@ -230,7 +248,8 @@ def main(dataset=DEFAULT['dataset'], seed=DEFAULT['seed'],
                         n_iterations=n_iterations, k_folds=k_folds,
                         architecture=architecture, epochs=epochs,
                         path_model=path_model, file_M=file_M, lr=lr, l1=l1,
-                        l2=l2, optimizer=optimizer)
+                        l2=l2, optimizer=optimizer, momentum=momentum,
+                        decay=decay, nesterov=nesterov, batch_size=batch_size)
 
 
 if __name__ == '__main__':
