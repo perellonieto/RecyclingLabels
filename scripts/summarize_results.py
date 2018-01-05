@@ -292,6 +292,9 @@ def main(results_path='results', summary_path='', filter_rows={},
             finished=['validation.csv', 'training.csv'],
             return_unfinished=True)
 
+    if summary_path == '':
+        summary_path = os.path.join(results_path, 'summary')
+
     # Creates summary path if it does not exist
     if not os.path.exists(summary_path):
         os.mkdir(summary_path)
@@ -554,7 +557,7 @@ def parse_arguments():
                         default='results',
                         help="Path with the result folders to summarize.")
     parser.add_argument("summary_path", metavar='SUMMARY', type=str,
-                        default='',
+                        default='', nargs='?',
                         help="Path to store the summary.")
     parser.add_argument("-p", "--performance", metavar='PERFORMANCE',
                         type=float, default=1.0, dest='filter_performance',
