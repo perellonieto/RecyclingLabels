@@ -65,6 +65,16 @@ dataset_functions = {'toy_example': load_toy_example,
                                                n_clusters_per_class=1),
                      }
 
+
+def str2bool(v):
+    if v.lower() in ('yes', 'true', 't', 'y', '1'):
+        return True
+    elif v.lower() in ('no', 'false', 'f', 'n', '0'):
+        return False
+    else:
+        raise argparse.ArgumentTypeError('Boolean value expected.')
+
+
 def function_accepts_M(f):
     if type(dataset_functions[dataset]) is partial:
         return 'M' in inspect.getargspec(dataset_functions[dataset].func).args
@@ -156,7 +166,7 @@ def parse_arguments():
     parser.add_argument('--momentum', dest='momentum', type=float,
                         default=DEFAULT['momentum'],
                         help='Momentum')
-    parser.add_argument('--nesterov', dest='nesterov', type=bool,
+    parser.add_argument('--nesterov', dest='nesterov', type=str2bool,
                         default=DEFAULT['nesterov'],
                         help='nesterov')
     parser.add_argument('--batch-size', dest='batch_size', type=int,
