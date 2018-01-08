@@ -5,8 +5,9 @@ from scipy import sparse
 from sklearn.utils import shuffle
 from sklearn.datasets import load_iris, make_classification
 from sklearn.preprocessing import label_binarize
-from sklearn.preprocessing import scale
+from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import StratifiedShuffleSplit
+from sklearn.feature_extraction.text import TfidfTransformer
 
 from sklearn.model_selection import train_test_split
 
@@ -138,7 +139,7 @@ def make_weak_true_partition(M, X, y, true_size=0.1, random_state=None):
     return (X_w, Z_w, z_w), (X_t, Z_t, z_t, Y_t, y_t), classes
 
 
-def load_webs(random_state=None, standardize=True):
+def load_webs(random_state=None, standardize=True, tfidf=False):
     categories = ['blog', 'inmo', 'parking', 'b2c', 'no_b2c', 'Other']
     n_cat = len(categories)
 
@@ -179,6 +180,11 @@ def load_webs(random_state=None, standardize=True):
                                                 y_val,
                                                 random_state=random_state)
 
+    if tfidf:
+        tfidf_model = TfidfTransformer()
+        X_train = tfidf_model.fit_transform(X_train)
+        X_val = tfidf_model.transform(X_val)
+
     # TODO is it possible to keep the matrices sparse with Keras?
     if sparse.issparse(X_train):
         X_train = X_train.toarray()
@@ -187,8 +193,9 @@ def load_webs(random_state=None, standardize=True):
         X_val = X_val.toarray()
 
     if standardize:
-        X_train = scale(X_train)
-        X_val = scale(X_val)
+        scaler_model = StandardScaler()
+        X_train = scaler_model.fit_transform(X_train)
+        X_val = scaler_model.transform(X_val)
 
     return (X_train, Z_train, z_train), (X_val, Z_val, z_val, Y_val, y_val), categories
 
