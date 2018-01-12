@@ -344,11 +344,14 @@ def main(results_path='results', summary_path='', filter_rows={},
 
     df['basename'] = df.folder.apply(os.path.basename)
     # Definition of a different experiment setup
-    exp_setup_info = ['basename', 'dataset', 'method', 'training_method',
-                      'architecture', 'loss', 'init', 'input_dim', 'n_classes',
-                      'n_features', 'epochs', 'n_samples_with_y',
-                      'n_samples_without_y', 'lr', 'l1', 'l2', 'optimizer',
-                      'nesterov', 'decay', 'momentum']
+    exp_setup_info = ['basename', 'dataset', 'batch_size', 'method',
+                      'training_method', 'architecture', 'loss', 'init',
+                      'input_dim', 'n_classes', 'n_features', 'epochs',
+                      'n_samples_with_y', 'n_samples_without_y', 'lr', 'l1',
+                      'l2', 'optimizer', 'nesterov', 'decay', 'momentum',
+                      'rho', 'epsilon']
+    # Avoid columns that do not exist in the current experiments
+    exp_setup_info = [c for c in exp_setup_info if c in df.columns]
     exp_setup_with_repetitions = list(exp_setup_info).append('pid')
 
     # Keep only the last computed results for the same experiment
@@ -365,6 +368,8 @@ def main(results_path='results', summary_path='', filter_rows={},
     ########################################################################
     # Export information about the experimental setup
     ########################################################################
+    # TODO in the future, it would be ideal to preseve the NaN values
+    df.fillna('nan', inplace=True)
     experimental_setup = df.groupby(exp_setup_info).size()
     df_exp_setup = experimental_setup.to_frame().reset_index()
     df_exp_setup.to_csv(os.path.join(summary_path, "experimental_setup.csv"),
