@@ -33,6 +33,8 @@ DEFAULT = {'dataset': 'iris',
            'prop_clean': 1.0,
            'momentum': 0.5,
            'decay': 0.5,
+           'rho': 0.9,
+           'epsilon': None,
            'nesterov': True,
            'batch_size': 100,
            }
@@ -56,10 +58,10 @@ dataset_functions = {'toy_example': load_toy_example,
                                      tfidf=True,
                                      standardize=True),
                      'classification': partial(load_classification,
-                                               n_samples=10000,
-                                               n_features=2,
-                                               n_classes=2,
-                                               n_informative=2,
+                                               n_samples=60000,
+                                               n_features=2000,
+                                               n_classes=6,
+                                               n_informative=1800,
                                                n_redundant=0,
                                                n_repeated=0,
                                                n_clusters_per_class=1),
@@ -166,6 +168,12 @@ def parse_arguments():
     parser.add_argument('--momentum', dest='momentum', type=float,
                         default=DEFAULT['momentum'],
                         help='Momentum')
+    parser.add_argument('--rho', dest='rho', type=float,
+                        default=DEFAULT['rho'],
+                        help='rho')
+    parser.add_argument('--epsilon', dest='epsilon', type=float,
+                        default=DEFAULT['epsilon'],
+                        help='epsilon')
     parser.add_argument('--nesterov', dest='nesterov', type=str2bool,
                         default=DEFAULT['nesterov'],
                         help='nesterov')
@@ -187,7 +195,8 @@ def main(dataset=DEFAULT['dataset'], seed=DEFAULT['seed'],
          prop_clean=DEFAULT['prop_clean'], lr=DEFAULT['lr'], l1=DEFAULT['l1'],
          l2=DEFAULT['l2'], optimizer=DEFAULT['optimizer'],
          momentum=DEFAULT['momentum'], decay=DEFAULT['decay'],
-         nesterov=DEFAULT['nesterov'], batch_size=DEFAULT['batch_size']):
+         nesterov=DEFAULT['nesterov'], batch_size=DEFAULT['batch_size'],
+         rho=DEFAULT['rho'], epsilon=DEFAULT['epsilon']):
 
     diary = Diary(name=('{}_{}_{}'.format(dataset, method, architecture)),
                   path=path_results, overwrite=False, image_format='png',
@@ -259,7 +268,8 @@ def main(dataset=DEFAULT['dataset'], seed=DEFAULT['seed'],
                         architecture=architecture, epochs=epochs,
                         path_model=path_model, file_M=file_M, lr=lr, l1=l1,
                         l2=l2, optimizer=optimizer, momentum=momentum,
-                        decay=decay, nesterov=nesterov, batch_size=batch_size)
+                        decay=decay, nesterov=nesterov, batch_size=batch_size,
+                        rho=rho, epsilon=epsilon)
 
 
 if __name__ == '__main__':

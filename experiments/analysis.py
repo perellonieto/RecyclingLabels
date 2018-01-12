@@ -408,7 +408,7 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
                         architecture='lr', loss='mse', epochs=200,
                         path_model=None, file_M=None, lr=1.0, l1=0.0,
                         l2=0.001, optimizer='rmsprop', momentum=0.5, decay=0.5,
-                        nesterov=True, batch_size=100):
+                        nesterov=True, batch_size=100, rho=0.9, epsilon=None):
     """ Trains a Feed-fordward neural network using cross-validation
 
     The training is done with the weak labels on the training set and
@@ -513,6 +513,8 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
               'l2': l2,
               'momentum': momentum,
               'decay': decay,
+              'rho': rho,
+              'epsilon': epsilon,
               'nesterov': nesterov,
               'epochs': epochs,
               'batch_size': batch_size,
