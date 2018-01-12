@@ -76,6 +76,10 @@ def str2bool(v):
     else:
         raise argparse.ArgumentTypeError('Boolean value expected.')
 
+def float_or_none(x):
+    if x == 'None':
+        return None
+    return float(x)
 
 def function_accepts_M(f):
     if type(dataset_functions[dataset]) is partial:
@@ -171,7 +175,7 @@ def parse_arguments():
     parser.add_argument('--rho', dest='rho', type=float,
                         default=DEFAULT['rho'],
                         help='rho')
-    parser.add_argument('--epsilon', dest='epsilon', type=float,
+    parser.add_argument('--epsilon', dest='epsilon', type=float_or_none,
                         default=DEFAULT['epsilon'],
                         help='epsilon')
     parser.add_argument('--nesterov', dest='nesterov', type=str2bool,
