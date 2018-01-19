@@ -486,8 +486,18 @@ def main(results_path='results', summary_path='', filter_rows={},
         df_aux = df_aux[df_aux[x_label].apply(lambda x: np.isreal(x))]
         df_aux.plot(x=x_label, y=y_label, kind='scatter', ax=ax, alpha=0.5,
                     title='All repetitions o the best epoch')
-        savefig_and_close(fig, '{}_{}.{}'.format(x_label, y_label, fig_extension),
+
+        fig.savefig(os.path.join(summary_path, 
+                                 '{}_{}.{}'.format(x_label, y_label,
+                                                   fig_extension)),
+                    bbox_extra_artists=None, bbox_inches='tight')
+
+        # With log scale in x axis
+        ax.set_xscale("log")
+        # TODO this line
+        savefig_and_close(fig, '{}_{}_logx.{}'.format(x_label, y_label, fig_extension),
                           path=summary_path)
+
     if gui:
         import dfgui
         dfgui.show(df)
