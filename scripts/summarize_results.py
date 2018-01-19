@@ -487,14 +487,14 @@ def main(results_path='results', summary_path='', filter_rows={},
         df_aux.plot(x=x_label, y=y_label, kind='scatter', ax=ax, alpha=0.5,
                     title='All repetitions o the best epoch')
 
-        fig.savefig(os.path.join(summary_path, 
-                                 '{}_{}.{}'.format(x_label, y_label,
-                                                   fig_extension)),
-                    bbox_extra_artists=None, bbox_inches='tight')
+        savefig_and_close(fig, '{}_{}.{}'.format(x_label, y_label, fig_extension),
+                          path=summary_path)
 
         # With log scale in x axis
-        ax.set_xscale("log")
-        # TODO this line
+        fig = newfig('logx_{}_{}'.format(x_label, y_label))
+        ax = fig.add_subplot(111)
+        df_aux.plot(x=x_label, y=y_label, kind='scatter', ax=ax, alpha=0.5,
+                    title='All repetitions o the best epoch', logx=True)
         savefig_and_close(fig, '{}_{}_logx.{}'.format(x_label, y_label, fig_extension),
                           path=summary_path)
 
