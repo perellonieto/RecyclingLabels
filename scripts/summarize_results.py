@@ -1,7 +1,14 @@
 #!/usr/bin/env python
+import sys
+sys.path
+sys.path.append('../')
+
+from experiments.visualizations import newfig, savefig_and_close, \
+                                       plot_df_heatmap, render_mpl_table, \
+                                       export_df
+
 import itertools
 import os
-import six
 from os import walk
 import sys
 from argparse import ArgumentParser
@@ -15,82 +22,6 @@ matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 
 fig_extension = 'svg'
-
-
-def savefig_and_close(fig, figname, path='', bbox_extra_artists=None):
-    filename = os.path.join(path, figname)
-    fig.savefig(filename, bbox_extra_artists=bbox_extra_artists,
-                bbox_inches='tight')
-    fig.clear()
-    plt.close(fig)
-
-
-class MyFloat(float):
-    def _remove_leading_zero(self, value, string):
-        if 1 > value > -1:
-            string = string.replace('0', '', 1)
-        return string
-
-    def __str__(self):
-        string = super(MyFloat, self).__str__()
-        return self._remove_leading_zero(self, string)
-
-    def __format__(self, format_string):
-        string = super(MyFloat, self).__format__(format_string)
-        return self._remove_leading_zero(self, string)
-
-
-def plot_df_heatmap(df, normalize=None, title='Heat-map',
-                    cmap=plt.cm.Blues, colorbar=False):
-    """
-    This function prints and plots the confusion matrix.
-    Normalization can be applied by setting `normalize=True`.
-
-    normalize : 'rows', 'cols' (default=None)
-    """
-    rows = df.index.values
-    columns = df.columns.values
-    M = df.values
-
-    if normalize == 'rows':
-        M = M.astype('float') / M.sum(axis=1)[:, np.newaxis]
-    if normalize == 'cols':
-        M = M.astype('float') / M.sum(axis=0)[np.newaxis, :]
-
-    h_size = len(columns)*.5 + 2
-    v_size = len(rows)*.5 + 2
-    fig = plt.figure(figsize=(h_size, v_size))
-    ax = fig.add_subplot(111)
-    im = ax.imshow(M, interpolation='nearest', cmap=cmap)
-    if colorbar:
-        fig.colorbar(im)
-    ax.set_title(title)
-    column_tick_marks = np.arange(len(columns))
-    ax.set_xticks(column_tick_marks)
-    ax.set_xticklabels(columns, rotation=45, ha='right')
-    row_tick_marks = np.arange(len(rows))
-    ax.set_yticks(row_tick_marks)
-    ax.set_yticklabels(rows)
-
-    thresh = np.nanmin(M) + ((np.nanmax(M)-np.nanmin(M)) / 2.)
-    are_ints = df.dtypes[0] in ['int', 'int32', 'int64']
-    for i, j in itertools.product(range(M.shape[0]), range(M.shape[1])):
-        # fontsize is adjusted for different number of digits
-        if are_ints:
-            ax.text(j, i, M[i, j], horizontalalignment="center",
-                    verticalalignment="center", color="white" if M[i, j] >
-                    thresh else "black")
-        else:
-            if np.isfinite(M[i, j]):
-                ax.text(j, i, '{:0.2f}'.format(MyFloat(M[i, j])),
-                        horizontalalignment="center",
-                        verticalalignment="center",
-                        color="white" if M[i, j] > thresh else "black")
-
-    ax.set_ylabel(df.index.name)
-    ax.set_xlabel(df.columns.name)
-    fig.tight_layout()
-    return fig
 
 
 def get_list_results_folders(folder, essentials=['description.txt'],
@@ -189,42 +120,6 @@ def export_datasets_info(df, path='', stylesheets=['style.css']):
     export_df(df_table_one_index, 'datasets', path=path, extension='svg')
 
     return df_table
-
-
-def export_df(df, filename, path='', extension='pdf',
-              stylesheets=['style.css']):
-    filename = os.path.join(path, filename)
-    ax = render_mpl_table(df)
-    fig = ax.figure
-    fig.tight_layout()
-    fig.savefig("{}.{}".format(filename, extension))
-
-
-def render_mpl_table(data, col_width=3.0, row_height=0.625, font_size=14,
-                     header_color='#40466e', row_colors=['#f1f1f2', 'w'],
-                     edge_color='w', bbox=[0, 0, 1, 1], header_columns=0,
-                     ax=None, **kwargs):
-    """
-    source: https://stackoverflow.com/questions/19726663/how-to-save-the-pandas-dataframe-series-data-as-a-figure
-    """
-    if ax is None:
-        size = (np.array(data.shape[::-1]) + np.array([0, 1])) * np.array([col_width, row_height])
-        fig, ax = plt.subplots(figsize=size)
-        ax.axis('off')
-
-    mpl_table = ax.table(cellText=data.values, bbox=bbox, colLabels=data.columns, **kwargs)
-
-    mpl_table.auto_set_font_size(False)
-    mpl_table.set_fontsize(font_size)
-
-    for k, cell in six.iteritems(mpl_table._cells):
-        cell.set_edgecolor(edge_color)
-        if k[0] == 0 or k[1] < header_columns:
-            cell.set_text_props(weight='bold', color='w')
-            cell.set_facecolor(header_color)
-        else:
-            cell.set_facecolor(row_colors[k[0] % len(row_colors)])
-    return ax
 
 
 def friedman_test(df, index, column):
@@ -545,6 +440,54 @@ def main(results_path='results', summary_path='', filter_rows={},
             savefig_and_close(fig, '{}_{}_{}.{}'.format(filter_by_column,
                 filtered_row, column, fig_extension), path=summary_path)
 
+    ########################################################################
+    # Boxplots by Experimental setup and dataset Only best epoch
+    # TODO The only difference between this code and the upper boxplot are the
+    #      lines that are marked below
+    ########################################################################
+    filter_by_column = 'dataset'
+    filter_values = df[filter_by_column].unique()
+    groupby = exp_setup_info
+    columns = ['val_y_acc']
+    # TODO this line
+    df_aux = df[df['best_epoch'] == df['epoch']]
+    for filtered_row in filter_values:
+        for column in columns:
+            # TODO this line
+            df_filtered = df_aux[df_aux[filter_by_column] == filtered_row]
+            grouped = df_filtered.groupby(groupby)
+
+            df2 = pd.DataFrame({col: vals[column] for col, vals in grouped})
+            meds = df2.median()
+            meds.sort_values(ascending=False, inplace=True)
+            df2 = df2[meds.index]
+
+            fig = plt.figure(figsize=(10, len(meds)/2+3))
+            ax = df2.boxplot(vert=False)
+            ax.set_title('results grouped by experimental setup')
+
+            counts = {k: len(v) for k, v in grouped}
+            ax.set_yticklabels(['%s\n$n$=%d' % (k, counts[k]) for k in meds.keys()])
+            ax.set_xlabel(column)
+            # TODO this line
+            savefig_and_close(fig,
+                    'best_epoch_{}_{}_{}.{}'.format(filter_by_column,
+                        filtered_row, column, fig_extension),
+                    path=summary_path)
+
+    # Plot validation accuracy per l1
+    y_label = 'val_y_acc'
+    for x_label in ['l1', 'l2', 'decay', 'momentum', 'rho']:
+        if x_label not in df.columns:
+            continue
+        fig = newfig('{}_{}'.format(x_label, y_label))
+        ax = fig.add_subplot(111)
+        df_aux = df[df['best_epoch'] == df['epoch']].sort_values(by=x_label)
+        df_aux = df_aux[df_aux[x_label].apply(lambda x: np.isreal(x))]
+        df_aux.plot(x=x_label, y=y_label, kind='scatter', ax=ax, alpha=0.5,
+                    title='All repetitions o the best epoch')
+        savefig_and_close(fig, '{}_{}.{}'.format(x_label, y_label, fig_extension),
+                          path=summary_path)
     if gui:
         import dfgui
         dfgui.show(df)
