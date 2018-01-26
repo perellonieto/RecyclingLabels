@@ -232,8 +232,8 @@ def test_multilabel_plot():
     plt.show()
 
 
-def plot_errorbar(data, fmt='--o', title='errorbar', elinewidth=1.0,
-                  perrorevery=0.2, legend=None, **kwargs):
+def plot_errorbar(data, x=None, fmt='--o', title='errorbar', elinewidth=1.0,
+                  perrorevery=0.2, legend=None, fig=None, **kwargs):
     """
 
     paramters
@@ -243,8 +243,11 @@ def plot_errorbar(data, fmt='--o', title='errorbar', elinewidth=1.0,
         errorevery: float
             Percentage of errorbars with respect to the number of samples
     """
+    return_fig = fig is None
 
-    fig = newfig(title)
+    if fig is None:
+        fig = newfig(title)
+
     ax = fig.add_subplot(111)
     ax.set_title(title)
 
@@ -252,11 +255,13 @@ def plot_errorbar(data, fmt='--o', title='errorbar', elinewidth=1.0,
         data = (data,)
 
     for i, matrix in enumerate(data):
-        errorevery = int(matrix.shape[1] * perrorevery)
+        errorevery = int(1 / perrorevery)
         if errorevery < 1:
             errorevery = 1
 
-        x = range(matrix.shape[1])
+        if x is None:
+            x = range(matrix.shape[1])
+
         means = matrix.mean(axis=0)
         stds = matrix.std(axis=0)
 
@@ -265,7 +270,10 @@ def plot_errorbar(data, fmt='--o', title='errorbar', elinewidth=1.0,
                     capsize=4, **kwargs)
     if legend is not None:
         ax.legend(legend)
-    return fig
+
+    if return_fig:
+        return fig
+    return ax
 
 
 def render_mpl_table(data, col_width=3.0, row_height=0.625, font_size=14,

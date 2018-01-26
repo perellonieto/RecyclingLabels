@@ -31,6 +31,7 @@ DEFAULT = {'dataset': 'iris',
            'file_M': None,
            'prop_weak': 1.0,
            'prop_clean': 1.0,
+           'prop_test': 0.2,
            'momentum': 0.5,
            'decay': 0.5,
            'rho': 0.9,
@@ -118,6 +119,10 @@ def parse_arguments():
     parser.add_argument('-g', '--prop-clean', dest='prop_clean', type=float,
                         default=DEFAULT['prop_clean'],
                         help='Proportion of clean portion to keep')
+    parser.add_argument('--prop-test', dest='prop_test', type=float,
+                        default=DEFAULT['prop_test'],
+                        help='''Proportion of test data from portion of data
+                        with true labels''')
     parser.add_argument('-i', '--n-iterations', dest='n_iterations', type=int,
                         default=DEFAULT['n_iterations'],
                         help='Number of iterations to repeat the validation')
@@ -196,11 +201,12 @@ def main(dataset=DEFAULT['dataset'], seed=DEFAULT['seed'],
          stderr=DEFAULT['stderr'], epochs=DEFAULT['epochs'],
          path_model=DEFAULT['path_model'],
          file_M=DEFAULT['file_M'], prop_weak=DEFAULT['prop_weak'],
-         prop_clean=DEFAULT['prop_clean'], lr=DEFAULT['lr'], l1=DEFAULT['l1'],
-         l2=DEFAULT['l2'], optimizer=DEFAULT['optimizer'],
-         momentum=DEFAULT['momentum'], decay=DEFAULT['decay'],
-         nesterov=DEFAULT['nesterov'], batch_size=DEFAULT['batch_size'],
-         rho=DEFAULT['rho'], epsilon=DEFAULT['epsilon']):
+         prop_clean=DEFAULT['prop_clean'], prop_test=DEFAULT['prop_test'],
+         lr=DEFAULT['lr'], l1=DEFAULT['l1'], l2=DEFAULT['l2'],
+         optimizer=DEFAULT['optimizer'], momentum=DEFAULT['momentum'],
+         decay=DEFAULT['decay'], nesterov=DEFAULT['nesterov'],
+         batch_size=DEFAULT['batch_size'], rho=DEFAULT['rho'],
+         epsilon=DEFAULT['epsilon']):
 
     diary = Diary(name=('{}_{}_{}'.format(dataset, method, architecture)),
                   path=path_results, overwrite=False, image_format='png',
@@ -226,6 +232,17 @@ def main(dataset=DEFAULT['dataset'], seed=DEFAULT['seed'],
     X_t, Z_t, z_t = training
     X_v, Z_v, z_v, Y_v, y_v = validation
 
+    # Get test partition
+    sss = StratifiedShuffleSplit(n_splits=1, random_state=seed,
+                                 train_size=(1-prop_test))
+    val_indx, test_indx = sss.split(X_v, y_v).next()
+    # test partition
+    X_te, Z_te, z_te = X_v[test_indx], Z_v[test_indx], z_v[test_indx]
+    Y_te, y_te = Y_v[test_indx], y_v[test_indx]
+    # Validation partition
+    X_v, Z_v, z_v = X_v[val_indx], Z_v[val_indx], z_v[val_indx]
+    Y_v, y_v = Y_v[val_indx], y_v[val_indx]
+
     if prop_weak < 1.0:
         sss = StratifiedShuffleSplit(n_splits=1, random_state=seed,
                                      train_size=prop_weak)
@@ -236,6 +253,7 @@ def main(dataset=DEFAULT['dataset'], seed=DEFAULT['seed'],
         z_t = np.concatenate((z_t, z_t[train_indx]))
         train_indx, test_indx = sss.split(X_t, z_t).next()
         X_t, Z_t, z_t = X_t[train_indx], Z_t[train_indx], z_t[train_indx]
+
     if prop_clean < 1.0:
         sss = StratifiedShuffleSplit(n_splits=1, random_state=seed,
                                      train_size=prop_clean)
@@ -249,12 +267,16 @@ def main(dataset=DEFAULT['dataset'], seed=DEFAULT['seed'],
         train_indx, test_indx = sss.split(X_v, y_v).next()
         X_v, Z_v, z_v, Y_v, y_v = X_v[train_indx], Z_v[train_indx], z_v[train_indx], Y_v[train_indx], y_v[train_indx]
 
+    # There is a problem with the validation and test size
     n_dataset = diary.add_notebook('dataset')
     n_dataset.add_entry(row=['dataset', dataset,
                        'n_samples_without_y', X_t.shape[0],
-                       'n_samples_with_y', X_v.shape[0],
+                       'n_samples_with_y', X_v.shape[0] + X_te.shape[0],
                        'n_features', X_t.shape[1],
-                       'n_classes', Z_t.shape[1]])
+                       'n_classes', Z_t.shape[1],
+                       'train_size', X_t.shape[0],
+                       'valid_size', X_v.shape[0],
+                       'test_size', X_te.shape[0]])
 
     # TODO should I train with the same number of samples? or same number of
     # epochs?
@@ -264,7 +286,7 @@ def main(dataset=DEFAULT['dataset'], seed=DEFAULT['seed'],
     #     others_set_size = z_t.shape[0] + fully_s_set_size
     #     epochs = int((epochs*others_set_size)/fully_s_set_size)
 
-    analyse_weak_labels(X_z=X_t, Z_z=Z_t, z_z=z_t, X_y=X_v, Z_y=Z_v,
+    best_epoch = analyse_weak_labels(X_z=X_t, Z_z=Z_t, z_z=z_t, X_y=X_v, Z_y=Z_v,
                         z_y=z_v, Y_y=Y_v, y_y=y_v, random_state=seed,
                         verbose=verbose, classes=classes, method=method,
                         diary=diary, n_jobs=n_jobs, loss=loss,
@@ -274,6 +296,33 @@ def main(dataset=DEFAULT['dataset'], seed=DEFAULT['seed'],
                         l2=l2, optimizer=optimizer, momentum=momentum,
                         decay=decay, nesterov=nesterov, batch_size=batch_size,
                         rho=rho, epsilon=epsilon)
+
+    train_and_test_weak_labels(X_z=X_t, Z_z=Z_t, z_z=z_t, X_y=X_v, Z_y=Z_v,
+                               z_y=z_v, Y_y=Y_v, y_y=y_v, X_te=X_te, Z_te=Z_te,
+                               z_te=z_te, Y_te=Y_te, y_te=y_te,
+                               random_state=seed, verbose=verbose,
+                               classes=classes, method=method, diary=diary,
+                               loss=loss, architecture=architecture,
+                               epochs=best_epoch, path_model=path_model,
+                               file_M=file_M, lr=lr, l1=l1, l2=l2,
+                               optimizer=optimizer, momentum=momentum,
+                               decay=decay, nesterov=nesterov,
+                               batch_size=batch_size, rho=rho, epsilon=epsilon)
+
+    from IPython import embed; embed()
+    # TODO For the test, use all the training and validation data
+    # Train again the specified number of epochs and evaluate on test data
+    # train_and_test_weak_labels(X_z=X_t, Z_z=Z_t, z_z=z_t, X_y=X_v, Z_y=Z_v,
+    #                     z_y=z_v, Y_y=Y_v, y_y=y_v, X_test=X_te, Y_test=Y_te,
+    #                     y_test=y_te, random_state=seed,
+    #                     verbose=verbose, classes=classes, method=method,
+    #                     diary=diary, n_jobs=n_jobs, loss=loss,
+    #                     n_iterations=1, k_folds=2,
+    #                     architecture=architecture, epochs=epoch,
+    #                     path_model=path_model, file_M=file_M, lr=lr, l1=l1,
+    #                     l2=l2, optimizer=optimizer, momentum=momentum,
+    #                     decay=decay, nesterov=nesterov, batch_size=batch_size,
+    #                     rho=rho, epsilon=epsilon)
 
 
 if __name__ == '__main__':

@@ -12,13 +12,18 @@ from keras.optimizers import SGD
 from keras.wrappers.scikit_learn import KerasClassifier
 from keras.initializers import glorot_uniform
 from keras.regularizers import l1_l2
+import keras.backend as K
 
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, roc_curve, auc
 
 from experiments.metrics import brier_loss, w_brier_loss
 
 import copy
 
+import tensorflow as tf
+
+
+# TODO change all predict_proba for predict 
 
 def _merge_histories(history_list):
     dd = defaultdict(list)
@@ -127,10 +132,18 @@ class MyKerasClassifier(KerasClassifier):
                          'the `model.compile()` method.')
 
 
+def aucs(y_true, y_score):
+    roc_aucs = []
+    for i in range(y_true.shape[1]):
+        fpr, tpr, _ = roc_curve(y_true[:, i], y_score[:, i])
+        roc_aucs.append(auc(fpr, tpr))
+    return np.array(roc_aucs)
+
 class MySequential(Sequential):
     def fit(self, train_x, train_y, batch_size=None, epochs=1, verbose=0,
             **kwargs):
         history = []
+        best_epoch = 0
         for n in range(epochs):
             if verbose > 1:
                 print('Epoch {} of {}'.format(n, epochs))
@@ -146,9 +159,13 @@ class MySequential(Sequential):
             prediction_y = self.predict_classes(train_x, verbose=0)
             h.history['train_y_cm'] = confusion_matrix(train_y.argmax(axis=1), prediction_y)
             if 'validation_data' in kwargs.keys():
-                prediction_y = self.predict_classes(kwargs['validation_data'][0], verbose=0)
+                prediction_proba = self.predict_proba(kwargs['validation_data'][0], verbose=0)
+                h.history['val_y_auc'] = aucs(kwargs['validation_data'][1],
+                                              prediction_proba)
+                prediction_y = prediction_proba.argmax(axis=1)
                 h.history['val_y_cm'] = confusion_matrix(kwargs['validation_data'][1].argmax(axis=1), prediction_y)
             history.append(h)
+
         return FakeHistory(_merge_histories(history))
 
 
@@ -175,7 +192,10 @@ class MySequentialWeak(Sequential):
             prediction_y = self.predict_classes(X_y_t, verbose=0)
             h.history['train_y_cm'] = confusion_matrix(Y_y_t.argmax(axis=1), prediction_y)
             if 'validation_data' in kwargs.keys():
-                prediction_y = self.predict_classes(kwargs['validation_data'][0], verbose=0)
+                prediction_proba = self.predict_proba(kwargs['validation_data'][0], verbose=0)
+                h.history['val_y_auc'] = aucs(kwargs['validation_data'][1],
+                                              prediction_proba)
+                prediction_y = prediction_proba.argmax(axis=1)
                 h.history['val_y_cm'] = confusion_matrix(kwargs['validation_data'][1].argmax(axis=1), prediction_y)
             history.append(h)
         return FakeHistory(_merge_histories(history))
@@ -210,13 +230,16 @@ class MySequentialOSL(Sequential):
             prediction_y = self.predict_classes(X_y_t, verbose=0)
             h.history['train_y_cm'] = confusion_matrix(Y_y_t.argmax(axis=1), prediction_y)
             if 'validation_data' in kwargs.keys():
-                prediction_y = self.predict_classes(kwargs['validation_data'][0], verbose=0)
+                prediction_proba = self.predict_proba(kwargs['validation_data'][0], verbose=0)
+                h.history['val_y_auc'] = aucs(kwargs['validation_data'][1],
+                                              prediction_proba)
+                prediction_y = prediction_proba.argmax(axis=1)
                 h.history['val_y_cm'] = confusion_matrix(kwargs['validation_data'][1].argmax(axis=1), prediction_y)
             history.append(h)
         return FakeHistory(_merge_histories(history))
 
-    def predict_proba(self, test_x, batch_size=None):
-        return self.predict(test_x, batch_size)
+    def predict_proba(self, test_x, batch_size=None, verbose=0):
+        return self.predict(test_x, batch_size, verbose=verbose)
 
     def hardmax(self, Z):
         """ Transform each row in array Z into another row with zeroes in the
@@ -279,15 +302,18 @@ class MySequentialEM(Sequential):
             prediction_y = self.predict_classes(X_y_t, verbose=0)
             h.history['train_y_cm'] = confusion_matrix(Y_y_t.argmax(axis=1), prediction_y)
             if 'validation_data' in kwargs.keys():
-                prediction_y = self.predict_classes(kwargs['validation_data'][0], verbose=0)
+                prediction_proba = self.predict_proba(kwargs['validation_data'][0], verbose=0)
+                h.history['val_y_auc'] = aucs(kwargs['validation_data'][1],
+                                              prediction_proba)
+                prediction_y = prediction_proba.argmax(axis=1)
                 h.history['val_y_cm'] = confusion_matrix(kwargs['validation_data'][1].argmax(axis=1), prediction_y)
             history.append(h)
         return FakeHistory(_merge_histories(history))
 
-    def predict_proba(self, test_x, batch_size=None):
+    def predict_proba(self, test_x, batch_size=None, verbose=0):
         if batch_size is None:
             batch_size = test_x.shape[0]
-        return self.predict(test_x, batch_size)
+        return self.predict(test_x, batch_size, verbose=verbose)
 
 
 def create_model(input_dim=1, output_size=1, optimizer='rmsprop',
@@ -370,6 +396,46 @@ def create_model(input_dim=1, output_size=1, optimizer='rmsprop',
         loss = 'mean_squared_error'
     else:
         raise(ValueError('Unknown loss: {}'.format(loss)))
+
+    # #-----------------------------------------------------------------------------------------------------------------------------------------------------
+    # # AUC for a binary classifier
+    # def auc(y_true, y_pred):
+    #     ptas = tf.stack([binary_PTA(y_true,y_pred,k) for k in np.linspace(0, 1, 1000)],axis=0)
+    #     pfas = tf.stack([binary_PFA(y_true,y_pred,k) for k in np.linspace(0, 1, 1000)],axis=0)
+    #     pfas = tf.concat([tf.ones((1,)) ,pfas],axis=0)
+    #     binSizes = -(pfas[1:]-pfas[:-1])
+    #     s = ptas*binSizes
+    #     return K.sum(s, axis=0)
+
+    # #-----------------------------------------------------------------------------------------------------------------------------------------------------
+    # # PFA, prob false alert for binary classifier
+    # def binary_PFA(y_true, y_pred, threshold=K.variable(value=0.5)):
+    #     y_pred = K.cast(y_pred >= threshold, 'float32')
+    #     # N = total number of negative labels
+    #     N = K.sum(1 - y_true)
+    #     # FP = total number of false alerts, alerts from the negative class labels
+    #     FP = K.sum(y_pred - y_pred * y_true)
+    #     return FP/N
+    # #-----------------------------------------------------------------------------------------------------------------------------------------------------
+    # # P_TA prob true alerts for binary classifier
+    # def binary_PTA(y_true, y_pred, threshold=K.variable(value=0.5)):
+    #     y_pred = K.cast(y_pred >= threshold, 'float32')
+    #     # P = total number of positive labels
+    #     P = K.sum(y_true)
+    #     # TP = total number of correct alerts, alerts from the positive class labels
+    #     TP = K.sum(y_pred * y_true)
+    #     return TP/P
+
+    # def auc_pred(y_true, y_pred):
+    #     roc_auc_list = []
+    #     for i in range(y_pred.shape[1]):
+    #         roc_auc_list.append(auc(K.cast(y_true == i, 'float32'), y_pred[:,i]))
+    #     roc_auc = K.stack(roc_auc_list)
+    #     mean_roc_auc = K.mean(roc_auc)
+    #     return mean_roc_auc
+
+    # model.compile(loss=loss, optimizer=optimizer,
+    #               metrics=['acc', auc_pred])
 
     model.compile(loss=loss, optimizer=optimizer,
                   metrics=['acc'])
