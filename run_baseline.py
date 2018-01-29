@@ -7,7 +7,7 @@ from sklearn.model_selection import StratifiedShuffleSplit
 from collections import Counter
 from experiments.data import load_webs, load_weak_iris, load_weak_blobs, \
                              load_toy_example, load_classification
-from experiments.analysis import analyse_weak_labels
+from experiments.analysis import analyse_weak_labels, train_and_test_weak_labels
 from experiments.diary import Diary
 
 DEFAULT = {'dataset': 'iris',
@@ -234,8 +234,10 @@ def main(dataset=DEFAULT['dataset'], seed=DEFAULT['seed'],
 
     # Get test partition
     sss = StratifiedShuffleSplit(n_splits=1, random_state=seed,
-                                 train_size=(1-prop_test))
+                                 test_size=prop_test)
     val_indx, test_indx = sss.split(X_v, y_v).next()
+    print('Validation partition size = {}'.format(len(val_indx)))
+    print('Test partition size = {}'.format(len(test_indx)))
     # test partition
     X_te, Z_te, z_te = X_v[test_indx], Z_v[test_indx], z_v[test_indx]
     Y_te, y_te = Y_v[test_indx], y_v[test_indx]
@@ -308,21 +310,6 @@ def main(dataset=DEFAULT['dataset'], seed=DEFAULT['seed'],
                                optimizer=optimizer, momentum=momentum,
                                decay=decay, nesterov=nesterov,
                                batch_size=batch_size, rho=rho, epsilon=epsilon)
-
-    from IPython import embed; embed()
-    # TODO For the test, use all the training and validation data
-    # Train again the specified number of epochs and evaluate on test data
-    # train_and_test_weak_labels(X_z=X_t, Z_z=Z_t, z_z=z_t, X_y=X_v, Z_y=Z_v,
-    #                     z_y=z_v, Y_y=Y_v, y_y=y_v, X_test=X_te, Y_test=Y_te,
-    #                     y_test=y_te, random_state=seed,
-    #                     verbose=verbose, classes=classes, method=method,
-    #                     diary=diary, n_jobs=n_jobs, loss=loss,
-    #                     n_iterations=1, k_folds=2,
-    #                     architecture=architecture, epochs=epoch,
-    #                     path_model=path_model, file_M=file_M, lr=lr, l1=l1,
-    #                     l2=l2, optimizer=optimizer, momentum=momentum,
-    #                     decay=decay, nesterov=nesterov, batch_size=batch_size,
-    #                     rho=rho, epsilon=epsilon)
 
 
 if __name__ == '__main__':

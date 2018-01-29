@@ -453,8 +453,6 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
                       image_format='png', fig_format='svg')
 
     n_model = diary.add_notebook('model')
-    n_val = diary.add_notebook('validation')
-    n_tra = diary.add_notebook('training')
     n_extra = diary.add_notebook('extra')
 
     s_diary_vars = diary.get_shared_vars()
@@ -501,7 +499,7 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
     elif method == 'fully_supervised':
         training_method = 'supervised'
     else:
-        raise(ValueError('Method unknown {}'.format(method)))
+        raise ValueError('Method unknown {}'.format(method))
 
     LOSS_MAP = dict(mse='mean_squared_error', wbs='w_brier_score',
                     bs='brier_score')
@@ -550,7 +548,7 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
 
     map_arguments = []
     skf = StratifiedKFold(n_splits=k_folds, shuffle=False)
-    process_id = 0
+    process_id = 1                      # process_id=0 reserved for final model
     for i in range(n_iterations):
         X_y_s, Z_y_s, z_y_s, Y_y_s, y_y_s = shuffle(X_y, Z_y, z_y, Y_y, y_y,
                                                     random_state=i)
@@ -620,14 +618,24 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
     elif method == 'EM':
         results = my_map(train_weak_EM_test_results, map_arguments)
     else:
-        raise(ValueError('Method not implemented: %s' % (method)))
+        raise ValueError('Method not implemented: %s' % (method))
 
+    n_val = diary.add_notebook('validation')
+    n_tra = diary.add_notebook('training')
     return analyse_results(results, diary, n_val, n_tra, epochs, architecture,
-                           method, classes, n_iterations)
+                           method, classes, n_iterations, keyword='validation',
+                           best_epoch='mean')
 
 
 def analyse_results(results, diary, n_val, n_tra, epochs, architecture, method,
-                    classes, n_iterations):
+                    classes, n_iterations, keyword='', best_epoch='mean'):
+    """
+
+    best_epoch : string (mean, max or last)
+        mean is the maximum mean
+        max is the maximum value
+        last is the last epoch
+    """
     n_c = len(classes)
     dict_results = {}
     keys_results = [key for key in results[0]['history'].keys()]
@@ -652,7 +660,7 @@ def analyse_results(results, diary, n_val, n_tra, epochs, architecture, method,
                             title='{}, {}, training {}'.format(architecture,
                                                                method,
                                                                measure))
-        diary.save_figure(fig, filename=measure)
+        diary.save_figure(fig, filename='{}_{}'.format(keyword, measure))
 
     # Area under the ROC curve per class
     measure = 'val_y_auc'
@@ -663,10 +671,18 @@ def analyse_results(results, diary, n_val, n_tra, epochs, architecture, method,
                         perrorevery=perrorevery, legend=legend,
                         title='{}, {}, training {}'.format(architecture,
                                                            method, measure))
-    diary.save_figure(fig, filename=measure)
+    diary.save_figure(fig, filename='{}_{}'.format(keyword, measure))
 
     # Best validation epoch
-    b_v_e = dict_results['val_y_acc'].mean(axis=0).argmax()
+    if best_epoch == 'mean':
+        b_v_e = dict_results['val_y_acc'].mean(axis=0).argmax()
+    elif best_epoch == 'max':
+        b_v_e = dict_results['val_y_acc'].max(axis=0).argmax()
+    elif best_epoch == 'last':
+        b_v_e = epochs-1
+    else:
+        raise ValueError('Unknown epoch type: {}'.format(best_epoch.shape))
+
     cm_mean = np.zeros((n_c, n_c))
     acc_mean = 0
     for result in results:
@@ -685,14 +701,16 @@ def analyse_results(results, diary, n_val, n_tra, epochs, architecture, method,
     fig = plot_confusion_matrix(cm_mean, columns=classes, rows=classes,
                                 colorbar=False, title=title)
 
-    diary.save_figure(fig, filename='mean_confusion_matrix')
+    diary.save_figure(fig, filename='{}_mean_confusion_matrix'.format(keyword))
     return b_v_e
 
 
 # TODO add other methods
-def train_and_test_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, X_te,
-                               Z_te, z_te, Y_te, y_te, classes, diary=None,
-                               verbose=0, random_state=None, method='Mproper',
+def train_and_test_weak_labels(X_z, Z_z, z_z,
+                               X_y, Z_y, z_y, Y_y, y_y,
+                               X_te, Z_te, z_te, Y_te, y_te,
+                               classes, diary=None, verbose=0,
+                               random_state=None, method='Mproper',
                                n_jobs=None, architecture='lr', loss='mse',
                                epochs=200, path_model=None, file_M=None,
                                lr=1.0, l1=0.0, l2=0.001, optimizer='rmsprop',
@@ -734,9 +752,7 @@ def train_and_test_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, X_te,
         and the weights.h5 that will be used as initialisation for the
         training.
     """
-    n_tra_test = diary.add_notebook('test_training')
     n_model = diary.add_notebook('test_model')
-    n_test = diary.add_notebook('test')
     n_extra = diary.add_notebook('test_extra')
 
     s_diary_vars = diary.get_shared_vars()
@@ -768,11 +784,11 @@ def train_and_test_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, X_te,
         n_subsample = 50 if X_y.shape[0] > 50 else X_y.shape[0]
         fig = plot_multilabel_scatter(X_y[:n_subsample],
                                       Y_y[:n_subsample], title='True labels')
-        diary.save_figure(fig, filename='test_true_labels')
+        diary.save_figure(fig, filename='valid_true_labels')
 
         fig = plot_multilabel_scatter(X_y[:n_subsample],
                                       Z_y[:n_subsample], title='Weak labels')
-        diary.save_figure(fig, filename='test_weak_labels')
+        diary.save_figure(fig, filename='valid_weak_labels')
 
     if method == 'OSL':
         training_method = 'OSL'
@@ -783,7 +799,7 @@ def train_and_test_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, X_te,
     elif method == 'fully_supervised':
         training_method = 'supervised'
     else:
-        raise(ValueError('Method unknown {}'.format(method)))
+        raise ValueError('Method unknown {}'.format(method))
 
     LOSS_MAP = dict(mse='mean_squared_error', wbs='w_brier_score',
                     bs='brier_score')
@@ -831,30 +847,23 @@ def train_and_test_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, X_te,
         np.savetxt(os.path.join(diary.path, 'M.csv'), M)
 
     map_arguments = []
-    process_id = 0
+    process_id = 0  # final model
     i = 0
     make_arguments['model_num'] = process_id
     classifier = MyKerasClassifier(build_fn=create_model, **make_arguments)
 
     # TODO make sense of the following code for all the function
     # consider the test data as well
-    parameters = [process_id, classifier, X_z, Z_z, X_y_s[train], Z_y_s[train],
-                  Y_y_s[train], X_y_s[valid], Y_y_s[valid], fit_arguments,
+    parameters = [process_id, classifier, X_z, Z_z, X_y, Z_y,
+                  Y_y, X_te, Y_te, fit_arguments,
                   s_diary_vars]
 
-            if method in ['Mproper', 'EM']:
-                parameters.append(M)
+    if method in ['Mproper', 'EM']:
+        parameters.append(M)
 
-            map_arguments.append(tuple(parameters))
+    map_arguments.append(tuple(parameters))
 
-            process_id += 1
-
-    # accuracies = train_weak_test_acc(map_arguments[0])
-    if n_jobs is None or n_jobs == 1:
-        my_map = map
-    else:
-        pool = multiprocessing.Pool(processes=n_jobs)
-        my_map = pool.map
+    my_map = map
 
     if method == 'Mproper':
         results = my_map(train_weak_Mproper_test_results, map_arguments)
@@ -869,7 +878,10 @@ def train_and_test_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, X_te,
     elif method == 'EM':
         results = my_map(train_weak_EM_test_results, map_arguments)
     else:
-        raise(ValueError('Method not implemented: %s' % (method)))
+        raise ValueError('Method not implemented: %s' % (method))
 
+    n_tra = diary.add_notebook('test_training')
+    n_val = diary.add_notebook('test')
     return analyse_results(results, diary, n_val, n_tra, epochs, architecture,
-                           method, classes, n_iterations)
+                           method, classes, n_iterations=1, keyword='test',
+                           best_epoch='last')
