@@ -20,8 +20,6 @@ from experiments.metrics import brier_loss, w_brier_loss
 
 import copy
 
-import tensorflow as tf
-
 
 # TODO change all predict_proba for predict 
 
