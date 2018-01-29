@@ -235,7 +235,7 @@ def main(dataset=DEFAULT['dataset'], seed=DEFAULT['seed'],
     # Get test partition
     sss = StratifiedShuffleSplit(n_splits=1, random_state=seed,
                                  test_size=prop_test)
-    val_indx, test_indx = sss.split(X_v, y_v).next()
+    val_indx, test_indx = next(sss.split(X_v, y_v))
     print('Validation partition size = {}'.format(len(val_indx)))
     print('Test partition size = {}'.format(len(test_indx)))
     # test partition
@@ -253,7 +253,7 @@ def main(dataset=DEFAULT['dataset'], seed=DEFAULT['seed'],
         X_t = np.concatenate((X_t, X_t[train_indx]))
         Z_t = np.concatenate((Z_t, Z_t[train_indx]))
         z_t = np.concatenate((z_t, z_t[train_indx]))
-        train_indx, test_indx = sss.split(X_t, z_t).next()
+        train_indx, test_indx = next(sss.split(X_t, z_t))
         X_t, Z_t, z_t = X_t[train_indx], Z_t[train_indx], z_t[train_indx]
 
     if prop_clean < 1.0:
@@ -266,7 +266,7 @@ def main(dataset=DEFAULT['dataset'], seed=DEFAULT['seed'],
         z_v = np.concatenate((z_v, z_v[train_indx]))
         Y_v = np.concatenate((Y_v, Y_v[train_indx]))
         y_v = np.concatenate((y_v, y_v[train_indx]))
-        train_indx, test_indx = sss.split(X_v, y_v).next()
+        train_indx, test_indx = next(sss.split(X_v, y_v))
         X_v, Z_v, z_v, Y_v, y_v = X_v[train_indx], Z_v[train_indx], z_v[train_indx], Y_v[train_indx], y_v[train_indx]
 
     # There is a problem with the validation and test size
