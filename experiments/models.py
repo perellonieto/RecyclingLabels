@@ -158,10 +158,20 @@ class MySequential(Sequential):
             h.history['train_y_cm'] = confusion_matrix(train_y.argmax(axis=1), prediction_y)
             if 'validation_data' in kwargs.keys():
                 prediction_proba = self.predict_proba(kwargs['validation_data'][0], verbose=0)
-                h.history['val_y_auc'] = aucs(kwargs['validation_data'][1],
-                                              prediction_proba)
+                try:
+                    h.history['val_y_auc'] = aucs(kwargs['validation_data'][1],
+                                                  prediction_proba)
+                except ValueError as e:
+                    if np.any(np.isnan(prediction_proba)):
+                        h.history['val_y_auc'] = np.zeros(train_y.shape[1])
+                        pass
+                    else:
+                        raise e
                 prediction_y = prediction_proba.argmax(axis=1)
-                h.history['val_y_cm'] = confusion_matrix(kwargs['validation_data'][1].argmax(axis=1), prediction_y)
+                h.history['val_y_cm'] = confusion_matrix(
+                    kwargs['validation_data'][1].argmax(axis=1),
+                    prediction_y)
+
             history.append(h)
 
         return FakeHistory(_merge_histories(history))
@@ -191,8 +201,15 @@ class MySequentialWeak(Sequential):
             h.history['train_y_cm'] = confusion_matrix(Y_y_t.argmax(axis=1), prediction_y)
             if 'validation_data' in kwargs.keys():
                 prediction_proba = self.predict_proba(kwargs['validation_data'][0], verbose=0)
-                h.history['val_y_auc'] = aucs(kwargs['validation_data'][1],
-                                              prediction_proba)
+                try:
+                    h.history['val_y_auc'] = aucs(kwargs['validation_data'][1],
+                                                  prediction_proba)
+                except ValueError as e:
+                    if np.any(np.isnan(prediction_proba)):
+                        h.history['val_y_auc'] = np.zeros(train_y.shape[1])
+                        pass
+                    else:
+                        raise e
                 prediction_y = prediction_proba.argmax(axis=1)
                 h.history['val_y_cm'] = confusion_matrix(kwargs['validation_data'][1].argmax(axis=1), prediction_y)
             history.append(h)
@@ -229,8 +246,15 @@ class MySequentialOSL(Sequential):
             h.history['train_y_cm'] = confusion_matrix(Y_y_t.argmax(axis=1), prediction_y)
             if 'validation_data' in kwargs.keys():
                 prediction_proba = self.predict_proba(kwargs['validation_data'][0], verbose=0)
-                h.history['val_y_auc'] = aucs(kwargs['validation_data'][1],
-                                              prediction_proba)
+                try:
+                    h.history['val_y_auc'] = aucs(kwargs['validation_data'][1],
+                                                  prediction_proba)
+                except ValueError as e:
+                    if np.any(np.isnan(prediction_proba)):
+                        h.history['val_y_auc'] = np.zeros(train_y.shape[1])
+                        pass
+                    else:
+                        raise e
                 prediction_y = prediction_proba.argmax(axis=1)
                 h.history['val_y_cm'] = confusion_matrix(kwargs['validation_data'][1].argmax(axis=1), prediction_y)
             history.append(h)
@@ -301,8 +325,15 @@ class MySequentialEM(Sequential):
             h.history['train_y_cm'] = confusion_matrix(Y_y_t.argmax(axis=1), prediction_y)
             if 'validation_data' in kwargs.keys():
                 prediction_proba = self.predict_proba(kwargs['validation_data'][0], verbose=0)
-                h.history['val_y_auc'] = aucs(kwargs['validation_data'][1],
-                                              prediction_proba)
+                try:
+                    h.history['val_y_auc'] = aucs(kwargs['validation_data'][1],
+                                                  prediction_proba)
+                except ValueError as e:
+                    if np.any(np.isnan(prediction_proba)):
+                        h.history['val_y_auc'] = np.zeros(train_y.shape[1])
+                        pass
+                    else:
+                        raise e
                 prediction_y = prediction_proba.argmax(axis=1)
                 h.history['val_y_cm'] = confusion_matrix(kwargs['validation_data'][1].argmax(axis=1), prediction_y)
             history.append(h)

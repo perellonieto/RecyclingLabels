@@ -299,6 +299,9 @@ def main(dataset=DEFAULT['dataset'], seed=DEFAULT['seed'],
                         decay=decay, nesterov=nesterov, batch_size=batch_size,
                         rho=rho, epsilon=epsilon)
 
+    if best_epoch == 0:
+        best_epoch = 1
+
     train_and_test_weak_labels(X_z=X_t, Z_z=Z_t, z_z=z_t, X_y=X_v, Z_y=Z_v,
                                z_y=z_v, Y_y=Y_v, y_y=y_v, X_te=X_te, Z_te=Z_te,
                                z_te=z_te, Y_te=Y_te, y_te=y_te,

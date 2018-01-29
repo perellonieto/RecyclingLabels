@@ -666,12 +666,16 @@ def analyse_results(results, diary, n_val, n_tra, epochs, architecture, method,
     measure = 'val_y_auc'
     legend = classes
     perrorevery = 0.02
-    fig = plot_errorbar([dict_results[measure][:, :, i] for i in
+    try:
+        fig = plot_errorbar([dict_results[measure][:, :, i] for i in
                          range(len(legend))],
                         perrorevery=perrorevery, legend=legend,
                         title='{}, {}, training {}'.format(architecture,
                                                            method, measure))
-    diary.save_figure(fig, filename='{}_{}'.format(keyword, measure))
+        diary.save_figure(fig, filename='{}_{}'.format(keyword, measure))
+    except KeyError as e:
+        print e
+        from IPython import embed; embed()
 
     # Best validation epoch
     if best_epoch == 'mean':
