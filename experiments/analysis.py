@@ -880,6 +880,9 @@ def train_and_test_weak_labels(X_z, Z_z, z_z,
     else:
         raise ValueError('Method not implemented: %s' % (method))
 
+    # Python3 compatible (map are not subscriptable lists anymore)
+    results = list(results)
+
     n_tra = diary.add_notebook('test_training')
     n_val = diary.add_notebook('test')
     return analyse_results(results, diary, n_val, n_tra, epochs, architecture,
