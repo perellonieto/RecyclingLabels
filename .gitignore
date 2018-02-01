@@ -1,9 +1,13 @@
 *.sw*
 *.pyc
-results/
+results*/
 data/*
 build/
 *.egg-info
 
 .DS_Store
 venv/
+
+backups
+
+log*
