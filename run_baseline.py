@@ -208,14 +208,20 @@ def main(dataset=DEFAULT['dataset'], seed=DEFAULT['seed'],
          batch_size=DEFAULT['batch_size'], rho=DEFAULT['rho'],
          epsilon=DEFAULT['epsilon']):
 
+    # Store the original main arguments
+    main_arguments = locals()
+
     diary = Diary(name=('{}_{}_{}'.format(dataset, method, architecture)),
                   path=path_results, overwrite=False, image_format='png',
                   fig_format='svg', stdout=stdout, stderr=stderr)
 
     print('Main arguments')
-    print(locals())
+    print(main_arguments)
     if dataset not in dataset_functions.keys():
         raise ValueError("Dataset not available: %s" % (dataset))
+
+    n_arg = diary.add_notebook('arguments')
+    n_arg.add_entry(row=main_arguments)
 
     if file_M is None:
         M = None
