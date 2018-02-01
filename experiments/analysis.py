@@ -620,6 +620,8 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
     else:
         raise ValueError('Method not implemented: %s' % (method))
 
+    results = list(results)
+
     n_val = diary.add_notebook('validation')
     n_tra = diary.add_notebook('training')
     return analyse_results(results, diary, n_val, n_tra, epochs, architecture,
