@@ -21,7 +21,7 @@ from experiments.metrics import brier_loss, w_brier_loss
 import copy
 
 
-# TODO change all predict_proba for predict 
+# TODO change all predict_proba for predict
 
 def _merge_histories(history_list):
     dd = defaultdict(list)
@@ -157,7 +157,9 @@ class MySequential(Sequential):
             prediction_y = self.predict_classes(train_x, verbose=0)
             h.history['train_y_cm'] = confusion_matrix(train_y.argmax(axis=1), prediction_y)
             if 'validation_data' in kwargs.keys():
-                prediction_proba = self.predict_proba(kwargs['validation_data'][0], verbose=0)
+                prediction_proba = self.predict_proba(
+                        kwargs['validation_data'][0], batch_size=batch_size,
+                        verbose=0)
                 try:
                     h.history['val_y_auc'] = aucs(kwargs['validation_data'][1],
                                                   prediction_proba)
@@ -200,7 +202,9 @@ class MySequentialWeak(Sequential):
             prediction_y = self.predict_classes(X_y_t, verbose=0)
             h.history['train_y_cm'] = confusion_matrix(Y_y_t.argmax(axis=1), prediction_y)
             if 'validation_data' in kwargs.keys():
-                prediction_proba = self.predict_proba(kwargs['validation_data'][0], verbose=0)
+                prediction_proba = self.predict_proba(
+                        kwargs['validation_data'][0],
+                        batch_size=batch_size, verbose=0)
                 try:
                     h.history['val_y_auc'] = aucs(kwargs['validation_data'][1],
                                                   prediction_proba)
@@ -245,7 +249,8 @@ class MySequentialOSL(Sequential):
             prediction_y = self.predict_classes(X_y_t, verbose=0)
             h.history['train_y_cm'] = confusion_matrix(Y_y_t.argmax(axis=1), prediction_y)
             if 'validation_data' in kwargs.keys():
-                prediction_proba = self.predict_proba(kwargs['validation_data'][0], verbose=0)
+                prediction_proba = self.predict_proba(kwargs['validation_data'][0],
+                                                      batch_size=batch_size, verbose=0)
                 try:
                     h.history['val_y_auc'] = aucs(kwargs['validation_data'][1],
                                                   prediction_proba)
@@ -260,8 +265,10 @@ class MySequentialOSL(Sequential):
             history.append(h)
         return FakeHistory(_merge_histories(history))
 
-    def predict_proba(self, test_x, batch_size=None, verbose=0):
+    # FIXME batch size needs to be specified if None it brakes
+    def predict_proba(self, test_x, batch_size=100, verbose=0):
         return self.predict(test_x, batch_size, verbose=verbose)
+
 
     def hardmax(self, Z):
         """ Transform each row in array Z into another row with zeroes in the
@@ -324,7 +331,9 @@ class MySequentialEM(Sequential):
             prediction_y = self.predict_classes(X_y_t, verbose=0)
             h.history['train_y_cm'] = confusion_matrix(Y_y_t.argmax(axis=1), prediction_y)
             if 'validation_data' in kwargs.keys():
-                prediction_proba = self.predict_proba(kwargs['validation_data'][0], verbose=0)
+                prediction_proba = self.predict_proba(
+                        kwargs['validation_data'][0], batch_size=batch_size,
+                        verbose=0)
                 try:
                     h.history['val_y_auc'] = aucs(kwargs['validation_data'][1],
                                                   prediction_proba)
