@@ -343,6 +343,8 @@ def main(results_path='results', summary_path='', filter_rows={},
     savefig_and_close(fig, 'dataset_vs_architecture_heatmap_count.{}'.format(
                         fig_extension), path=summary_path)
 
+    # TODO should show all results instead of best epoch?
+    df = df[df['best_epoch'] == df['epoch']]
     ########################################################################
     # Heatmap of method vs architecture or dataset
     ########################################################################
