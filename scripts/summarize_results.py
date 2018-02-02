@@ -105,14 +105,17 @@ def export_datasets_info(df, path='', stylesheets=['style.css']):
                                            ).sort_values(sort_by).set_index(index)
     # Export to LaTeX
     df_table.to_latex(os.path.join(path, "datasets.tex"))
+    df_table.set_index([df_table.index, 'n_samples_with_y'], inplace=True)
 
     # Add mean performance of best model
     best_model = df.groupby('architecture')['val_y_acc'].mean().argmax()
-    mean_loss_best_model = df[df['architecture'] == best_model][['dataset',
-        'val_y_acc']].groupby(by='dataset').mean().round(decimals=2)
-    mean_loss_best_model = mean_loss_best_model.rename(columns={'val_y_acc':
-        'mean(val_y_acc)'})
+    mean_loss_best_model = df[df['architecture'] == best_model][[
+        'dataset', 'val_y_acc', 'n_samples_with_y']].groupby(
+                by=['dataset', 'n_samples_with_y']).mean().round(decimals=2)
+    mean_loss_best_model = mean_loss_best_model.rename(
+            columns={'val_y_acc': 'mean(val_y_acc)'})
     df_table = pd.concat([df_table, mean_loss_best_model], axis=1)
+
 
     # FIXME study if this change needs to be done in export_df
     df_table_one_index = df_table.reset_index()
