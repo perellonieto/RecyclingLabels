@@ -71,7 +71,6 @@ def extract_summary(folder):
     dataset_df = get_dataframe_from_csv(folder, 'dataset.csv', keep_time=True)
     results_df = get_dataframe_from_csv(folder, 'training.csv',
                                         keep_time=False)
-
     best_epoch = results_df.groupby(as_index='pid', by='epoch')['val_y_loss'].mean().argmin()
     # FIXME the best epoch could be computed for all the summaries later on
     # However, it seems easier at this point
@@ -84,6 +83,18 @@ def extract_summary(folder):
 
     summary = pd.merge(results_df, dataset_df)
     summary = pd.merge(summary, model_df)
+
+    # TODO add test results
+    try:
+        results_test_df = get_dataframe_from_csv(folder, 'test.csv',
+                                                 keep_time=False)
+        results_test_df.rename(columns={key: 'test_' + key for key in
+                                        results_test_df.columns},
+                               inplace=True)
+        results_test_df['folder'] = folder
+        summary = pd.merge(summary, results_test_df)
+    except IOError as e:
+        pass
 
     return summary
 
@@ -267,7 +278,7 @@ def main(results_path='results', summary_path='', filter_rows={},
     # Export information about the experimental setup
     ########################################################################
     # TODO in the future, it would be ideal to preseve the NaN values
-    df.fillna('nan', inplace=True)
+    df.fillna(np.nan, inplace=True)
     experimental_setup = df.groupby(exp_setup_info).size()
     df_exp_setup = experimental_setup.to_frame().reset_index()
     df_exp_setup.to_csv(os.path.join(summary_path, "experimental_setup.csv"),
@@ -376,7 +387,7 @@ def main(results_path='results', summary_path='', filter_rows={},
     # TODO change columns and indices
     indices = ['method']
     columns = ['architecture', 'n_samples_with_y', 'n_classes', 'n_features']
-    values = ['val_y_acc']
+    values = ['val_y_acc', 'test_acc']
     normalizations = [None, 'rows', 'cols']
     for filtered_row in filter_values:
         for value in values:
