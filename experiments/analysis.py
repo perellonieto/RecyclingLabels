@@ -549,12 +549,22 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
     map_arguments = []
     skf = StratifiedKFold(n_splits=k_folds, shuffle=False)
     process_id = 1                      # process_id=0 reserved for final model
+    n_class_partition = None
     for i in range(n_iterations):
         X_y_s, Z_y_s, z_y_s, Y_y_s, y_y_s = shuffle(X_y, Z_y, z_y, Y_y, y_y,
                                                     random_state=i)
         splits = skf.split(X_y_s, y_y_s)
 
         for train, valid in splits:
+            if n_class_partition is None:
+                n_class_partition = len(np.unique(y_y_s[train]))
+
+            if n_class_partition != len(np.unique(y_y_s[train])) or \
+               n_class_partition != len(np.unique(y_y_s[valid])):
+                print('training classes = {}'.format(np.unique(y_y_s[train])))
+                print('validation classes = {}'.format(np.unique(y_y_s[valid])))
+                raise AssertionError('''The cross-validation partitions have
+                                        different number of labels''')
             n_extra.add_entry(row={'pid': process_id,
                                    'Counter(y_y_t)': Counter(y_y_s[train])})
             n_extra.add_entry(row={'pid': process_id,
@@ -627,84 +637,6 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
     return analyse_results(results, diary, n_val, n_tra, epochs, architecture,
                            method, classes, n_iterations, keyword='validation',
                            best_epoch='mean')
-
-
-def analyse_results(results, diary, n_val, n_tra, epochs, architecture, method,
-                    classes, n_iterations, keyword='', best_epoch='mean'):
-    """
-
-    best_epoch : string (mean, max or last)
-        mean is the maximum mean
-        max is the maximum value
-        last is the last epoch
-    """
-    n_c = len(classes)
-    dict_results = {}
-    keys_results = [key for key in results[0]['history'].keys()]
-    for key in keys_results:
-        dict_results[key] = np.array([result['history'][key] for result in
-                                      results])
-
-    for i in range(len(results)):
-        pid = results[i]['pid']
-        for epoch in range(epochs):
-            row = dict(pid=pid, epoch=epoch + 1)
-            for key in keys_results:
-                row[key] = dict_results[key][i][epoch]
-            n_tra.add_entry(row=row)
-
-    perrorevery = 0.1
-    for measure in ['acc', 'loss']:
-        legend = [key for key in dict_results.keys() if measure in key]
-        legend.sort()
-        fig = plot_errorbar([dict_results[key] for key in legend],
-                            perrorevery=perrorevery, legend=legend,
-                            title='{}, {}, training {}'.format(architecture,
-                                                               method,
-                                                               measure))
-        diary.save_figure(fig, filename='{}_{}'.format(keyword, measure))
-
-    # Area under the ROC curve per class
-    measure = 'val_y_auc'
-    legend = classes
-    perrorevery = 0.02
-    fig = plot_errorbar([dict_results[measure][:, :, i] for i in
-                     range(len(legend))],
-                    perrorevery=perrorevery, legend=legend,
-                    title='{}, {}, training {}'.format(architecture,
-                                                       method, measure))
-    diary.save_figure(fig, filename='{}_{}'.format(keyword, measure))
-
-    # Best validation epoch
-    if best_epoch == 'mean':
-        b_v_e = dict_results['val_y_acc'].mean(axis=0).argmax()
-    elif best_epoch == 'max':
-        b_v_e = dict_results['val_y_acc'].max(axis=0).argmax()
-    elif best_epoch == 'last':
-        b_v_e = epochs-1
-    else:
-        raise ValueError('Unknown epoch type: {}'.format(best_epoch.shape))
-
-    cm_mean = np.zeros((n_c, n_c))
-    acc_mean = 0
-    for result in results:
-        cm = result['history']['val_y_cm'][b_v_e]
-        pid = result['pid']
-        acc = np.true_divide(np.diag(cm).sum(), cm.sum())
-
-        # Save all the results
-        n_val.add_entry(row={'pid': pid, 'acc': acc, 'epoch': b_v_e, 'cm': cm})
-
-        # Compute the mean of the final confusion matrix
-        cm_mean += np.true_divide(cm, n_iterations)
-        acc_mean += acc/len(results)
-
-    title = 'Epoch {}, Mean CM {} (acc={:.3f})'.format(b_v_e, method, acc_mean)
-    fig = plot_confusion_matrix(cm_mean, columns=classes, rows=classes,
-                                colorbar=False, title=title)
-
-    diary.save_figure(fig, filename='{}_mean_confusion_matrix'.format(keyword))
-    return b_v_e
 
 
 # TODO add other methods
@@ -890,3 +822,86 @@ def train_and_test_weak_labels(X_z, Z_z, z_z,
     return analyse_results(results, diary, n_val, n_tra, epochs, architecture,
                            method, classes, n_iterations=1, keyword='test',
                            best_epoch='last')
+
+
+def analyse_results(results, diary, n_val, n_tra, epochs, architecture, method,
+                    classes, n_iterations, keyword='', best_epoch='mean'):
+    """
+    Generates plots summarizing all the results passed as a parameter
+
+    results: list of dictionaries
+
+    best_epoch : string (mean, max or last)
+        mean is the maximum mean
+        max is the maximum value
+        last is the last epoch
+    """
+    n_c = len(classes)
+    dict_results = {}
+    keys_results = [key for key in results[0]['history'].keys()]
+    for key in keys_results:
+        dict_results[key] = np.array([result['history'][key] for result in
+                                      results])
+
+    for i in range(len(results)):
+        pid = results[i]['pid']
+        for epoch in range(epochs):
+            row = dict(pid=pid, epoch=epoch + 1)
+            for key in keys_results:
+                row[key] = dict_results[key][i][epoch]
+            n_tra.add_entry(row=row)
+
+    perrorevery = 0.1
+    for measure in ['acc', 'loss']:
+        legend = [key for key in dict_results.keys() if measure in key]
+        legend.sort()
+        fig = plot_errorbar([dict_results[key] for key in legend],
+                            perrorevery=perrorevery, legend=legend,
+                            title='{}, {}, training {}'.format(architecture,
+                                                               method,
+                                                               measure))
+        diary.save_figure(fig, filename='{}_{}'.format(keyword, measure))
+
+    # Area under the ROC curve per class
+    measure = 'val_y_auc'
+    legend = classes
+    perrorevery = 0.02
+    fig = plot_errorbar([dict_results[measure][:, :, i] for i in
+                     range(len(legend))],
+                    perrorevery=perrorevery, legend=legend,
+                    title='{}, {}, training {}'.format(architecture,
+                                                       method, measure))
+    diary.save_figure(fig, filename='{}_{}'.format(keyword, measure))
+
+    # Best validation epoch
+    if best_epoch == 'mean':
+        b_v_e = dict_results['val_y_acc'].mean(axis=0).argmax()
+    elif best_epoch == 'max':
+        b_v_e = dict_results['val_y_acc'].max(axis=0).argmax()
+    elif best_epoch == 'last':
+        b_v_e = epochs-1
+    else:
+        raise ValueError('Unknown epoch type: {}'.format(best_epoch.shape))
+
+    cm_mean = np.zeros((n_c, n_c))
+    acc_mean = 0
+    for result in results:
+        cm = result['history']['val_y_cm'][b_v_e]
+        pid = result['pid']
+        acc = np.true_divide(np.diag(cm).sum(), cm.sum())
+
+        # Save all the results
+        n_val.add_entry(row={'pid': pid, 'acc': acc, 'epoch': b_v_e, 'cm': cm})
+
+        # Compute the mean of the final confusion matrix
+        cm_mean += np.true_divide(cm, n_iterations)
+        acc_mean += acc/len(results)
+
+    title = 'Epoch {}, Mean CM {} (acc={:.3f})'.format(b_v_e, method, acc_mean)
+    fig = plot_confusion_matrix(cm_mean, columns=classes, rows=classes,
+                                colorbar=False, title=title)
+
+    diary.save_figure(fig, filename='{}_mean_confusion_matrix'.format(keyword))
+    return b_v_e
+
+

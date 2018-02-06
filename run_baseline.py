@@ -57,6 +57,8 @@ dataset_functions = {'toy_example': load_toy_example,
                                      true_size=0.3),
                      'webs': partial(load_webs,
                                      tfidf=True,
+                                     categories=['parking', 'b2c', 'no_b2c',
+                                                 'Other'],
                                      standardize=True),
                      'classification': partial(load_classification,
                                                n_samples=60000,
@@ -242,8 +244,8 @@ def main(dataset=DEFAULT['dataset'], seed=DEFAULT['seed'],
     sss = StratifiedShuffleSplit(n_splits=1, random_state=seed,
                                  test_size=prop_test)
     val_indx, test_indx = next(sss.split(X_v, y_v))
-    print('Validation partition size = {}'.format(len(val_indx)))
-    print('Test partition size = {}'.format(len(test_indx)))
+    print('True labels: Validation original partition size = {}'.format(len(val_indx)))
+    print('True labels: Test original partition size = {}'.format(len(test_indx)))
     # test partition
     X_te, Z_te, z_te = X_v[test_indx], Z_v[test_indx], z_v[test_indx]
     Y_te, y_te = Y_v[test_indx], y_v[test_indx]
@@ -274,6 +276,8 @@ def main(dataset=DEFAULT['dataset'], seed=DEFAULT['seed'],
         y_v = np.concatenate((y_v, y_v[train_indx]))
         train_indx, test_indx = next(sss.split(X_v, y_v))
         X_v, Z_v, z_v, Y_v, y_v = X_v[train_indx], Z_v[train_indx], z_v[train_indx], Y_v[train_indx], y_v[train_indx]
+    print('True labels: Validation partition size = {}'.format(len(y_v)))
+    print('True labels: Test partition size = {}'.format(len(y_te)))
 
     # There is a problem with the validation and test size
     n_dataset = diary.add_notebook('dataset')

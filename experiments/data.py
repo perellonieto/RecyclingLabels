@@ -139,8 +139,8 @@ def make_weak_true_partition(M, X, y, true_size=0.1, random_state=None):
     return (X_w, Z_w, z_w), (X_t, Z_t, z_t, Y_t, y_t), classes
 
 
-def load_webs(random_state=None, standardize=True, tfidf=False):
-    categories = ['blog', 'inmo', 'parking', 'b2c', 'no_b2c', 'Other']
+def load_webs(random_state=None, standardize=True, tfidf=False,
+              categories=['blog', 'inmo', 'parking', 'b2c', 'no_b2c', 'Other']):
     n_cat = len(categories)
 
     # Note that the pickle file contains a multi-index dataframe. We take the
@@ -174,6 +174,19 @@ def load_webs(random_state=None, standardize=True, tfidf=False):
     z_train = Z_train.dot(p2)
     z_val = Z_val.dot(p2)
 
+    # Remove samples where all the weak labels are 0
+    index_train_no_0 = (z_train != 0)
+    X_train = X_train[index_train_no_0]
+    Z_train = Z_train[index_train_no_0]
+    z_train = z_train[index_train_no_0]
+    index_valid_no_0 = (z_val != 0)
+    X_val = X_val[index_valid_no_0]
+    Z_val = Z_val[index_valid_no_0]
+    z_val = z_val[index_valid_no_0]
+    Y_val = Y_val[index_valid_no_0]
+    y_val = y_val[index_valid_no_0]
+
+    # Shuffle dataset
     X_train, Z_train, z_train = shuffle(X_train, Z_train, z_train,
                                         random_state=random_state)
     X_val, Z_val, z_val, Y_val, y_val = shuffle(X_val, Z_val, z_val, Y_val,
