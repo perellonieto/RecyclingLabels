@@ -14,6 +14,7 @@ from sklearn.model_selection import train_test_split
 from wlc.WLweakener import computeM
 from wlc.WLweakener import generateWeak
 from wlc.WLweakener import binarizeWeakLabels
+from wlc.WLweakener import weak_to_decimal
 
 # Necessary for the make_blobs modification
 # from sklearn.datasets import make_blobs
@@ -136,7 +137,11 @@ def make_weak_true_partition(M, X, y, true_size=0.1, random_state=None):
         Y_t = Y[true_fold]
 
     # TODO refactor name convention of train and val, for weak and true
-    return (X_w, Z_w, z_w), (X_t, Z_t, z_t, Y_t, y_t), classes
+    training = (X_train, Z_train, z_train)
+    validation = (X_val, Z_val, z_val, Y_val, y_val)
+    test = None
+    categories = classes
+    return training, validation, test, categories
 
 
 def load_webs(random_state=None, standardize=True, tfidf=False,
@@ -210,7 +215,10 @@ def load_webs(random_state=None, standardize=True, tfidf=False,
         X_train = scaler_model.fit_transform(X_train)
         X_val = scaler_model.transform(X_val)
 
-    return (X_train, Z_train, z_train), (X_val, Z_val, z_val, Y_val, y_val), categories
+    training = (X_train, Z_train, z_train)
+    validation = (X_val, Z_val, z_val, Y_val, y_val)
+    test = None
+    return training, validation, test, categories
 
 
 def load_toy_example(random_state=None):
@@ -232,7 +240,11 @@ def load_blobs(n_samples=1000, n_features=2, n_classes=6, random_state=None):
 
     X_train, X_val, Z_train, Z_val, z_train, z_val, Y_train, Y_val, y_train, y_val = train_test_split(X, Z, z, Y, y, test_size=0.5, random_state=random_state)
 
-    return (X_train, Z_train, z_train), (X_val, Z_val, z_val, Y_val, y_val), None
+    training = (X_train, Z_train, z_train)
+    validation = (X_val, Z_val, z_val, Y_val, y_val)
+    test = None
+    categories = range(0, n_classes)
+    return training, validation, test, categories
 
 
 def load_weak_blobs(method='quasi_IPL', n_samples=2000, n_features=2,
@@ -279,4 +291,69 @@ def load_classification(n_samples=1000, n_features=20, n_classes=6,
 
     X_train, X_val, Z_train, Z_val, z_train, z_val, Y_train, Y_val, y_train, y_val = train_test_split(X, Z, z, Y, y, test_size=0.5, random_state=random_state)
 
-    return (X_train, Z_train, z_train), (X_val, Z_val, z_val, Y_val, y_val), None
+    training = (X_train, Z_train, z_train)
+    validation = (X_val, Z_val, z_val, Y_val, y_val)
+    test = None
+    categories = range(0, n_classes)
+    return training, validation, test, categories
+
+
+def load_labelme(random_state=None, prop_valid=0.1):
+    '''
+    Loads the LabelMe dataset and reasigns de data in the following manner:
+        - Training data divided by two portions -> train and valid
+        - Valid and test are join to create test data
+    '''
+    n_classes = 8
+
+    # =================================================== #
+    # Load valid and test and join to create test
+    # =================================================== #
+    X_valid = np.load('data/LabelMe/prepared/data_valid_vgg16.npy')
+    X_test = np.load('data/LabelMe/prepared/data_test_vgg16.npy')
+    X_valid = X_valid.reshape(X_valid.shape[0], -1)
+    X_test = X_test.reshape(X_test.shape[0], -1)
+    X_test = np.concatenate((X_valid, X_test))
+
+    y_valid = np.load('data/LabelMe/prepared/labels_valid.npy')
+    y_test = np.load('data/LabelMe/prepared/labels_test.npy')
+    y_test = np.concatenate((y_valid, y_test))
+    Y_test = label_binarize(y_test, range(n_classes))
+
+    # =================================================== #
+    # Load train and divide into train and validation
+    # =================================================== #
+    # Load features (I think these are hidden activations in a VGG16 network)
+    X_train = np.load('data/LabelMe/prepared/data_train_vgg16.npy')
+    X_train = X_train.reshape(X_train.shape[0], -1)
+
+    # TODO see difference between labels_train_mv and labels_train
+    #y_train_mv = np.load('data/LabelMe/prepared/labels_train_mv.npy')
+    y_train = np.load('data/LabelMe/prepared/labels_train.npy')
+    Y_train = label_binarize(y_train, range(n_classes))
+    y_answers = np.load('data/LabelMe/prepared/answers.npy')
+
+    # Convert answers to binary weak labels
+    Z_train = np.zeros((X_train.shape[0], n_classes)).astype(int)
+    for i, answer in enumerate(y_answers):
+        voted = np.unique(answer)
+        for v in voted:
+            if v != -1:
+                Z_train[i, v] = 1
+
+    z_train = weak_to_decimal(Z_train)
+
+    # Divide training between train and validation
+    sss = StratifiedShuffleSplit(n_splits=1, random_state=random_state,
+                                 train_size=(1. - prop_valid),
+                                 test_size=prop_valid)
+    train_indx, val_indx = next(sss.split(X_train, y_train))
+    X_val, Z_val, z_val = X_train[val_indx], Z_train[val_indx], z_train[val_indx]
+    Y_val, y_val = Y_train[val_indx], y_train[val_indx]
+    X_train, Z_train, z_train = X_train[train_indx], Z_train[train_indx], z_train[train_indx]
+
+    training = (X_train, Z_train, z_train)
+    validation = (X_val, Z_val, z_val, Y_val, y_val)
+    test = (X_test, Y_test, y_test)
+    categories = range(0, n_classes)
+    return training, validation, test, categories

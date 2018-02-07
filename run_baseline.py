@@ -6,7 +6,8 @@ from functools import partial
 from sklearn.model_selection import StratifiedShuffleSplit
 from collections import Counter
 from experiments.data import load_webs, load_weak_iris, load_weak_blobs, \
-                             load_toy_example, load_classification
+                             load_toy_example, load_classification, \
+                             load_labelme
 from experiments.analysis import analyse_weak_labels, train_and_test_weak_labels
 from experiments.diary import Diary
 
@@ -68,6 +69,7 @@ dataset_functions = {'toy_example': load_toy_example,
                                                n_redundant=0,
                                                n_repeated=0,
                                                n_clusters_per_class=1),
+                     'labelme': load_labelme,
                      }
 
 
@@ -231,27 +233,32 @@ def main(dataset=DEFAULT['dataset'], seed=DEFAULT['seed'],
         M = np.loadtxt(file_M)
 
     if M is not None and function_accepts_M(dataset_functions[dataset]):
-        training, validation, classes = dataset_functions[dataset](
+        training, validation, test, classes = dataset_functions[dataset](
                 random_state=seed, M=M)
     else:
-        training, validation, classes = dataset_functions[dataset](
+        training, validation, test, classes = dataset_functions[dataset](
                 random_state=seed)
 
     X_t, Z_t, z_t = training
     X_v, Z_v, z_v, Y_v, y_v = validation
 
     # Get test partition
-    sss = StratifiedShuffleSplit(n_splits=1, random_state=seed,
-                                 test_size=prop_test)
-    val_indx, test_indx = next(sss.split(X_v, y_v))
-    print('True labels: Validation original partition size = {}'.format(len(val_indx)))
-    print('True labels: Test original partition size = {}'.format(len(test_indx)))
-    # test partition
-    X_te, Z_te, z_te = X_v[test_indx], Z_v[test_indx], z_v[test_indx]
-    Y_te, y_te = Y_v[test_indx], y_v[test_indx]
-    # Validation partition
-    X_v, Z_v, z_v = X_v[val_indx], Z_v[val_indx], z_v[val_indx]
-    Y_v, y_v = Y_v[val_indx], y_v[val_indx]
+    if test is None:
+        sss = StratifiedShuffleSplit(n_splits=1, random_state=seed,
+                                     train_size=(1. - prop_test),
+                                     test_size=prop_test)
+        val_indx, test_indx = next(sss.split(X_v, y_v))
+        print('True labels: Validation original partition size = {}'.format(len(val_indx)))
+        print('True labels: Test original partition size = {}'.format(len(test_indx)))
+        # test partition
+        X_te, Z_te, z_te = X_v[test_indx], Z_v[test_indx], z_v[test_indx]
+        Y_te, y_te = Y_v[test_indx], y_v[test_indx]
+        # Validation partition
+        X_v, Z_v, z_v = X_v[val_indx], Z_v[val_indx], z_v[val_indx]
+        Y_v, y_v = Y_v[val_indx], y_v[val_indx]
+    else:
+        X_te, Y_te, y_te = test
+
 
     if prop_weak < 1.0:
         sss = StratifiedShuffleSplit(n_splits=1, random_state=seed,
@@ -315,8 +322,8 @@ def main(dataset=DEFAULT['dataset'], seed=DEFAULT['seed'],
         best_epoch = 1
 
     train_and_test_weak_labels(X_z=X_t, Z_z=Z_t, z_z=z_t, X_y=X_v, Z_y=Z_v,
-                               z_y=z_v, Y_y=Y_v, y_y=y_v, X_te=X_te, Z_te=Z_te,
-                               z_te=z_te, Y_te=Y_te, y_te=y_te,
+                               z_y=z_v, Y_y=Y_v, y_y=y_v, X_te=X_te,
+                               Y_te=Y_te, y_te=y_te,
                                random_state=seed, verbose=verbose,
                                classes=classes, method=method, diary=diary,
                                loss=loss, architecture=architecture,

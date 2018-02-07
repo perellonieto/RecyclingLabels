@@ -642,7 +642,7 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
 # TODO add other methods
 def train_and_test_weak_labels(X_z, Z_z, z_z,
                                X_y, Z_y, z_y, Y_y, y_y,
-                               X_te, Z_te, z_te, Y_te, y_te,
+                               X_te, Y_te, y_te,
                                classes, diary=None, verbose=0,
                                random_state=None, method='Mproper',
                                n_jobs=None, architecture='lr', loss='mse',
