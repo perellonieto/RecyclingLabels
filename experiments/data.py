@@ -305,6 +305,8 @@ def load_labelme(random_state=None, prop_valid=0.1):
         - Valid and test are join to create test data
     '''
     n_classes = 8
+    categories = ['highway', 'insidecity', 'tallbuilding', 'street',
+                  'forest', 'coast', 'mountain', 'opencountry']
 
     # =================================================== #
     # Load valid and test and join to create test
@@ -355,5 +357,4 @@ def load_labelme(random_state=None, prop_valid=0.1):
     training = (X_train, Z_train, z_train)
     validation = (X_val, Z_val, z_val, Y_val, y_val)
     test = (X_test, Y_test, y_test)
-    categories = range(0, n_classes)
     return training, validation, test, categories
