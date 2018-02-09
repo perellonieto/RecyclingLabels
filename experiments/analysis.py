@@ -646,6 +646,7 @@ def train_and_test_weak_labels(X_z, Z_z, z_z,
                                classes, diary=None, verbose=0,
                                random_state=None, method='Mproper',
                                n_jobs=None, architecture='lr', loss='mse',
+                               n_iterations=1,
                                epochs=200, path_model=None, file_M=None,
                                lr=1.0, l1=0.0, l2=0.001, optimizer='rmsprop',
                                momentum=0.5, decay=0.5, nesterov=True,
@@ -781,23 +782,30 @@ def train_and_test_weak_labels(X_z, Z_z, z_z,
         np.savetxt(os.path.join(diary.path, 'M.csv'), M)
 
     map_arguments = []
-    process_id = 0  # final model
-    i = 0
-    make_arguments['model_num'] = process_id
-    classifier = MyKerasClassifier(build_fn=create_model, **make_arguments)
+    process_id = 1                      # process_id=0 reserved for final model
+    n_class_partition = None
+    for i in range(n_iterations):
+        make_arguments['model_num'] = process_id
+        classifier = MyKerasClassifier(build_fn=create_model,
+                                       **make_arguments)
 
-    # TODO make sense of the following code for all the function
-    # consider the test data as well
-    parameters = [process_id, classifier, X_z, Z_z, X_y, Z_y,
-                  Y_y, X_te, Y_te, fit_arguments,
-                  s_diary_vars]
+        parameters = [process_id, classifier, X_z, Z_z, X_y, Z_y, Y_y, X_te,
+                      Y_te, fit_arguments, s_diary_vars]
 
-    if method in ['Mproper', 'EM']:
-        parameters.append(M)
+        if method in ['Mproper', 'EM']:
+            parameters.append(M)
 
-    map_arguments.append(tuple(parameters))
+        map_arguments.append(tuple(parameters))
 
-    my_map = map
+        process_id += 1
+
+    # accuracies = train_weak_test_acc(map_arguments[0])
+    if n_jobs is None or n_jobs == 1:
+        my_map = map
+    else:
+        pool = multiprocessing.Pool(processes=n_jobs)
+        my_map = pool.map
+
 
     if method == 'Mproper':
         results = my_map(train_weak_Mproper_test_results, map_arguments)
@@ -820,8 +828,8 @@ def train_and_test_weak_labels(X_z, Z_z, z_z,
     n_tra = diary.add_notebook('test_training')
     n_val = diary.add_notebook('test')
     return analyse_results(results, diary, n_val, n_tra, epochs, architecture,
-                           method, classes, n_iterations=1, keyword='test',
-                           best_epoch='last')
+                           method, classes, n_iterations=n_iterations,
+                           keyword='test', best_epoch='last')
 
 
 def analyse_results(results, diary, n_val, n_tra, epochs, architecture, method,
