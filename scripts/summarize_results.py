@@ -92,8 +92,18 @@ def extract_summary(folder):
                                         results_test_df.columns},
                                inplace=True)
         results_test_df['folder'] = folder
+        cm_string = results_test_df['test_cm'][0]
+        cm_string = ''.join(i for i in cm_string if i == ' ' or i.isdigit())
+        cm = np.fromstring(cm_string, dtype=int, sep=' ')
+        n_classes = int(np.sqrt(len(cm)))
+        print('Samples with y = {}, test acc = {}, n_classes = {}'.format(
+            dataset_df['n_samples_with_y'][0],
+            results_test_df['test_acc'][0],
+            n_classes))
         summary = pd.merge(summary, results_test_df)
     except IOError as e:
+        # TODO solve the possible IOError
+        # from IPython import embed; embed()
         pass
 
     return summary
@@ -236,6 +246,7 @@ def main(results_path='results', summary_path='', filter_rows={},
     summaries = []
     for rf in results_folders:
         summaries.append(extract_summary(rf))
+    from IPython import embed; embed()
 
     df = pd.concat(summaries, axis=0, ignore_index=True)
 
