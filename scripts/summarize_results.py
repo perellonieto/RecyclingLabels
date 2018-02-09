@@ -28,7 +28,7 @@ def get_list_results_folders(folder, essentials=['description.txt'],
                              finished=None, return_unfinished=False):
     list_results_folders = []
     list_unfinished_folders = []
-    for root, subdirs, files in walk(folder):
+    for root, subdirs, files in walk(folder, followlinks=True):
         if set(essentials).issubset(set(files)):
             if set(finished).issubset(set(files)):
                 list_results_folders.append(root)
@@ -427,18 +427,21 @@ def main(results_path='results', summary_path='', filter_rows={},
                         savefig_and_close(fig, '{}_vs_{}_by_{}_{}_heatmap_count.{}'.format(
                                     index, column, filtered_row, value, fig_extension), path=summary_path)
                     else:
-                        fig = plt.figure()
-                        ax = fig.add_subplot(111)
-                        df2.transpose().plot(ax=ax, style='.-', logx=True)
-                        ax.set_title('{} {}'.format(filtered_row, value))
-                        ax.set_ylabel(value)
-                        lgd = ax.legend(loc='center left', bbox_to_anchor=(1, .5))
-                        savefig_and_close(fig,
-                                          'plot_mean_{}_vs_{}_by_{}_{}.{}'.format(
-                                              index, column, filtered_row,
-                                              value, fig_extension),
-                                          path=summary_path,
-                                          bbox_extra_artists=(lgd,))
+                        for logx in [True, False]:
+                            fig = plt.figure()
+                            ax = fig.add_subplot(111)
+                            df2.transpose().plot(ax=ax, style='.-', logx=logx)
+                            ax.set_title('{} {}'.format(filtered_row, value))
+                            ax.set_ylabel(value)
+                            lgd = ax.legend(loc='center left', bbox_to_anchor=(1, .5))
+                            fig_name = 'plot_mean_{}_vs_{}_by_{}_{}{}.{}'.format(
+                                                  index, column, filtered_row,
+                                                  value,
+                                                  '_logx' if logx else '',
+                                                  fig_extension)
+                            savefig_and_close(fig, fig_name,
+                                              path=summary_path,
+                                              bbox_extra_artists=(lgd,))
 
     ########################################################################
     # Boxplots by Experimental setup and dataset
