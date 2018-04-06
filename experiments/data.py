@@ -298,32 +298,37 @@ def load_classification(n_samples=1000, n_features=20, n_classes=6,
     return training, validation, test, categories
 
 
-def load_labelme(random_state=None, prop_valid=0.1):
+def load_labelme(random_state=None, prop_valid=0.1, prop_test=0.2,
+                 keep_valid_test=False):
     '''
     Loads the LabelMe dataset and reasigns de data in the following manner:
         - Training data divided by two portions -> train and valid
         - Valid and test are join to create test data
+
+    Parameters
+    ==========
+    random_state: integer
+        Random seed to use every time that we shuffle or split the data. If
+        None, the samples are not shuffled.
+
+    prop_valid: float (between 0 and 1)
+        Proportion of samples from the final training size to use as validation
+
+    prop_test: float (between 0 and 1)
+        Proportion of samples from the final training size to use as test
+
+    keep_valid_test: bool
+        If true, uses the original validation and test as a test set
+        If false, discards the original valid and test sets and creates new
+        ones from the training set
+
     '''
     n_classes = 8
     categories = ['highway', 'insidecity', 'tallbuilding', 'street',
                   'forest', 'coast', 'mountain', 'opencountry']
 
     # =================================================== #
-    # Load valid and test and join to create test
-    # =================================================== #
-    X_valid = np.load('data/LabelMe/prepared/data_valid_vgg16.npy')
-    X_test = np.load('data/LabelMe/prepared/data_test_vgg16.npy')
-    X_valid = X_valid.reshape(X_valid.shape[0], -1)
-    X_test = X_test.reshape(X_test.shape[0], -1)
-    X_test = np.concatenate((X_valid, X_test))
-
-    y_valid = np.load('data/LabelMe/prepared/labels_valid.npy')
-    y_test = np.load('data/LabelMe/prepared/labels_test.npy')
-    y_test = np.concatenate((y_valid, y_test))
-    Y_test = label_binarize(y_test, range(n_classes))
-
-    # =================================================== #
-    # Load train and divide into train and validation
+    # Load train with majority voting
     # =================================================== #
     # Load features (I think these are hidden activations in a VGG16 network)
     X_train = np.load('data/LabelMe/prepared/data_train_vgg16.npy')
@@ -345,7 +350,44 @@ def load_labelme(random_state=None, prop_valid=0.1):
 
     z_train = weak_to_decimal(Z_train)
 
+    # =================================================== #
+    # Create test set
+    # =================================================== #
+    if keep_valid_test:
+        # =================================================== #
+        # Load valid and test and join to create test
+        # =================================================== #
+        X_valid = np.load('data/LabelMe/prepared/data_valid_vgg16.npy')
+        X_test = np.load('data/LabelMe/prepared/data_test_vgg16.npy')
+        X_valid = X_valid.reshape(X_valid.shape[0], -1)
+        X_test = X_test.reshape(X_test.shape[0], -1)
+        X_test = np.concatenate((X_valid, X_test))
+
+        y_valid = np.load('data/LabelMe/prepared/labels_valid.npy')
+        y_test = np.load('data/LabelMe/prepared/labels_test.npy')
+        y_test = np.concatenate((y_valid, y_test))
+        Y_test = label_binarize(y_test, range(n_classes))
+    else:
+        # =================================================== #
+        # Get portion of train for test
+        # =================================================== #
+        sss = StratifiedShuffleSplit(n_splits=1, random_state=random_state,
+                                     train_size=(1. - prop_test),
+                                     test_size=prop_test)
+        train_indx, test_indx = next(sss.split(X_train, y_train))
+        X_test = X_train[test_indx]
+        Y_test = Y_train[test_indx]
+        y_test = y_train[test_indx]
+        X_train = X_train[train_indx]
+        Z_train = Z_train[train_indx]
+        z_train = z_train[train_indx]
+        Y_train = Y_train[train_indx]
+        y_train = y_train[train_indx]
+
+
+    # =================================================== #
     # Divide training between train and validation
+    # =================================================== #
     sss = StratifiedShuffleSplit(n_splits=1, random_state=random_state,
                                  train_size=(1. - prop_valid),
                                  test_size=prop_valid)

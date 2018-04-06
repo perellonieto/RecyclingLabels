@@ -69,7 +69,8 @@ dataset_functions = {'toy_example': load_toy_example,
                                                n_redundant=0,
                                                n_repeated=0,
                                                n_clusters_per_class=1),
-                     'labelme': load_labelme,
+                     'labelme': partial(load_labelme,
+                                        keep_valid_test=False),
                      }
 
 
