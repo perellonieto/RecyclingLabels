@@ -201,7 +201,8 @@ def wilcoxon_rank_sum_test(df, index, column, signed=False,
 
 
 def main(results_path='results', summary_path='', filter_rows={},
-         filter_performance=1.0, verbose=1, gui=False, avoid_big_files=False):
+         filter_performance=1.0, verbose=1, gui=False, avoid_big_files=True,
+         only_best_epoch=True):
     print('\n#########################################################')
     print('##### Making summary of folder {}'.format(results_path))
     print('#')
@@ -303,58 +304,59 @@ def main(results_path='results', summary_path='', filter_rows={},
         print('The different experimental setups are:')
         print(df_exp_setup)
 
-    ########################################################################
-    # Boxplots by different groups
-    ########################################################################
-    groups_by = ['architecture', 'dataset', 'method']
-    columns = ['val_y_acc']
-    for groupby in groups_by:
-        for column in columns:
-            # grouped = df[idx].groupby([groupby])
-            grouped = df.groupby([groupby])
-
-            df2 = pd.DataFrame({col: vals[column] for col, vals in grouped})
-            meds = df2.median()
-            meds.sort_values(ascending=False, inplace=True)
-            df2 = df2[meds.index]
-
-            fig = plt.figure(figsize=(10, len(meds)/2+3))
-            ax = df2.boxplot(vert=False)
-            ax.set_title('results grouped by {}'.format(groupby))
-
-            counts = {k: len(v) for k, v in grouped}
-            ax.set_yticklabels(['%s\n$n$=%d' % (k, counts[k]) for k in meds.keys()])
-            ax.set_xlabel(column)
-            savefig_and_close(fig, '{}_{}.{}'.format(groupby, column,
-                                                     fig_extension), path=summary_path)
-
-    ########################################################################
-    # Heatmap of models vs architecture
-    ########################################################################
-    indices = ['architecture']
-    columns = ['dataset']
-    values = ['val_y_acc']
-    for value in values:
-        for index in indices:
+    if not only_best_epoch:
+        ########################################################################
+        # Boxplots by different groups
+        ########################################################################
+        groups_by = ['architecture', 'dataset', 'method']
+        columns = ['val_y_acc']
+        for groupby in groups_by:
             for column in columns:
-                df2 = pd.pivot_table(df, values=value, index=index,
-                                     columns=column,
-                                     aggfunc=len)
-                fig = plot_df_heatmap(df2, title='Number of experiments',
-                                      cmap=plt.cm.Greys)
-                savefig_and_close(fig, '{}_vs_{}_{}_heatmap_count.{}'.format(
-                            index, column, value, fig_extension), path=summary_path)
+                # grouped = df[idx].groupby([groupby])
+                grouped = df.groupby([groupby])
 
-    ########################################################################
-    # Heatmap of finished experiments dataset vs mixing_matrix_M
-    ########################################################################
-    df2 = pd.pivot_table(df, values='val_y_acc', index='dataset', columns='architecture',
-                         aggfunc=len)
-    df2 = df2.fillna(0).astype(int)
-    fig = plot_df_heatmap(df2, title='Number of experiments',
-                          cmap=plt.cm.Greys)
-    savefig_and_close(fig, 'dataset_vs_architecture_heatmap_count.{}'.format(
-                        fig_extension), path=summary_path)
+                df2 = pd.DataFrame({col: vals[column] for col, vals in grouped})
+                meds = df2.median()
+                meds.sort_values(ascending=False, inplace=True)
+                df2 = df2[meds.index]
+
+                fig = plt.figure(figsize=(10, len(meds)/2+3))
+                ax = df2.boxplot(vert=False)
+                ax.set_title('results grouped by {}'.format(groupby))
+
+                counts = {k: len(v) for k, v in grouped}
+                ax.set_yticklabels(['%s\n$n$=%d' % (k, counts[k]) for k in meds.keys()])
+                ax.set_xlabel(column)
+                savefig_and_close(fig, '{}_{}.{}'.format(groupby, column,
+                                                         fig_extension), path=summary_path)
+
+        ########################################################################
+        # Heatmap of models vs architecture
+        ########################################################################
+        indices = ['architecture']
+        columns = ['dataset']
+        values = ['val_y_acc']
+        for value in values:
+            for index in indices:
+                for column in columns:
+                    df2 = pd.pivot_table(df, values=value, index=index,
+                                         columns=column,
+                                         aggfunc=len)
+                    fig = plot_df_heatmap(df2, title='Number of experiments',
+                                          cmap=plt.cm.Greys)
+                    savefig_and_close(fig, '{}_vs_{}_{}_heatmap_count.{}'.format(
+                                index, column, value, fig_extension), path=summary_path)
+
+        ########################################################################
+        # Heatmap of finished experiments dataset vs mixing_matrix_M
+        ########################################################################
+        df2 = pd.pivot_table(df, values='val_y_acc', index='dataset', columns='architecture',
+                             aggfunc=len)
+        df2 = df2.fillna(0).astype(int)
+        fig = plot_df_heatmap(df2, title='Number of experiments',
+                              cmap=plt.cm.Greys)
+        savefig_and_close(fig, 'dataset_vs_architecture_heatmap_count.{}'.format(
+                            fig_extension), path=summary_path)
 
     # TODO should show all results instead of best epoch?
     df = df[df['best_epoch'] == df['epoch']]
@@ -567,6 +569,9 @@ def parse_arguments():
                         help='''Skips the creation of big files (eg. boxplot
                         with all the experiment results and a table containing
                         all the experiments.''')
+    parser.add_argument("--only-best-epoch", default=False,
+                        action='store_true', dest='only_best_epoch',
+                        help='''Only generates plots for the best epoch.''')
     return parser.parse_args()
 
 
