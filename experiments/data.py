@@ -137,8 +137,8 @@ def make_weak_true_partition(M, X, y, true_size=0.1, random_state=None):
         Y_t = Y[true_fold]
 
     # TODO refactor name convention of train and val, for weak and true
-    training = (X_train, Z_train, z_train)
-    validation = (X_val, Z_val, z_val, Y_val, y_val)
+    training = (X_w, Z_w, z_w)
+    validation = (X_t, Z_t, z_t, Y_t, y_t)
     test = None
     categories = classes
     return training, validation, test, categories
