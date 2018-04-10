@@ -201,7 +201,7 @@ def wilcoxon_rank_sum_test(df, index, column, signed=False,
 
 
 def main(results_path='results', summary_path='', filter_rows={},
-         filter_performance=1.0, verbose=1, gui=False):
+         filter_performance=1.0, verbose=1, gui=False, avoid_big_files=False):
     print('\n#########################################################')
     print('##### Making summary of folder {}'.format(results_path))
     print('#')
@@ -246,7 +246,7 @@ def main(results_path='results', summary_path='', filter_rows={},
     summaries = []
     for rf in results_folders:
         summaries.append(extract_summary(rf))
-    from IPython import embed; embed()
+    #from IPython import embed; embed()
 
     df = pd.concat(summaries, axis=0, ignore_index=True)
 
@@ -267,7 +267,8 @@ def main(results_path='results', summary_path='', filter_rows={},
     exp_setup_info = ['basename', 'dataset', 'batch_size', 'method',
                       'training_method', 'architecture', 'loss', 'init',
                       'input_dim', 'n_classes', 'n_features', 'epochs',
-                      'n_samples_with_y', 'n_samples_without_y', 'lr', 'l1',
+                      'n_samples_with_y', 'n_samples_without_y',
+                      'valid_size', 'test_size', 'lr', 'l1',
                       'l2', 'optimizer', 'nesterov', 'decay', 'momentum',
                       'rho', 'epsilon']
     # Avoid columns that do not exist in the current experiments
@@ -294,9 +295,10 @@ def main(results_path='results', summary_path='', filter_rows={},
     df_exp_setup = experimental_setup.to_frame().reset_index()
     df_exp_setup.to_csv(os.path.join(summary_path, "experimental_setup.csv"),
                         header=True)
-    # Export to pdf
-    export_df(df_exp_setup, 'experimental_setup', path=summary_path,
-              extension='svg')
+    if not avoid_big_files:
+        # Export to pdf
+        export_df(df_exp_setup, 'experimental_setup', path=summary_path,
+                  extension='svg')
     if verbose > 0:
         print('The different experimental setups are:')
         print(df_exp_setup)
@@ -399,7 +401,7 @@ def main(results_path='results', summary_path='', filter_rows={},
     filter_values = df[filter_by_column].unique()
     # TODO change columns and indices
     indices = ['method']
-    columns = ['architecture', 'n_samples_with_y', 'n_classes', 'n_features']
+    columns = ['architecture', 'n_samples_with_y', 'valid_size', 'n_classes', 'n_features']
     values = ['val_y_acc', 'test_acc']
     normalizations = [None, 'rows', 'cols']
     for filtered_row in filter_values:
@@ -443,67 +445,68 @@ def main(results_path='results', summary_path='', filter_rows={},
                                               path=summary_path,
                                               bbox_extra_artists=(lgd,))
 
-    ########################################################################
-    # Boxplots by Experimental setup and dataset
-    ########################################################################
-    filter_by_column = 'dataset'
-    filter_values = df[filter_by_column].unique()
-    groupby = exp_setup_info
-    columns = ['val_y_acc']
-    for filtered_row in filter_values:
-        for column in columns:
-            df_filtered = df[df[filter_by_column] == filtered_row]
-            grouped = df_filtered.groupby(groupby)
+    if not avoid_big_files:
+        ########################################################################
+        # Boxplots by Experimental setup and dataset
+        ########################################################################
+        filter_by_column = 'dataset'
+        filter_values = df[filter_by_column].unique()
+        groupby = exp_setup_info
+        columns = ['val_y_acc']
+        for filtered_row in filter_values:
+            for column in columns:
+                df_filtered = df[df[filter_by_column] == filtered_row]
+                grouped = df_filtered.groupby(groupby)
 
-            df2 = pd.DataFrame({col: vals[column] for col, vals in grouped})
-            meds = df2.median()
-            meds.sort_values(ascending=False, inplace=True)
-            df2 = df2[meds.index]
+                df2 = pd.DataFrame({col: vals[column] for col, vals in grouped})
+                meds = df2.median()
+                meds.sort_values(ascending=False, inplace=True)
+                df2 = df2[meds.index]
 
-            fig = plt.figure(figsize=(10, len(meds)/2+3))
-            ax = df2.boxplot(vert=False)
-            ax.set_title('results grouped by experimental setup')
+                fig = plt.figure(figsize=(10, len(meds)/2+3))
+                ax = df2.boxplot(vert=False)
+                ax.set_title('results grouped by experimental setup')
 
-            counts = {k: len(v) for k, v in grouped}
-            ax.set_yticklabels(['%s\n$n$=%d' % (k, counts[k]) for k in meds.keys()])
-            ax.set_xlabel(column)
-            savefig_and_close(fig, '{}_{}_{}.{}'.format(filter_by_column,
-                filtered_row, column, fig_extension), path=summary_path)
+                counts = {k: len(v) for k, v in grouped}
+                ax.set_yticklabels(['%s\n$n$=%d' % (k, counts[k]) for k in meds.keys()])
+                ax.set_xlabel(column)
+                savefig_and_close(fig, '{}_{}_{}.{}'.format(filter_by_column,
+                    filtered_row, column, fig_extension), path=summary_path)
 
-    ########################################################################
-    # Boxplots by Experimental setup and dataset Only best epoch
-    # TODO The only difference between this code and the upper boxplot are the
-    #      lines that are marked below
-    ########################################################################
-    filter_by_column = 'dataset'
-    filter_values = df[filter_by_column].unique()
-    groupby = exp_setup_info
-    columns = ['val_y_acc']
-    # TODO this line
-    df_aux = df[df['best_epoch'] == df['epoch']]
-    for filtered_row in filter_values:
-        for column in columns:
-            # TODO this line
-            df_filtered = df_aux[df_aux[filter_by_column] == filtered_row]
-            grouped = df_filtered.groupby(groupby)
+        ########################################################################
+        # Boxplots by Experimental setup and dataset Only best epoch
+        # TODO The only difference between this code and the upper boxplot are the
+        #      lines that are marked below
+        ########################################################################
+        filter_by_column = 'dataset'
+        filter_values = df[filter_by_column].unique()
+        groupby = exp_setup_info
+        columns = ['val_y_acc']
+        # TODO this line
+        df_aux = df[df['best_epoch'] == df['epoch']]
+        for filtered_row in filter_values:
+            for column in columns:
+                # TODO this line
+                df_filtered = df_aux[df_aux[filter_by_column] == filtered_row]
+                grouped = df_filtered.groupby(groupby)
 
-            df2 = pd.DataFrame({col: vals[column] for col, vals in grouped})
-            meds = df2.median()
-            meds.sort_values(ascending=False, inplace=True)
-            df2 = df2[meds.index]
+                df2 = pd.DataFrame({col: vals[column] for col, vals in grouped})
+                meds = df2.median()
+                meds.sort_values(ascending=False, inplace=True)
+                df2 = df2[meds.index]
 
-            fig = plt.figure(figsize=(10, len(meds)/2+3))
-            ax = df2.boxplot(vert=False)
-            ax.set_title('results grouped by experimental setup')
+                fig = plt.figure(figsize=(10, len(meds)/2+3))
+                ax = df2.boxplot(vert=False)
+                ax.set_title('results grouped by experimental setup')
 
-            counts = {k: len(v) for k, v in grouped}
-            ax.set_yticklabels(['%s\n$n$=%d' % (k, counts[k]) for k in meds.keys()])
-            ax.set_xlabel(column)
-            # TODO this line
-            savefig_and_close(fig,
-                    'best_epoch_{}_{}_{}.{}'.format(filter_by_column,
-                        filtered_row, column, fig_extension),
-                    path=summary_path)
+                counts = {k: len(v) for k, v in grouped}
+                ax.set_yticklabels(['%s\n$n$=%d' % (k, counts[k]) for k in meds.keys()])
+                ax.set_xlabel(column)
+                # TODO this line
+                savefig_and_close(fig,
+                        'best_epoch_{}_{}_{}.{}'.format(filter_by_column,
+                            filtered_row, column, fig_extension),
+                        path=summary_path)
 
     # Plot validation accuracy per l1
     y_label = 'val_y_acc'
@@ -559,6 +562,11 @@ def parse_arguments():
     parser.add_argument("-g", "--gui", default=False,
                         action='store_true', dest='gui',
                         help="Open a GUI with the dataframe.")
+    parser.add_argument("--avoid-big-files", default=False,
+                        action='store_true', dest='avoid_big_files',
+                        help='''Skips the creation of big files (eg. boxplot
+                        with all the experiment results and a table containing
+                        all the experiments.''')
     return parser.parse_args()
 
 
