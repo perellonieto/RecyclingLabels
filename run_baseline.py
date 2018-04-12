@@ -263,8 +263,8 @@ def main(dataset=DEFAULT['dataset'], seed=DEFAULT['seed'],
 
     if prop_weak < 1.0:
         sss = StratifiedShuffleSplit(n_splits=1, random_state=seed,
-                                     train_size=prop_clean,
-                                     test_size=(1. - prop_clean))
+                                     train_size=prop_weak,
+                                     test_size=(1. - prop_weak))
         one_member = [key for key, value in Counter(z_t).items() if value == 1]
         train_indx = np.where(z_t == one_member)
         X_t = np.concatenate((X_t, X_t[train_indx]))
@@ -328,7 +328,7 @@ def main(dataset=DEFAULT['dataset'], seed=DEFAULT['seed'],
                                random_state=seed, verbose=verbose,
                                classes=classes, method=method, diary=diary,
                                loss=loss, architecture=architecture,
-                               n_iterations=n_iterations, 
+                               n_iterations=n_iterations,
                                epochs=best_epoch, path_model=path_model,
                                file_M=file_M, lr=lr, l1=l1, l2=l2,
                                optimizer=optimizer, momentum=momentum,
