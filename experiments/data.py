@@ -368,13 +368,27 @@ def load_labelme(random_state=None, prop_valid=0.1, prop_test=0.2,
         y_test = np.concatenate((y_valid, y_test))
         Y_test = label_binarize(y_test, range(n_classes))
     else:
+        # Separate the augmented samples into different sets
+        text_answers = np.array([','.join(y.astype(str)) for y in y_answers])
+        unique_answers = np.unique(text_answers)
+        y_unique = y_train[[np.where(text_answers == u)[0][0] for u in
+                            unique_answers]]
+
         # =================================================== #
         # Get portion of train for test
         # =================================================== #
         sss = StratifiedShuffleSplit(n_splits=1, random_state=random_state,
                                      train_size=(1. - prop_test),
                                      test_size=prop_test)
-        train_indx, test_indx = next(sss.split(X_train, y_train))
+        train_indx, test_indx = next(sss.split(unique_answers, y_unique))
+
+        train_indx = np.concatenate(
+            [np.where(text_answers == unique_answers[i])[0]
+             for i in train_indx])
+        test_indx = np.concatenate(
+            [np.where(text_answers == unique_answers[i])[0]
+             for i in test_indx])
+
         X_test = X_train[test_indx]
         Y_test = Y_train[test_indx]
         y_test = y_train[test_indx]
@@ -383,7 +397,13 @@ def load_labelme(random_state=None, prop_valid=0.1, prop_test=0.2,
         z_train = z_train[train_indx]
         Y_train = Y_train[train_indx]
         y_train = y_train[train_indx]
+        y_answers = y_answers[train_indx]
 
+    # Separate the augmented samples into different sets
+    text_answers = np.array([','.join(y.astype(str)) for y in y_answers])
+    unique_answers = np.unique(text_answers)
+    y_unique = y_train[[np.where(text_answers == u)[0][0] for u in
+                        unique_answers]]
 
     # =================================================== #
     # Divide training between train and validation
@@ -391,7 +411,14 @@ def load_labelme(random_state=None, prop_valid=0.1, prop_test=0.2,
     sss = StratifiedShuffleSplit(n_splits=1, random_state=random_state,
                                  train_size=(1. - prop_valid),
                                  test_size=prop_valid)
-    train_indx, val_indx = next(sss.split(X_train, y_train))
+    train_indx, val_indx = next(sss.split(unique_answers, y_unique))
+    train_indx = np.concatenate(
+        [np.where(text_answers == unique_answers[i])[0]
+         for i in train_indx])
+    val_indx = np.concatenate(
+        [np.where(text_answers == unique_answers[i])[0]
+         for i in val_indx])
+
     X_val, Z_val, z_val = X_train[val_indx], Z_train[val_indx], z_train[val_indx]
     Y_val, y_val = Y_train[val_indx], y_train[val_indx]
     X_train, Z_train, z_train = X_train[train_indx], Z_train[train_indx], z_train[train_indx]
