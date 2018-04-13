@@ -43,7 +43,7 @@ def plot_data(x, y, loc='best', save=True, title='data', cmap='Paired'):
     if sparse.issparse(x):
         x = x.toarray()
 
-    fig = newfig('data')
+    fig = newfig('data', figsize=(5, 3))
     ax = fig.add_subplot(111)
 
     classes = np.unique(y)
@@ -246,7 +246,7 @@ def plot_errorbar(data, x=None, fmt='--o', title='errorbar', elinewidth=1.0,
     return_fig = fig is None
 
     if fig is None:
-        fig = newfig(title)
+        fig = newfig(title, figsize=(5, 3))
 
     ax = fig.add_subplot(111)
     ax.set_title(title)
