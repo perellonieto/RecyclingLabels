@@ -1,0 +1,1 @@
+7,1,|2017-11-14|,|16:15:11.356137|,|optimizer|,|rmsprop|,|verbose|,|0|,|output_size|,|6|,|path_model|,|None|,|batch_size|,|100|,|epochs|,|32|,|loss|,|mean_squared_error|,|decay|,|0.5|,|nesterov|,|True|,|init|,|glorot_uniform|,|random_state|,|0|,|lr|,|1.0|,|architecture|,|lr|,|input_dim|,|2099|,|training_method|,|EM|,|method|,|EM|,|momentum|,|0.5|

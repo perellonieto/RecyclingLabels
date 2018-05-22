@@ -80,12 +80,7 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised', seed=None):
 
         # Supervised component: Identity matrix with size d x c.
         Ic = np.zeros((d, c))
-        # Avoid problem in Python3
-        try:
-            xrange
-        except NameError:
-            xrange = range
-        for i in xrange(c):
+        for i in range(c):
             Ic[2**(c-i-1), i] = 1
 
         # Weak component: Random weak label proabilities
@@ -192,13 +187,10 @@ def generateWeak(y, M, dec_labels=None, seed=None):
     c = M.shape[1]
 
     if dec_labels is None:
-        if d == 2**c:
-            dec_labels = np.arange(2**c)
-        elif d == c:
+        if d == c:
             dec_labels = 2**np.arange(c-1, -1, -1)
         else:
-            raise ValueError(
-                "A dec_labels parameter is required for the given M")
+            dec_labels = np.arange(d)
 
     # dec_labels = np.arange(d)    # Possible weak labels (int)
     for index, i in enumerate(y):
@@ -312,7 +304,8 @@ def computeVirtual(z, c, method='IPL', M=None, dec_labels=None):
                 # Single-class label vectors are assumed
                 dec_labels = 2**np.arange(c-1, -1, -1)
             else:
-                raise ValueError("Weak labels for the given M are unknown")
+                dec_labels = np.arange(M.shape[0])
+                # 3 raise ValueError("Weak labels for the given M are unknown")
 
         # Compute inverted index from decimal labels to position in dec_labels
         z2i = dict(zip(dec_labels, range(len(dec_labels))))

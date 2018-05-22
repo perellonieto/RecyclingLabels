@@ -1,0 +1,6 @@
+Date: 2017-11-14 15:10:44.822399
+Name : webs_EM_lr
+Path : results_test_1/webs_EM_lr_0
+Overwrite : False
+Image_format : png
+Figure_format : svg
