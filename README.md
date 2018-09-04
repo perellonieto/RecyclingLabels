@@ -8,6 +8,8 @@ over time by the acquisition of new true labels
 
 ### Unittest
 
+**Currently not working, need to address problems**
+
 ```bash
 ./runtests.sh
 ```
