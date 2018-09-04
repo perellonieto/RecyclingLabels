@@ -19,7 +19,7 @@ over time by the acquisition of new true labels
 ```bash
 git clone git@github.com:perellonieto/RecyclingLabels.git
 cd RecyclingLabels
-virtualenv --system-site-packages -p python3
+virtualenv --system-site-packages -p python3 venv
 . venv/bin/activate
 pip install -U pip
 pip install -r requirements3.txt
