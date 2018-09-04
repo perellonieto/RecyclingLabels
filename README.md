@@ -20,7 +20,7 @@ cd RecyclingLabels
 virtualenv --system-site-packages -p python3
 . venv/bin/activate
 pip install -U pip
-pip install -r requirements.txt
+pip install -r requirements3.txt
 ```
 
 ### Test with EM experiment
