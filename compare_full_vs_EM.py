@@ -176,6 +176,7 @@ print('Acc. Lowerbound = {}'.format(acc_lowerbound))
 
 fig = plt.figure()
 ax = fig.add_subplot(111)
+ax.set_title('Accuracy on test set with {} true labels'.format(X_te.shape[0]))
 ax.plot(list_weak_proportions*Z_t_index.shape[0], acc_EM, 'bo-', label='EM weak + {} true labels'.format(Z_v.shape[0]))
 ax.axhline(y=acc_upperbound, color='r', linestyle='-', label='{} true labels'.format(X.shape[0]))
 ax.axhline(y=acc_lowerbound, color='orange', linestyle='-', label='{} true labels'.format(Z_v.shape[0]))
