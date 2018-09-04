@@ -17,11 +17,21 @@ over time by the acquisition of new true labels
 ```bash
 git clone git@github.com:perellonieto/RecyclingLabels.git
 cd RecyclingLabels
-virtualenv venv
+virtualenv --system-site-packages -p python3
 . venv/bin/activate
+pip install -U pip
 pip install -r requirements.txt
-pip install -e .
 ```
+
+### Test with EM experiment
+
+```bash
+python compare_full_vs_EM.py
+```
+
+Will generate a plot in the same directory called __full_vs_EM.svg__
+
+![Example experiment full vs EM](full_vs_EM.svg)
 
 ### Example of running
 
