@@ -321,8 +321,9 @@ class MySequentialEM(Sequential):
                                                 **kwargs)
             h.history['train_z_loss'] = h.history.pop('loss')
             h.history['train_z_acc'] = h.history.pop('acc')
-            h.history['val_y_loss'] = h.history.pop('val_loss')
-            h.history['val_y_acc'] = h.history.pop('val_acc')
+            if 'val_loss' in h.history:
+                h.history['val_y_loss'] = h.history.pop('val_loss')
+                h.history['val_y_acc'] = h.history.pop('val_acc')
             if (X_y_t is not None) and (Y_y_t is not None):
                 e_loss, e_acc = self.evaluate(X_y_t, Y_y_t, verbose=verbose)
                 h.history['train_y_loss'] = e_loss

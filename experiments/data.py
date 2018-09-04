@@ -249,12 +249,12 @@ def load_blobs(n_samples=1000, n_features=2, n_classes=6, random_state=None):
 
 def load_weak_blobs(method='quasi_IPL', n_samples=2000, n_features=2,
                     n_classes=6, random_state=None, true_size=0.1, M=None,
-                    **kwargs):
+                    alpha=0.5, beta=0.3, **kwargs):
     X, y = make_blobs(n_samples=n_samples, n_features=n_features,
                       centers=n_classes, random_state=random_state, **kwargs)
 
     if M is None:
-        M = computeM(n_classes, method=method, alpha=0.5, beta=0.3,
+        M = computeM(n_classes, method=method, alpha=alpha, beta=beta,
                      seed=random_state)
     return make_weak_true_partition(M, X, y, true_size=true_size,
                                     random_state=random_state)
@@ -271,31 +271,38 @@ def load_weak_iris(method='quasi_IPL', true_size=0.1, random_state=None):
                                     random_state=random_state)
 
 
-def load_classification(n_samples=1000, n_features=20, n_classes=6,
-                        random_state=None, n_informative=10, n_redundant=2,
-                        n_repeated=0, n_clusters_per_class=2):
+def load_classification(method='quasi_IPL', n_samples=1000, n_features=20,
+                        n_classes=6, random_state=None, n_informative=10,
+                        n_redundant=2, n_repeated=0, n_clusters_per_class=2,
+                        alpha=0.5, beta=0.3, true_size=0.1, M=None):
     X, y = make_classification(n_samples=n_samples, n_features=n_features,
                                n_classes=n_classes, random_state=random_state,
                                n_redundant=n_redundant,
                                n_informative=n_informative,
                                n_clusters_per_class=n_clusters_per_class)
-    if n_classes == 2:
-        Y = np.vstack([1-y, y]).T
-    else:
-        Y = label_binarize(y, range(n_classes))
-    # FIXME z should not be exactly y
-    Z = Y
 
-    p2 = np.array([2**n for n in reversed(range(n_classes))])
-    z = Z.dot(p2)
+    if M is None:
+        M = computeM(n_classes, method=method, alpha=alpha, beta=beta,
+                     seed=random_state)
 
-    X_train, X_val, Z_train, Z_val, z_train, z_val, Y_train, Y_val, y_train, y_val = train_test_split(X, Z, z, Y, y, test_size=0.5, random_state=random_state)
+    return make_weak_true_partition(M, X, y, true_size=true_size,
+                                    random_state=random_state)
+    # if n_classes == 2:
+    #     Y = np.vstack([1-y, y]).T
+    # else:
+    #     Y = label_binarize(y, range(n_classes))
+    # # FIXME z should not be exactly y
+    # Z = Y
+    # p2 = np.array([2**n for n in reversed(range(n_classes))])
+    # z = Z.dot(p2)
 
-    training = (X_train, Z_train, z_train)
-    validation = (X_val, Z_val, z_val, Y_val, y_val)
-    test = None
-    categories = range(0, n_classes)
-    return training, validation, test, categories
+    # X_train, X_val, Z_train, Z_val, z_train, z_val, Y_train, Y_val, y_train, y_val = train_test_split(X, Z, z, Y, y, test_size=0.5, random_state=random_state)
+
+    # training = (X_train, Z_train, z_train)
+    # validation = (X_val, Z_val, z_val, Y_val, y_val)
+    # test = None
+    # categories = range(0, n_classes)
+    # return training, validation, test, categories
 
 
 def load_labelme(random_state=None, prop_valid=0.1, prop_test=0.2,
