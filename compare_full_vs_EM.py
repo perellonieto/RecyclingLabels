@@ -1,5 +1,5 @@
 import numpy as np
-from sklearn.datasets import make_classification
+from sklearn.datasets import make_classification, make_blobs
 from experiments.data import make_weak_true_partition
 from wlc.WLweakener import computeM, weak_to_index
 from sklearn.model_selection import StratifiedShuffleSplit
@@ -11,29 +11,35 @@ import inspect
 
 import matplotlib.pyplot as plt
 
-n_classes = 6
-n_features = 10
-n_informative = n_features
-n_redundant = 0
+n_classes = 10
+n_features = 100
 n_samples = 10000
-true_size = 0.1
-n_clusters_per_class = 2
+true_size = 0.02
 random_state = 0
+np.random.seed(random_state)
 
 #==============================================================#
 # Create synthetic clean dataset
 #==============================================================#
-X, y = make_classification(n_samples=n_samples, n_features=n_features,
-                           n_classes=n_classes, random_state=random_state,
-                           n_redundant=n_redundant,
-                           n_informative=n_informative,
-                           n_clusters_per_class=n_clusters_per_class)
+# n_redundant = 0
+# n_clusters_per_class = 1
+# n_informative = n_features
+#X, y = make_classification(n_samples=n_samples, n_features=n_features,
+#                           n_classes=n_classes, random_state=random_state,
+#                           n_redundant=n_redundant,
+#                           n_informative=n_informative,
+#                           n_clusters_per_class=n_clusters_per_class)
+
+centers = np.random.rand(n_classes, n_features)*2.0
+cluster_std = np.abs(np.random.randn(n_classes)*2.0)
+X, y = make_blobs(n_samples=n_samples, n_features=n_features, centers=centers,
+                  cluster_std=cluster_std, random_state=random_state)
 
 #==============================================================#
 # Create synthetic Mixing process
 #==============================================================#
 method='random_weak'
-alpha = 0.5
+alpha = 0.2
 beta = 0.3
 M = computeM(n_classes, method=method, alpha=alpha, beta=beta,
              seed=random_state)
@@ -71,13 +77,13 @@ print('True labels: Test partition size = {}'.format(len(y_te)))
 #==============================================================#
 LR = LogisticRegression()
 LR.fit(X, y)
-print('A Logistic Regression trained with all the real labels')
+print('A Logistic Regression trained with all the real labels ({} samples)'.format(y.shape[0]))
 acc_upperbound = LR.score(X_te, y_te)
 print('Accuracy = {}'.format(acc_upperbound))
 
 LR = LogisticRegression()
 LR.fit(X_v, y_v)
-print('A Logistic Regression trained with only validation true labels')
+print('A Logistic Regression trained with only validation true labels ({} samples)'.format(y_v.shape[0]))
 acc_lowerbound = LR.score(X_te, y_te)
 print('Accuracy = {}'.format(acc_lowerbound))
 
@@ -110,6 +116,36 @@ print("Z_t_index {}".format(Z_t_index[:5]))
 print('Y_v_index {}'.format(Y_v_index[:5]))
 print("Y_v\n{}".format(np.round(Y_v[:5])))
 
+#==============================================================#
+# set Neural Network parameters
+#==============================================================#
+params = {'input_dim': n_features,
+          'output_size': n_classes,
+          'optimizer': 'sgd',
+          'loss': 'log_loss', #'mean_squared_error', #'log_loss'
+#          'init': 'glorot_uniform',
+#          'lr': 0.1,
+#          'l1': 0.1,
+#          'l2': 0.1,
+#          'momentum': True,
+#          'decay': 0.1,
+#          'rho': 0.1,
+#          'epsilon': 0.1,
+#          'nesterov': False,
+          'epochs': 100,
+#          'batch_size': 25,
+          'verbose': 0,
+          'random_state': random_state,
+          'training_method': 'EM',
+          'architecture': 'lr',
+#          'path_model': None
+          }
+fit_arguments = {key: value for key, value in params.items()
+                 if key in inspect.getargspec(create_model().fit)[0]}
+make_arguments = {key: value for key, value in params.items()
+                  if key in inspect.getargspec(create_model)[0]}
+make_arguments['model_num'] = process_id
+
 # 3. Give the mixing matrix to the model for future use
 #    I need to give the matrix M to the fit function
 # 4. Train model using all the sets with instead of labels the index of
@@ -126,35 +162,6 @@ for i, weak_proportion in enumerate(list_weak_proportions):
     X_tv = np.concatenate((X_t[:last_index], X_v), axis=0)
     X_tv, Z_index_tv = shuffle(X_tv, Z_index_t)
 
-    # Add validation results during training
-    # Int his example we do not have validation
-    #fit_arguments['validation_data'] = (X_y_v, Y_y_v)
-    params = {'input_dim': n_features,
-              'output_size': n_classes,
-              'optimizer': 'sgd',
-              'loss': 'mean_squared_error',
-    #          'init': 'glorot_uniform',
-    #          'lr': 0.1,
-    #          'l1': 0.1,
-    #          'l2': 0.1,
-    #          'momentum': True,
-    #          'decay': 0.1,
-    #          'rho': 0.1,
-    #          'epsilon': 0.1,
-    #          'nesterov': False,
-              'epochs': 100,
-    #          'batch_size': 25,
-              'verbose': 0,
-              'random_state': random_state,
-              'training_method': 'EM',
-              'architecture': 'lr',
-    #          'path_model': None
-              }
-    fit_arguments = {key: value for key, value in params.items()
-                     if key in inspect.getargspec(create_model().fit)[0]}
-    make_arguments = {key: value for key, value in params.items()
-                      if key in inspect.getargspec(create_model)[0]}
-    make_arguments['model_num'] = process_id
     classifier = MyKerasClassifier(build_fn=create_model,
                                    **make_arguments)
 

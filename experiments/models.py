@@ -16,7 +16,7 @@ import keras.backend as K
 
 from sklearn.metrics import confusion_matrix, roc_curve, auc
 
-from experiments.metrics import brier_loss, w_brier_loss
+from experiments.metrics import brier_loss, w_brier_loss, log_loss
 
 import copy
 
@@ -151,8 +151,9 @@ class MySequential(Sequential):
                                               **kwargs)
             h.history['train_y_loss'] = h.history.pop('loss')
             h.history['train_y_acc'] = h.history.pop('acc')
-            h.history['val_y_loss'] = h.history.pop('val_loss')
-            h.history['val_y_acc'] = h.history.pop('val_acc')
+            if 'val_loss' in h.history:
+                h.history['val_y_loss'] = h.history.pop('val_loss')
+                h.history['val_y_acc'] = h.history.pop('val_acc')
             # TODO do I need the training CM?
             prediction_y = self.predict_classes(train_x, verbose=0)
             h.history['train_y_cm'] = confusion_matrix(train_y.argmax(axis=1), prediction_y)
@@ -192,15 +193,16 @@ class MySequentialWeak(Sequential):
                                                   **kwargs)
             h.history['train_z_loss'] = h.history.pop('loss')
             h.history['train_z_acc'] = h.history.pop('acc')
-            h.history['val_y_loss'] = h.history.pop('val_loss')
-            h.history['val_y_acc'] = h.history.pop('val_acc')
+            if 'val_loss' in h.history:
+                h.history['val_y_loss'] = h.history.pop('val_loss')
+                h.history['val_y_acc'] = h.history.pop('val_acc')
             if (X_y_t is not None) and (Y_y_t is not None):
                 e_loss, e_acc = self.evaluate(X_y_t, Y_y_t, verbose=verbose)
                 h.history['train_y_loss'] = e_loss
                 h.history['train_y_acc'] = e_acc
-            # TODO do I need the training CM?
-            prediction_y = self.predict_classes(X_y_t, verbose=0)
-            h.history['train_y_cm'] = confusion_matrix(Y_y_t.argmax(axis=1), prediction_y)
+                # TODO do I need the training CM?
+                prediction_y = self.predict_classes(X_y_t, verbose=0)
+                h.history['train_y_cm'] = confusion_matrix(Y_y_t.argmax(axis=1), prediction_y)
             if 'validation_data' in kwargs.keys():
                 prediction_proba = self.predict_proba(
                         kwargs['validation_data'][0],
@@ -239,15 +241,18 @@ class MySequentialOSL(Sequential):
                                                  **kwargs)
             h.history['train_z_loss'] = h.history.pop('loss')
             h.history['train_z_acc'] = h.history.pop('acc')
-            h.history['val_y_loss'] = h.history.pop('val_loss')
-            h.history['val_y_acc'] = h.history.pop('val_acc')
+            if 'val_loss' in h.history:
+                h.history['val_y_loss'] = h.history.pop('val_loss')
+                h.history['val_y_acc'] = h.history.pop('val_acc')
             if (X_y_t is not None) and (Y_y_t is not None):
                 e_loss, e_acc = self.evaluate(X_y_t, Y_y_t, verbose=verbose)
                 h.history['train_y_loss'] = e_loss
                 h.history['train_y_acc'] = e_acc
-            # TODO do I need the training CM?
-            prediction_y = self.predict_classes(X_y_t, verbose=0)
-            h.history['train_y_cm'] = confusion_matrix(Y_y_t.argmax(axis=1), prediction_y)
+                # TODO do I need the training CM?
+                # FIXME ValueError: If predicting from data tensors, you should specify the `steps` argument.
+                # Is the X_y_t always necessary?
+                prediction_y = self.predict_classes(X_y_t, verbose=0)
+                h.history['train_y_cm'] = confusion_matrix(Y_y_t.argmax(axis=1), prediction_y)
             if 'validation_data' in kwargs.keys():
                 prediction_proba = self.predict_proba(kwargs['validation_data'][0],
                                                       batch_size=batch_size, verbose=0)
@@ -433,6 +438,9 @@ def create_model(input_dim=1, output_size=1, optimizer='rmsprop',
         loss.__name__ = 'brier_score'
     elif loss == 'mean_squared_error':
         loss = 'mean_squared_error'
+    elif loss == 'log_loss':
+        loss = log_loss
+        loss.__name__ = 'log_loss'
     else:
         raise(ValueError('Unknown loss: {}'.format(loss)))
 
