@@ -34,15 +34,15 @@ np.random.seed(42)
 # ## Configurable parameters
 
 # Parameters for sklearn synthetic data
-nsup = 40          # Number of clean labels
-nuns = 50         # Number of weak labels
+nsup = 20          # Number of clean labels
+nuns = 20         # Number of weak labels
 ntst = 2000         # Number of test samples
-nf = 4              # Data dimension
-n_classes = 4      # Number of classes
+nf = 3              # Data dimension
+n_classes = 3      # Number of classes
 problem = 'blobs'   # 'blobs' | 'gauss_quantiles'
 
 # Common parameters for all algorithms
-n_sim = 10         # No. of simulation runs to average
+n_sim = 100         # No. of simulation runs to average
 n_jobs = -1        # Number of CPUs to use (-1 means all CPUs)
 loss = 'square'    # Loss function: square (brier score) or CE (cross entropy)
 
