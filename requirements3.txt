@@ -1,0 +1,7 @@
+tensorflow
+keras
+sklearn
+Image
+theano
+matplotlib
+ipython

@@ -11,13 +11,17 @@ from keras.layers.core import Dense, Dropout, Activation
 from keras.optimizers import SGD
 from keras.wrappers.scikit_learn import KerasClassifier
 from keras.initializers import glorot_uniform
+from keras.regularizers import l1_l2
+import keras.backend as K
 
-from sklearn.metrics import confusion_matrix
+from sklearn.metrics import confusion_matrix, roc_curve, auc
 
 from experiments.metrics import brier_loss, w_brier_loss
 
 import copy
 
+
+# TODO change all predict_proba for predict
 
 def _merge_histories(history_list):
     dd = defaultdict(list)
@@ -126,10 +130,18 @@ class MyKerasClassifier(KerasClassifier):
                          'the `model.compile()` method.')
 
 
+def aucs(y_true, y_score):
+    roc_aucs = []
+    for i in range(y_true.shape[1]):
+        fpr, tpr, _ = roc_curve(y_true[:, i], y_score[:, i])
+        roc_aucs.append(auc(fpr, tpr))
+    return np.array(roc_aucs)
+
 class MySequential(Sequential):
     def fit(self, train_x, train_y, batch_size=None, epochs=1, verbose=0,
             **kwargs):
         history = []
+        best_epoch = 0
         for n in range(epochs):
             if verbose > 1:
                 print('Epoch {} of {}'.format(n, epochs))
@@ -145,9 +157,25 @@ class MySequential(Sequential):
             prediction_y = self.predict_classes(train_x, verbose=0)
             h.history['train_y_cm'] = confusion_matrix(train_y.argmax(axis=1), prediction_y)
             if 'validation_data' in kwargs.keys():
-                prediction_y = self.predict_classes(kwargs['validation_data'][0], verbose=0)
-                h.history['val_y_cm'] = confusion_matrix(kwargs['validation_data'][1].argmax(axis=1), prediction_y)
+                prediction_proba = self.predict_proba(
+                        kwargs['validation_data'][0], batch_size=batch_size,
+                        verbose=0)
+                try:
+                    h.history['val_y_auc'] = aucs(kwargs['validation_data'][1],
+                                                  prediction_proba)
+                except ValueError as e:
+                    if np.any(np.isnan(prediction_proba)):
+                        h.history['val_y_auc'] = np.zeros(train_y.shape[1])
+                        pass
+                    else:
+                        raise e
+                prediction_y = prediction_proba.argmax(axis=1)
+                h.history['val_y_cm'] = confusion_matrix(
+                    kwargs['validation_data'][1].argmax(axis=1),
+                    prediction_y)
+
             history.append(h)
+
         return FakeHistory(_merge_histories(history))
 
 
@@ -174,7 +202,19 @@ class MySequentialWeak(Sequential):
             prediction_y = self.predict_classes(X_y_t, verbose=0)
             h.history['train_y_cm'] = confusion_matrix(Y_y_t.argmax(axis=1), prediction_y)
             if 'validation_data' in kwargs.keys():
-                prediction_y = self.predict_classes(kwargs['validation_data'][0], verbose=0)
+                prediction_proba = self.predict_proba(
+                        kwargs['validation_data'][0],
+                        batch_size=batch_size, verbose=0)
+                try:
+                    h.history['val_y_auc'] = aucs(kwargs['validation_data'][1],
+                                                  prediction_proba)
+                except ValueError as e:
+                    if np.any(np.isnan(prediction_proba)):
+                        h.history['val_y_auc'] = np.zeros(train_y.shape[1])
+                        pass
+                    else:
+                        raise e
+                prediction_y = prediction_proba.argmax(axis=1)
                 h.history['val_y_cm'] = confusion_matrix(kwargs['validation_data'][1].argmax(axis=1), prediction_y)
             history.append(h)
         return FakeHistory(_merge_histories(history))
@@ -209,13 +249,26 @@ class MySequentialOSL(Sequential):
             prediction_y = self.predict_classes(X_y_t, verbose=0)
             h.history['train_y_cm'] = confusion_matrix(Y_y_t.argmax(axis=1), prediction_y)
             if 'validation_data' in kwargs.keys():
-                prediction_y = self.predict_classes(kwargs['validation_data'][0], verbose=0)
+                prediction_proba = self.predict_proba(kwargs['validation_data'][0],
+                                                      batch_size=batch_size, verbose=0)
+                try:
+                    h.history['val_y_auc'] = aucs(kwargs['validation_data'][1],
+                                                  prediction_proba)
+                except ValueError as e:
+                    if np.any(np.isnan(prediction_proba)):
+                        h.history['val_y_auc'] = np.zeros(train_y.shape[1])
+                        pass
+                    else:
+                        raise e
+                prediction_y = prediction_proba.argmax(axis=1)
                 h.history['val_y_cm'] = confusion_matrix(kwargs['validation_data'][1].argmax(axis=1), prediction_y)
             history.append(h)
         return FakeHistory(_merge_histories(history))
 
-    def predict_proba(self, test_x, batch_size=None):
-        return self.predict(test_x, batch_size)
+    # FIXME batch size needs to be specified if None it brakes
+    def predict_proba(self, test_x, batch_size=100, verbose=0):
+        return self.predict(test_x, batch_size, verbose=verbose)
+
 
     def hardmax(self, Z):
         """ Transform each row in array Z into another row with zeroes in the
@@ -268,8 +321,9 @@ class MySequentialEM(Sequential):
                                                 **kwargs)
             h.history['train_z_loss'] = h.history.pop('loss')
             h.history['train_z_acc'] = h.history.pop('acc')
-            h.history['val_y_loss'] = h.history.pop('val_loss')
-            h.history['val_y_acc'] = h.history.pop('val_acc')
+            if 'val_loss' in h.history:
+                h.history['val_y_loss'] = h.history.pop('val_loss')
+                h.history['val_y_acc'] = h.history.pop('val_acc')
             if (X_y_t is not None) and (Y_y_t is not None):
                 e_loss, e_acc = self.evaluate(X_y_t, Y_y_t, verbose=verbose)
                 h.history['train_y_loss'] = e_loss
@@ -278,22 +332,35 @@ class MySequentialEM(Sequential):
             prediction_y = self.predict_classes(X_y_t, verbose=0)
             h.history['train_y_cm'] = confusion_matrix(Y_y_t.argmax(axis=1), prediction_y)
             if 'validation_data' in kwargs.keys():
-                prediction_y = self.predict_classes(kwargs['validation_data'][0], verbose=0)
+                prediction_proba = self.predict_proba(
+                        kwargs['validation_data'][0], batch_size=batch_size,
+                        verbose=0)
+                try:
+                    h.history['val_y_auc'] = aucs(kwargs['validation_data'][1],
+                                                  prediction_proba)
+                except ValueError as e:
+                    if np.any(np.isnan(prediction_proba)):
+                        h.history['val_y_auc'] = np.zeros(train_y.shape[1])
+                        pass
+                    else:
+                        raise e
+                prediction_y = prediction_proba.argmax(axis=1)
                 h.history['val_y_cm'] = confusion_matrix(kwargs['validation_data'][1].argmax(axis=1), prediction_y)
             history.append(h)
         return FakeHistory(_merge_histories(history))
 
-    def predict_proba(self, test_x, batch_size=None):
+    def predict_proba(self, test_x, batch_size=None, verbose=0):
         if batch_size is None:
             batch_size = test_x.shape[0]
-        return self.predict(test_x, batch_size)
+        return self.predict(test_x, batch_size, verbose=verbose)
 
 
 def create_model(input_dim=1, output_size=1, optimizer='rmsprop',
                  init='glorot_uniform', lr=1, momentum=0.0, decay=0.0,
                  nesterov=False, loss='mean_squared_error',
                  class_weights=None, training_method='supervised',
-                 architecture='lr', path_model=None, model_num=0):
+                 architecture='lr', path_model=None, model_num=0, l1=0.00,
+                 l2=0.001):
     """
     Parameters
     ----------
@@ -315,10 +382,13 @@ def create_model(input_dim=1, output_size=1, optimizer='rmsprop',
         raise(ValueError('Training method %s not implemented' %
                          (training_method)))
 
+    reg = l1_l2(l1=l1, l2=l2)
+
     previous_layer = input_dim
     if architecture == 'lr':
         model.add(Dense(output_size, input_shape=(input_dim,),
                         kernel_initializer=init,
+                        W_regularizer=reg,
                         activation='softmax'))
     elif architecture.startswith('mlp'):
         architecture = architecture[3:]
@@ -331,7 +401,7 @@ def create_model(input_dim=1, output_size=1, optimizer='rmsprop',
                 architecture = architecture[1:]
             elif architecture[0] == 'm':
                 model.add(Dense(output_size, input_dim=previous_layer,
-                                kernel_initializer=init))
+                                kernel_initializer=init, W_regularizer=reg))
                 model.add(Activation('softmax'))
                 architecture = architecture[1:]
             elif architecture[0].isdigit():
@@ -340,7 +410,7 @@ def create_model(input_dim=1, output_size=1, optimizer='rmsprop',
                     i += 1
                 actual_layer = int(architecture[:i])
                 model.add(Dense(actual_layer, input_dim=previous_layer,
-                                kernel_initializer=init))
+                                kernel_initializer=init, W_regularizer=reg))
                 architecture = architecture[i:]
                 previous_layer = actual_layer
             else:
@@ -365,6 +435,46 @@ def create_model(input_dim=1, output_size=1, optimizer='rmsprop',
         loss = 'mean_squared_error'
     else:
         raise(ValueError('Unknown loss: {}'.format(loss)))
+
+    # #-----------------------------------------------------------------------------------------------------------------------------------------------------
+    # # AUC for a binary classifier
+    # def auc(y_true, y_pred):
+    #     ptas = tf.stack([binary_PTA(y_true,y_pred,k) for k in np.linspace(0, 1, 1000)],axis=0)
+    #     pfas = tf.stack([binary_PFA(y_true,y_pred,k) for k in np.linspace(0, 1, 1000)],axis=0)
+    #     pfas = tf.concat([tf.ones((1,)) ,pfas],axis=0)
+    #     binSizes = -(pfas[1:]-pfas[:-1])
+    #     s = ptas*binSizes
+    #     return K.sum(s, axis=0)
+
+    # #-----------------------------------------------------------------------------------------------------------------------------------------------------
+    # # PFA, prob false alert for binary classifier
+    # def binary_PFA(y_true, y_pred, threshold=K.variable(value=0.5)):
+    #     y_pred = K.cast(y_pred >= threshold, 'float32')
+    #     # N = total number of negative labels
+    #     N = K.sum(1 - y_true)
+    #     # FP = total number of false alerts, alerts from the negative class labels
+    #     FP = K.sum(y_pred - y_pred * y_true)
+    #     return FP/N
+    # #-----------------------------------------------------------------------------------------------------------------------------------------------------
+    # # P_TA prob true alerts for binary classifier
+    # def binary_PTA(y_true, y_pred, threshold=K.variable(value=0.5)):
+    #     y_pred = K.cast(y_pred >= threshold, 'float32')
+    #     # P = total number of positive labels
+    #     P = K.sum(y_true)
+    #     # TP = total number of correct alerts, alerts from the positive class labels
+    #     TP = K.sum(y_pred * y_true)
+    #     return TP/P
+
+    # def auc_pred(y_true, y_pred):
+    #     roc_auc_list = []
+    #     for i in range(y_pred.shape[1]):
+    #         roc_auc_list.append(auc(K.cast(y_true == i, 'float32'), y_pred[:,i]))
+    #     roc_auc = K.stack(roc_auc_list)
+    #     mean_roc_auc = K.mean(roc_auc)
+    #     return mean_roc_auc
+
+    # model.compile(loss=loss, optimizer=optimizer,
+    #               metrics=['acc', auc_pred])
 
     model.compile(loss=loss, optimizer=optimizer,
                   metrics=['acc'])

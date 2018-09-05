@@ -57,7 +57,13 @@ class Diary(object):
     __DESCR_FILENAME='description.txt'
 
     def __init__(self, name, path='diary', overwrite=False, image_format='png',
-                 fig_format='svg', stdout=True, stderr=True):
+                 fig_format='svg', stdout=True, stderr=True, fig_entry=False):
+        '''
+        Parameters
+        ==========
+        fig_entry : bool
+            If True the name of the figure contains the entry number
+        '''
         self.creation_date = datetime.datetime.now()
         self.name = name
         self.path = os.path.join(path,name)
@@ -66,6 +72,7 @@ class Diary(object):
         self.image_format = image_format
         self.fig_format = fig_format
         self.entry_number = 0
+        self.fig_entry = fig_entry
 
         self.all_paths = self._create_all_paths(overwrite)
         self._save_description()
@@ -135,12 +142,21 @@ class Diary(object):
     def save_figure(self, fig, filename=None, extension=None):
         if extension == None:
             extension = self.fig_format
-        fig.tight_layout()
+
+        try:
+            fig.tight_layout()
+        except ValueError:
+            pass
+
         if filename is None:
             filename = fig.get_label()
-        fig.savefig(os.path.join(self.path_figures,
-                                "{}_{}.{}".format(filename, self.entry_number,
-                                                  extension)))
+
+        if self.fig_entry:
+            filename = "{}_{}.{}".format(filename, self.entry_number, extension)
+        else:
+            filename = "{}.{}".format(filename, extension)
+
+        fig.savefig(os.path.join(self.path_figures, filename))
 
     def __str__(self):
         return ("Date: {}\nName : {}\nPath : {}\nOverwrite : {}\n"

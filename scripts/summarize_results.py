@@ -1,7 +1,14 @@
 #!/usr/bin/env python
+import sys
+sys.path
+sys.path.append('../')
+
+from experiments.visualizations import newfig, savefig_and_close, \
+                                       plot_df_heatmap, render_mpl_table, \
+                                       export_df
+
 import itertools
 import os
-import six
 from os import walk
 import sys
 from argparse import ArgumentParser
@@ -17,87 +24,11 @@ import matplotlib.pyplot as plt
 fig_extension = 'svg'
 
 
-def savefig_and_close(fig, figname, path='', bbox_extra_artists=None):
-    filename = os.path.join(path, figname)
-    fig.savefig(filename, bbox_extra_artists=bbox_extra_artists,
-                bbox_inches='tight')
-    fig.clear()
-    plt.close(fig)
-
-
-class MyFloat(float):
-    def _remove_leading_zero(self, value, string):
-        if 1 > value > -1:
-            string = string.replace('0', '', 1)
-        return string
-
-    def __str__(self):
-        string = super(MyFloat, self).__str__()
-        return self._remove_leading_zero(self, string)
-
-    def __format__(self, format_string):
-        string = super(MyFloat, self).__format__(format_string)
-        return self._remove_leading_zero(self, string)
-
-
-def plot_df_heatmap(df, normalize=None, title='Heat-map',
-                    cmap=plt.cm.Blues, colorbar=False):
-    """
-    This function prints and plots the confusion matrix.
-    Normalization can be applied by setting `normalize=True`.
-
-    normalize : 'rows', 'cols' (default=None)
-    """
-    rows = df.index.values
-    columns = df.columns.values
-    M = df.values
-
-    if normalize == 'rows':
-        M = M.astype('float') / M.sum(axis=1)[:, np.newaxis]
-    if normalize == 'cols':
-        M = M.astype('float') / M.sum(axis=0)[np.newaxis, :]
-
-    h_size = len(columns)*.5 + 2
-    v_size = len(rows)*.5 + 2
-    fig = plt.figure(figsize=(h_size, v_size))
-    ax = fig.add_subplot(111)
-    im = ax.imshow(M, interpolation='nearest', cmap=cmap)
-    if colorbar:
-        fig.colorbar(im)
-    ax.set_title(title)
-    column_tick_marks = np.arange(len(columns))
-    ax.set_xticks(column_tick_marks)
-    ax.set_xticklabels(columns, rotation=45, ha='right')
-    row_tick_marks = np.arange(len(rows))
-    ax.set_yticks(row_tick_marks)
-    ax.set_yticklabels(rows)
-
-    thresh = np.nanmin(M) + ((np.nanmax(M)-np.nanmin(M)) / 2.)
-    are_ints = df.dtypes[0] in ['int', 'int32', 'int64']
-    for i, j in itertools.product(range(M.shape[0]), range(M.shape[1])):
-        # fontsize is adjusted for different number of digits
-        if are_ints:
-            ax.text(j, i, M[i, j], horizontalalignment="center",
-                    verticalalignment="center", color="white" if M[i, j] >
-                    thresh else "black")
-        else:
-            if np.isfinite(M[i, j]):
-                ax.text(j, i, '{:0.2f}'.format(MyFloat(M[i, j])),
-                        horizontalalignment="center",
-                        verticalalignment="center",
-                        color="white" if M[i, j] > thresh else "black")
-
-    ax.set_ylabel(df.index.name)
-    ax.set_xlabel(df.columns.name)
-    fig.tight_layout()
-    return fig
-
-
 def get_list_results_folders(folder, essentials=['description.txt'],
                              finished=None, return_unfinished=False):
     list_results_folders = []
     list_unfinished_folders = []
-    for root, subdirs, files in walk(folder):
+    for root, subdirs, files in walk(folder, followlinks=True):
         if set(essentials).issubset(set(files)):
             if set(finished).issubset(set(files)):
                 list_results_folders.append(root)
@@ -138,8 +69,12 @@ def get_dataframe_from_csv(folder, filename, keep_time=False):
 
 def extract_summary(folder):
     dataset_df = get_dataframe_from_csv(folder, 'dataset.csv', keep_time=True)
-    results_df = get_dataframe_from_csv(folder, 'validation.csv',
+    results_df = get_dataframe_from_csv(folder, 'training.csv',
                                         keep_time=False)
+    best_epoch = results_df.groupby(as_index='pid', by='epoch')['val_y_loss'].mean().argmin()
+    # FIXME the best epoch could be computed for all the summaries later on
+    # However, it seems easier at this point
+    results_df['best_epoch'] = best_epoch
     model_df = get_dataframe_from_csv(folder, 'model.csv', keep_time=False)
 
     dataset_df['folder'] = folder
@@ -148,6 +83,28 @@ def extract_summary(folder):
 
     summary = pd.merge(results_df, dataset_df)
     summary = pd.merge(summary, model_df)
+
+    # TODO add test results
+    try:
+        results_test_df = get_dataframe_from_csv(folder, 'test.csv',
+                                                 keep_time=False)
+        results_test_df.rename(columns={key: 'test_' + key for key in
+                                        results_test_df.columns},
+                               inplace=True)
+        results_test_df['folder'] = folder
+        cm_string = results_test_df['test_cm'][0]
+        cm_string = ''.join(i for i in cm_string if i == ' ' or i.isdigit())
+        cm = np.fromstring(cm_string, dtype=int, sep=' ')
+        n_classes = int(np.sqrt(len(cm)))
+        print('Samples with y = {}, test acc = {}, n_classes = {}'.format(
+            dataset_df['n_samples_with_y'][0],
+            results_test_df['test_acc'][0],
+            n_classes))
+        summary = pd.merge(summary, results_test_df)
+    except IOError as e:
+        # TODO solve the possible IOError
+        # from IPython import embed; embed()
+        pass
 
     return summary
 
@@ -161,20 +118,25 @@ def extract_unfinished_summary(folder):
 
 
 def export_datasets_info(df, path='', stylesheets=['style.css']):
-    columns = ['name', 'n_samples_without_y', 'n_samples_with_y', 'n_features',
+    columns = ['dataset', 'n_samples_without_y', 'n_samples_with_y', 'n_features',
                'n_classes']
-    sort_by = ['name']
+    sort_by = ['dataset']
     index = columns[0]
     df_table = df[columns].drop_duplicates(subset=columns, keep='first'
                                            ).sort_values(sort_by).set_index(index)
     # Export to LaTeX
     df_table.to_latex(os.path.join(path, "datasets.tex"))
+    df_table.set_index([df_table.index, 'n_samples_with_y'], inplace=True)
 
     # Add mean performance of best model
-    best_model = df.groupby('architecture')['acc'].mean().argmax()
-    mean_loss_best_model = df[df['architecture'] == best_model][['name', 'acc']].groupby(by='name').mean().round(decimals=2)
-    mean_loss_best_model = mean_loss_best_model.rename(columns={'acc': 'mean(acc)'})
+    best_model = df.groupby('architecture')['val_y_acc'].mean().argmax()
+    mean_loss_best_model = df[df['architecture'] == best_model][[
+        'dataset', 'val_y_acc', 'n_samples_with_y']].groupby(
+                by=['dataset', 'n_samples_with_y']).mean().round(decimals=2)
+    mean_loss_best_model = mean_loss_best_model.rename(
+            columns={'val_y_acc': 'mean(val_y_acc)'})
     df_table = pd.concat([df_table, mean_loss_best_model], axis=1)
+
 
     # FIXME study if this change needs to be done in export_df
     df_table_one_index = df_table.reset_index()
@@ -182,42 +144,6 @@ def export_datasets_info(df, path='', stylesheets=['style.css']):
     export_df(df_table_one_index, 'datasets', path=path, extension='svg')
 
     return df_table
-
-
-def export_df(df, filename, path='', extension='pdf',
-              stylesheets=['style.css']):
-    filename = os.path.join(path, filename)
-    ax = render_mpl_table(df)
-    fig = ax.figure
-    fig.tight_layout()
-    fig.savefig("{}.{}".format(filename, extension))
-
-
-def render_mpl_table(data, col_width=3.0, row_height=0.625, font_size=14,
-                     header_color='#40466e', row_colors=['#f1f1f2', 'w'],
-                     edge_color='w', bbox=[0, 0, 1, 1], header_columns=0,
-                     ax=None, **kwargs):
-    """
-    source: https://stackoverflow.com/questions/19726663/how-to-save-the-pandas-dataframe-series-data-as-a-figure
-    """
-    if ax is None:
-        size = (np.array(data.shape[::-1]) + np.array([0, 1])) * np.array([col_width, row_height])
-        fig, ax = plt.subplots(figsize=size)
-        ax.axis('off')
-
-    mpl_table = ax.table(cellText=data.values, bbox=bbox, colLabels=data.columns, **kwargs)
-
-    mpl_table.auto_set_font_size(False)
-    mpl_table.set_fontsize(font_size)
-
-    for k, cell in six.iteritems(mpl_table._cells):
-        cell.set_edgecolor(edge_color)
-        if k[0] == 0 or k[1] < header_columns:
-            cell.set_text_props(weight='bold', color='w')
-            cell.set_facecolor(header_color)
-        else:
-            cell.set_facecolor(row_colors[k[0] % len(row_colors)])
-    return ax
 
 
 def friedman_test(df, index, column):
@@ -249,12 +175,12 @@ def wilcoxon_rank_sum_test(df, index, column, signed=False,
         # sim), dataset (column name) and mixing_matrix_M
         if i == 0:
             experiments = df[df[index] == index1][['sim', 'mixing_matrix_M',
-                                                   'name']].values
+                                                   'dataset']].values
         else:
             np.testing.assert_equal(experiments,
                                     df[df[index] == index1][['sim',
                                                              'mixing_matrix_M',
-                                                             'name']].values)
+                                                             'dataset']].values)
     stat = []
     for (index1, index2) in itertools.combinations(indices, 2):
         if index1 != index2:
@@ -275,15 +201,19 @@ def wilcoxon_rank_sum_test(df, index, column, signed=False,
 
 
 def main(results_path='results', summary_path='', filter_rows={},
-         filter_performance=1.0, verbose=1):
+         filter_performance=1.0, verbose=1, gui=False, avoid_big_files=True,
+         only_best_epoch=True):
     print('\n#########################################################')
     print('##### Making summary of folder {}'.format(results_path))
     print('#')
     results_folders, unfin_folders = get_list_results_folders(
             results_path, essentials=['description.txt', 'dataset.csv',
                                       'model.csv'],
-            finished=['validation.csv'],
+            finished=['validation.csv', 'training.csv'],
             return_unfinished=True)
+
+    if summary_path == '':
+        summary_path = os.path.join(results_path, 'summary')
 
     # Creates summary path if it does not exist
     if not os.path.exists(summary_path):
@@ -317,11 +247,12 @@ def main(results_path='results', summary_path='', filter_rows={},
     summaries = []
     for rf in results_folders:
         summaries.append(extract_summary(rf))
+    #from IPython import embed; embed()
 
     df = pd.concat(summaries, axis=0, ignore_index=True)
 
     # Remove experiments with no information about the dataset
-    df = df[df.name.notnull()]
+    df = df[df.dataset.notnull()]
 
     if len(filter_rows) > 0:
         print("Filtering only rows that contain")
@@ -332,15 +263,24 @@ def main(results_path='results', summary_path='', filter_rows={},
             else:
                 df = df[df[key] == float(value)]
 
+    df['basename'] = df.folder.apply(os.path.basename)
+    # Definition of a different experiment setup
+    exp_setup_info = ['basename', 'dataset', 'batch_size', 'method',
+                      'training_method', 'architecture', 'loss', 'init',
+                      'input_dim', 'n_classes', 'n_features', 'epochs',
+                      'n_samples_with_y', 'n_samples_without_y',
+                      'valid_size', 'test_size', 'lr', 'l1',
+                      'l2', 'optimizer', 'nesterov', 'decay', 'momentum',
+                      'rho', 'epsilon']
+    # Avoid columns that do not exist in the current experiments
+    exp_setup_info = [c for c in exp_setup_info if c in df.columns]
+    exp_setup_with_repetitions = list(exp_setup_info).append('pid')
+
     # Keep only the last computed results for the same experiment
     df.sort_values(by=['date', 'time'], ascending=True, inplace=True)
-    # FIXME I removed the epochs because I had to repeat some experiments with
-    # additional epochs. However, in the future I should add it
-    df.drop_duplicates(subset=['architecture', 'init', 'input_dim',
-                               'loss', 'method', 'n_classes', 'n_features',
-                               'name', 'n_samples_without_y',
-                               'n_samples_with_y', 'pid', 'training_method'],
-                       inplace=True, keep='last')
+
+    df.drop_duplicates(subset=exp_setup_with_repetitions, inplace=True,
+                       keep='last')
 
     ########################################################################
     # Export information about the datasets
@@ -350,80 +290,83 @@ def main(results_path='results', summary_path='', filter_rows={},
     ########################################################################
     # Export information about the experimental setup
     ########################################################################
-    exp_setup_info = ['name', 'method', 'training_method', 'architecture',
-                      'loss', 'init', 'input_dim', 'n_classes', 'n_features',
-                      'epochs', 'n_samples_with_y', 'n_samples_without_y']
+    # TODO in the future, it would be ideal to preseve the NaN values
+    df.fillna(np.nan, inplace=True)
     experimental_setup = df.groupby(exp_setup_info).size()
     df_exp_setup = experimental_setup.to_frame().reset_index()
     df_exp_setup.to_csv(os.path.join(summary_path, "experimental_setup.csv"),
                         header=True)
-    # Export to pdf
-    export_df(df_exp_setup, 'experimental_setup', path=summary_path,
-              extension='svg')
+    if not avoid_big_files:
+        # Export to pdf
+        export_df(df_exp_setup, 'experimental_setup', path=summary_path,
+                  extension='svg')
     if verbose > 0:
         print('The different experimental setups are:')
         print(df_exp_setup)
 
-    ########################################################################
-    # Boxplots by different groups
-    ########################################################################
-    groups_by = ['architecture', 'name', 'method']
-    columns = ['acc']
-    for groupby in groups_by:
-        for column in columns:
-            # grouped = df[idx].groupby([groupby])
-            grouped = df.groupby([groupby])
-
-            df2 = pd.DataFrame({col: vals[column] for col, vals in grouped})
-            meds = df2.median()
-            meds.sort_values(ascending=False, inplace=True)
-            df2 = df2[meds.index]
-
-            fig = plt.figure(figsize=(10, len(meds)/2+3))
-            ax = df2.boxplot(vert=False)
-            ax.set_title('results grouped by {}'.format(groupby))
-
-            counts = {k: len(v) for k, v in grouped}
-            ax.set_yticklabels(['%s\n$n$=%d' % (k, counts[k]) for k in meds.keys()])
-            ax.set_xlabel(column)
-            savefig_and_close(fig, '{}_{}.{}'.format(groupby, column,
-                                                     fig_extension), path=summary_path)
-
-    ########################################################################
-    # Heatmap of models vs architecture
-    ########################################################################
-    indices = ['architecture']
-    columns = ['name']
-    values = ['acc']
-    for value in values:
-        for index in indices:
+    if not only_best_epoch:
+        ########################################################################
+        # Boxplots by different groups
+        ########################################################################
+        groups_by = ['architecture', 'dataset', 'method']
+        columns = ['val_y_acc']
+        for groupby in groups_by:
             for column in columns:
-                df2 = pd.pivot_table(df, values=value, index=index,
-                                     columns=column,
-                                     aggfunc=len)
-                fig = plot_df_heatmap(df2, title='Number of experiments',
-                                      cmap=plt.cm.Greys)
-                savefig_and_close(fig, '{}_vs_{}_{}_heatmap_count.{}'.format(
-                            index, column, value, fig_extension), path=summary_path)
+                # grouped = df[idx].groupby([groupby])
+                grouped = df.groupby([groupby])
 
-    ########################################################################
-    # Heatmap of finished experiments name vs mixing_matrix_M
-    ########################################################################
-    df2 = pd.pivot_table(df, values='acc', index='name', columns='architecture',
-                         aggfunc=len)
-    df2 = df2.fillna(0).astype(int)
-    fig = plot_df_heatmap(df2, title='Number of experiments',
-                          cmap=plt.cm.Greys)
-    savefig_and_close(fig, 'name_vs_architecture_heatmap_count.{}'.format(
-                        fig_extension), path=summary_path)
+                df2 = pd.DataFrame({col: vals[column] for col, vals in grouped})
+                meds = df2.median()
+                meds.sort_values(ascending=False, inplace=True)
+                df2 = df2[meds.index]
 
+                fig = plt.figure(figsize=(10, len(meds)/2+3))
+                ax = df2.boxplot(vert=False)
+                ax.set_title('results grouped by {}'.format(groupby))
+
+                counts = {k: len(v) for k, v in grouped}
+                ax.set_yticklabels(['%s\n$n$=%d' % (k, counts[k]) for k in meds.keys()])
+                ax.set_xlabel(column)
+                savefig_and_close(fig, '{}_{}.{}'.format(groupby, column,
+                                                         fig_extension), path=summary_path)
+
+        ########################################################################
+        # Heatmap of models vs architecture
+        ########################################################################
+        indices = ['architecture']
+        columns = ['dataset']
+        values = ['val_y_acc']
+        for value in values:
+            for index in indices:
+                for column in columns:
+                    df2 = pd.pivot_table(df, values=value, index=index,
+                                         columns=column,
+                                         aggfunc=len)
+                    fig = plot_df_heatmap(df2, title='Number of experiments',
+                                          cmap=plt.cm.Greys)
+                    savefig_and_close(fig, '{}_vs_{}_{}_heatmap_count.{}'.format(
+                                index, column, value, fig_extension), path=summary_path)
+
+        ########################################################################
+        # Heatmap of finished experiments dataset vs mixing_matrix_M
+        ########################################################################
+        df2 = pd.pivot_table(df, values='val_y_acc', index='dataset', columns='architecture',
+                             aggfunc=len)
+        df2 = df2.fillna(0).astype(int)
+        fig = plot_df_heatmap(df2, title='Number of experiments',
+                              cmap=plt.cm.Greys)
+        savefig_and_close(fig, 'dataset_vs_architecture_heatmap_count.{}'.format(
+                            fig_extension), path=summary_path)
+
+    # TODO should show all results instead of best epoch?
+    df = df[df['best_epoch'] == df['epoch']]
     ########################################################################
     # Heatmap of method vs architecture or dataset
     ########################################################################
     # TODO annotate axis
     indices = ['method']
-    columns = ['architecture', 'name']
-    values = ['acc']
+    columns = ['architecture', 'dataset']
+    values = ['val_y_acc']
     normalizations = [None, 'rows', 'cols']
     for value in values:
         for index in indices:
@@ -456,12 +399,12 @@ def main(results_path='results', summary_path='', filter_rows={},
     ########################################################################
     # Heatmap of method vs architecture for every dataset
     ########################################################################
-    filter_by_column = 'name'
+    filter_by_column = 'dataset'
     filter_values = df[filter_by_column].unique()
     # TODO change columns and indices
     indices = ['method']
-    columns = ['architecture', 'n_samples_with_y', 'n_classes', 'n_features']
-    values = ['acc']
+    columns = ['architecture', 'n_samples_with_y', 'valid_size', 'n_classes', 'n_features']
+    values = ['val_y_acc', 'test_acc']
     normalizations = [None, 'rows', 'cols']
     for filtered_row in filter_values:
         for value in values:
@@ -488,18 +431,111 @@ def main(results_path='results', summary_path='', filter_rows={},
                         savefig_and_close(fig, '{}_vs_{}_by_{}_{}_heatmap_count.{}'.format(
                                     index, column, filtered_row, value, fig_extension), path=summary_path)
                     else:
-                        fig = plt.figure()
-                        ax = fig.add_subplot(111)
-                        df2.transpose().plot(ax=ax, style='.-', logx=True)
-                        ax.set_title('{} {}'.format(filtered_row, value))
-                        ax.set_ylabel(value)
-                        lgd = ax.legend(loc='center left', bbox_to_anchor=(1, .5))
-                        savefig_and_close(fig,
-                                          'plot_mean_{}_vs_{}_by_{}_{}.{}'.format(
-                                              index, column, filtered_row,
-                                              value, fig_extension),
-                                          path=summary_path,
-                                          bbox_extra_artists=(lgd,))
+                        for logx in [True, False]:
+                            fig = plt.figure()
+                            ax = fig.add_subplot(111)
+                            df2.transpose().plot(ax=ax, style='.-', logx=logx)
+                            ax.set_title('{} {}'.format(filtered_row, value))
+                            ax.set_ylabel(value)
+                            lgd = ax.legend(loc='center left', bbox_to_anchor=(1, .5))
+                            fig_name = 'plot_mean_{}_vs_{}_by_{}_{}{}.{}'.format(
+                                                  index, column, filtered_row,
+                                                  value,
+                                                  '_logx' if logx else '',
+                                                  fig_extension)
+                            savefig_and_close(fig, fig_name,
+                                              path=summary_path,
+                                              bbox_extra_artists=(lgd,))
+
+    if not avoid_big_files:
+        ########################################################################
+        # Boxplots by Experimental setup and dataset
+        ########################################################################
+        filter_by_column = 'dataset'
+        filter_values = df[filter_by_column].unique()
+        groupby = exp_setup_info
+        columns = ['val_y_acc']
+        for filtered_row in filter_values:
+            for column in columns:
+                df_filtered = df[df[filter_by_column] == filtered_row]
+                grouped = df_filtered.groupby(groupby)
+
+                df2 = pd.DataFrame({col: vals[column] for col, vals in grouped})
+                meds = df2.median()
+                meds.sort_values(ascending=False, inplace=True)
+                df2 = df2[meds.index]
+
+                fig = plt.figure(figsize=(10, len(meds)/2+3))
+                ax = df2.boxplot(vert=False)
+                ax.set_title('results grouped by experimental setup')
+
+                counts = {k: len(v) for k, v in grouped}
+                ax.set_yticklabels(['%s\n$n$=%d' % (k, counts[k]) for k in meds.keys()])
+                ax.set_xlabel(column)
+                savefig_and_close(fig, '{}_{}_{}.{}'.format(filter_by_column,
+                    filtered_row, column, fig_extension), path=summary_path)
+
+        ########################################################################
+        # Boxplots by Experimental setup and dataset Only best epoch
+        # TODO The only difference between this code and the upper boxplot are the
+        #      lines that are marked below
+        ########################################################################
+        filter_by_column = 'dataset'
+        filter_values = df[filter_by_column].unique()
+        groupby = exp_setup_info
+        columns = ['val_y_acc']
+        # TODO this line
+        df_aux = df[df['best_epoch'] == df['epoch']]
+        for filtered_row in filter_values:
+            for column in columns:
+                # TODO this line
+                df_filtered = df_aux[df_aux[filter_by_column] == filtered_row]
+                grouped = df_filtered.groupby(groupby)
+
+                df2 = pd.DataFrame({col: vals[column] for col, vals in grouped})
+                meds = df2.median()
+                meds.sort_values(ascending=False, inplace=True)
+                df2 = df2[meds.index]
+
+                fig = plt.figure(figsize=(10, len(meds)/2+3))
+                ax = df2.boxplot(vert=False)
+                ax.set_title('results grouped by experimental setup')
+
+                counts = {k: len(v) for k, v in grouped}
+                ax.set_yticklabels(['%s\n$n$=%d' % (k, counts[k]) for k in meds.keys()])
+                ax.set_xlabel(column)
+                # TODO this line
+                savefig_and_close(fig,
+                        'best_epoch_{}_{}_{}.{}'.format(filter_by_column,
+                            filtered_row, column, fig_extension),
+                        path=summary_path)
+
+    # Plot validation accuracy per l1
+    y_label = 'val_y_acc'
+    for x_label in ['l1', 'l2', 'decay', 'momentum', 'rho']:
+        if x_label not in df.columns:
+            continue
+        fig = newfig('{}_{}'.format(x_label, y_label))
+        ax = fig.add_subplot(111)
+        df_aux = df[df['best_epoch'] == df['epoch']].sort_values(by=x_label)
+        df_aux = df_aux[df_aux[x_label].apply(lambda x: np.isreal(x))]
+        df_aux.plot(x=x_label, y=y_label, kind='scatter', ax=ax, alpha=0.5,
+                    title='All repetitions o the best epoch')
+
+        savefig_and_close(fig, '{}_{}.{}'.format(x_label, y_label, fig_extension),
+                          path=summary_path)
+
+        # With log scale in x axis
+        fig = newfig('logx_{}_{}'.format(x_label, y_label))
+        ax = fig.add_subplot(111)
+        df_aux.plot(x=x_label, y=y_label, kind='scatter', ax=ax, alpha=0.5,
+                    title='All repetitions o the best epoch', logx=True)
+        savefig_and_close(fig, '{}_{}_logx.{}'.format(x_label, y_label, fig_extension),
+                          path=summary_path)
+
+    if gui:
+        import dfgui
+        dfgui.show(df)
 
 
 def __test_1():
@@ -514,7 +550,7 @@ def parse_arguments():
                         default='results',
                         help="Path with the result folders to summarize.")
     parser.add_argument("summary_path", metavar='SUMMARY', type=str,
-                        default='',
+                        default='', nargs='?',
                         help="Path to store the summary.")
     parser.add_argument("-p", "--performance", metavar='PERFORMANCE',
                         type=float, default=1.0, dest='filter_performance',
@@ -525,6 +561,17 @@ def parse_arguments():
     parser.add_argument("-v", "--verbose", type=int,
                         default=1, dest='verbose',
                         help="Dictionary with columns and filters.")
+    parser.add_argument("-g", "--gui", default=False,
+                        action='store_true', dest='gui',
+                        help="Open a GUI with the dataframe.")
+    parser.add_argument("--avoid-big-files", default=False,
+                        action='store_true', dest='avoid_big_files',
+                        help='''Skips the creation of big files (eg. boxplot
+                        with all the experiment results and a table containing
+                        all the experiments.''')
+    parser.add_argument("--only-best-epoch", default=False,
+                        action='store_true', dest='only_best_epoch',
+                        help='''Only generates plots for the best epoch.''')
     return parser.parse_args()
 
 

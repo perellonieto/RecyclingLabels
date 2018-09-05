@@ -3,16 +3,18 @@ import numpy as np
 from scipy import sparse
 
 from sklearn.utils import shuffle
-from sklearn.datasets import load_iris
+from sklearn.datasets import load_iris, make_classification
 from sklearn.preprocessing import label_binarize
-from sklearn.preprocessing import scale
+from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import StratifiedShuffleSplit
+from sklearn.feature_extraction.text import TfidfTransformer
 
 from sklearn.model_selection import train_test_split
 
 from wlc.WLweakener import computeM
 from wlc.WLweakener import generateWeak
 from wlc.WLweakener import binarizeWeakLabels
+from wlc.WLweakener import weak_to_decimal
 
 # Necessary for the make_blobs modification
 # from sklearn.datasets import make_blobs
@@ -135,11 +137,15 @@ def make_weak_true_partition(M, X, y, true_size=0.1, random_state=None):
         Y_t = Y[true_fold]
 
     # TODO refactor name convention of train and val, for weak and true
-    return (X_w, Z_w, z_w), (X_t, Z_t, z_t, Y_t, y_t), classes
+    training = (X_w, Z_w, z_w)
+    validation = (X_t, Z_t, z_t, Y_t, y_t)
+    test = None
+    categories = classes
+    return training, validation, test, categories
 
 
-def load_webs(random_state=None, standardize=True):
-    categories = ['blog', 'inmo', 'parking', 'b2c', 'no_b2c', 'Other']
+def load_webs(random_state=None, standardize=True, tfidf=False,
+              categories=['blog', 'inmo', 'parking', 'b2c', 'no_b2c', 'Other']):
     n_cat = len(categories)
 
     # Note that the pickle file contains a multi-index dataframe. We take the
@@ -173,11 +179,29 @@ def load_webs(random_state=None, standardize=True):
     z_train = Z_train.dot(p2)
     z_val = Z_val.dot(p2)
 
+    # Remove samples where all the weak labels are 0
+    index_train_no_0 = (z_train != 0)
+    X_train = X_train[index_train_no_0]
+    Z_train = Z_train[index_train_no_0]
+    z_train = z_train[index_train_no_0]
+    index_valid_no_0 = (z_val != 0)
+    X_val = X_val[index_valid_no_0]
+    Z_val = Z_val[index_valid_no_0]
+    z_val = z_val[index_valid_no_0]
+    Y_val = Y_val[index_valid_no_0]
+    y_val = y_val[index_valid_no_0]
+
+    # Shuffle dataset
     X_train, Z_train, z_train = shuffle(X_train, Z_train, z_train,
                                         random_state=random_state)
     X_val, Z_val, z_val, Y_val, y_val = shuffle(X_val, Z_val, z_val, Y_val,
                                                 y_val,
                                                 random_state=random_state)
+
+    if tfidf:
+        tfidf_model = TfidfTransformer()
+        X_train = tfidf_model.fit_transform(X_train)
+        X_val = tfidf_model.transform(X_val)
 
     # TODO is it possible to keep the matrices sparse with Keras?
     if sparse.issparse(X_train):
@@ -187,10 +211,14 @@ def load_webs(random_state=None, standardize=True):
         X_val = X_val.toarray()
 
     if standardize:
-        X_train = scale(X_train)
-        X_val = scale(X_val)
+        scaler_model = StandardScaler()
+        X_train = scaler_model.fit_transform(X_train)
+        X_val = scaler_model.transform(X_val)
 
-    return (X_train, Z_train, z_train), (X_val, Z_val, z_val, Y_val, y_val), categories
+    training = (X_train, Z_train, z_train)
+    validation = (X_val, Z_val, z_val, Y_val, y_val)
+    test = None
+    return training, validation, test, categories
 
 
 def load_toy_example(random_state=None):
@@ -212,16 +240,22 @@ def load_blobs(n_samples=1000, n_features=2, n_classes=6, random_state=None):
 
     X_train, X_val, Z_train, Z_val, z_train, z_val, Y_train, Y_val, y_train, y_val = train_test_split(X, Z, z, Y, y, test_size=0.5, random_state=random_state)
 
-    return (X_train, Z_train, z_train), (X_val, Z_val, z_val, Y_val, y_val), None
+    training = (X_train, Z_train, z_train)
+    validation = (X_val, Z_val, z_val, Y_val, y_val)
+    test = None
+    categories = range(0, n_classes)
+    return training, validation, test, categories
 
 
 def load_weak_blobs(method='quasi_IPL', n_samples=2000, n_features=2,
-                    n_classes=6, random_state=None, true_size=0.1, **kwargs):
+                    n_classes=6, random_state=None, true_size=0.1, M=None,
+                    alpha=0.5, beta=0.3, **kwargs):
     X, y = make_blobs(n_samples=n_samples, n_features=n_features,
                       centers=n_classes, random_state=random_state, **kwargs)
 
-    M = computeM(n_classes, method=method, alpha=0.5, beta=0.3,
-                 seed=random_state)
+    if M is None:
+        M = computeM(n_classes, method=method, alpha=alpha, beta=beta,
+                     seed=random_state)
     return make_weak_true_partition(M, X, y, true_size=true_size,
                                     random_state=random_state)
 
@@ -235,3 +269,168 @@ def load_weak_iris(method='quasi_IPL', true_size=0.1, random_state=None):
                  seed=random_state)
     return make_weak_true_partition(M, X, y, true_size=true_size,
                                     random_state=random_state)
+
+
+def load_classification(method='quasi_IPL', n_samples=1000, n_features=20,
+                        n_classes=6, random_state=None, n_informative=10,
+                        n_redundant=2, n_repeated=0, n_clusters_per_class=2,
+                        alpha=0.5, beta=0.3, true_size=0.1, M=None):
+    X, y = make_classification(n_samples=n_samples, n_features=n_features,
+                               n_classes=n_classes, random_state=random_state,
+                               n_redundant=n_redundant,
+                               n_informative=n_informative,
+                               n_clusters_per_class=n_clusters_per_class)
+
+    if M is None:
+        M = computeM(n_classes, method=method, alpha=alpha, beta=beta,
+                     seed=random_state)
+
+    return make_weak_true_partition(M, X, y, true_size=true_size,
+                                    random_state=random_state)
+    # if n_classes == 2:
+    #     Y = np.vstack([1-y, y]).T
+    # else:
+    #     Y = label_binarize(y, range(n_classes))
+    # # FIXME z should not be exactly y
+    # Z = Y
+    # p2 = np.array([2**n for n in reversed(range(n_classes))])
+    # z = Z.dot(p2)
+
+    # X_train, X_val, Z_train, Z_val, z_train, z_val, Y_train, Y_val, y_train, y_val = train_test_split(X, Z, z, Y, y, test_size=0.5, random_state=random_state)
+
+    # training = (X_train, Z_train, z_train)
+    # validation = (X_val, Z_val, z_val, Y_val, y_val)
+    # test = None
+    # categories = range(0, n_classes)
+    # return training, validation, test, categories
+
+
+def load_labelme(random_state=None, prop_valid=0.1, prop_test=0.2,
+                 keep_valid_test=False):
+    '''
+    Loads the LabelMe dataset and reasigns de data in the following manner:
+        - Training data divided by two portions -> train and valid
+        - Valid and test are join to create test data
+
+    Parameters
+    ==========
+    random_state: integer
+        Random seed to use every time that we shuffle or split the data. If
+        None, the samples are not shuffled.
+
+    prop_valid: float (between 0 and 1)
+        Proportion of samples from the final training size to use as validation
+
+    prop_test: float (between 0 and 1)
+        Proportion of samples from the final training size to use as test
+
+    keep_valid_test: bool
+        If true, uses the original validation and test as a test set
+        If false, discards the original valid and test sets and creates new
+        ones from the training set
+
+    '''
+    n_classes = 8
+    categories = ['highway', 'insidecity', 'tallbuilding', 'street',
+                  'forest', 'coast', 'mountain', 'opencountry']
+
+    # =================================================== #
+    # Load train with majority voting
+    # =================================================== #
+    # Load features (I think these are hidden activations in a VGG16 network)
+    X_train = np.load('data/LabelMe/prepared/data_train_vgg16.npy')
+    X_train = X_train.reshape(X_train.shape[0], -1)
+
+    # TODO see difference between labels_train_mv and labels_train
+    #y_train_mv = np.load('data/LabelMe/prepared/labels_train_mv.npy')
+    y_train = np.load('data/LabelMe/prepared/labels_train.npy')
+    Y_train = label_binarize(y_train, range(n_classes))
+    y_answers = np.load('data/LabelMe/prepared/answers.npy')
+
+    # Convert answers to binary weak labels
+    Z_train = np.zeros((X_train.shape[0], n_classes)).astype(int)
+    for i, answer in enumerate(y_answers):
+        voted = np.unique(answer)
+        for v in voted:
+            if v != -1:
+                Z_train[i, v] = 1
+
+    z_train = weak_to_decimal(Z_train)
+
+    # =================================================== #
+    # Create test set
+    # =================================================== #
+    if keep_valid_test:
+        # =================================================== #
+        # Load valid and test and join to create test
+        # =================================================== #
+        X_valid = np.load('data/LabelMe/prepared/data_valid_vgg16.npy')
+        X_test = np.load('data/LabelMe/prepared/data_test_vgg16.npy')
+        X_valid = X_valid.reshape(X_valid.shape[0], -1)
+        X_test = X_test.reshape(X_test.shape[0], -1)
+        X_test = np.concatenate((X_valid, X_test))
+
+        y_valid = np.load('data/LabelMe/prepared/labels_valid.npy')
+        y_test = np.load('data/LabelMe/prepared/labels_test.npy')
+        y_test = np.concatenate((y_valid, y_test))
+        Y_test = label_binarize(y_test, range(n_classes))
+    else:
+        # Separate the augmented samples into different sets
+        text_answers = np.array([','.join(y.astype(str)) for y in y_answers])
+        unique_answers = np.unique(text_answers)
+        y_unique = y_train[[np.where(text_answers == u)[0][0] for u in
+                            unique_answers]]
+
+        # =================================================== #
+        # Get portion of train for test
+        # =================================================== #
+        sss = StratifiedShuffleSplit(n_splits=1, random_state=random_state,
+                                     train_size=(1. - prop_test),
+                                     test_size=prop_test)
+        train_indx, test_indx = next(sss.split(unique_answers, y_unique))
+
+        train_indx = np.concatenate(
+            [np.where(text_answers == unique_answers[i])[0]
+             for i in train_indx])
+        test_indx = np.concatenate(
+            [np.where(text_answers == unique_answers[i])[0]
+             for i in test_indx])
+
+        X_test = X_train[test_indx]
+        Y_test = Y_train[test_indx]
+        y_test = y_train[test_indx]
+        X_train = X_train[train_indx]
+        Z_train = Z_train[train_indx]
+        z_train = z_train[train_indx]
+        Y_train = Y_train[train_indx]
+        y_train = y_train[train_indx]
+        y_answers = y_answers[train_indx]
+
+    # Separate the augmented samples into different sets
+    text_answers = np.array([','.join(y.astype(str)) for y in y_answers])
+    unique_answers = np.unique(text_answers)
+    y_unique = y_train[[np.where(text_answers == u)[0][0] for u in
+                        unique_answers]]
+
+    # =================================================== #
+    # Divide training between train and validation
+    # =================================================== #
+    sss = StratifiedShuffleSplit(n_splits=1, random_state=random_state,
+                                 train_size=(1. - prop_valid),
+                                 test_size=prop_valid)
+    train_indx, val_indx = next(sss.split(unique_answers, y_unique))
+    train_indx = np.concatenate(
+        [np.where(text_answers == unique_answers[i])[0]
+         for i in train_indx])
+    val_indx = np.concatenate(
+        [np.where(text_answers == unique_answers[i])[0]
+         for i in val_indx])
+
+    X_val, Z_val, z_val = X_train[val_indx], Z_train[val_indx], z_train[val_indx]
+    Y_val, y_val = Y_train[val_indx], y_train[val_indx]
+    X_train, Z_train, z_train = X_train[train_indx], Z_train[train_indx], z_train[train_indx]
+
+    training = (X_train, Z_train, z_train)
+    validation = (X_val, Z_val, z_val, Y_val, y_val)
+    test = (X_test, Y_test, y_test)
+    return training, validation, test, categories
