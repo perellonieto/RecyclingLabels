@@ -83,3 +83,6 @@ def w_brier_loss(y_true, y_pred, class_weights):
     """
     return T.mean(T.dot(T.square(T.sub(y_pred, y_true)), class_weights),
                   axis=-1)
+
+def log_loss(y_true, y_pred):
+    return T.mean(T.sum(-y_true*T.log(y_pred), axis=1))
