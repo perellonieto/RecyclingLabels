@@ -502,7 +502,7 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
         raise ValueError('Method unknown {}'.format(method))
 
     LOSS_MAP = dict(mse='mean_squared_error', wbs='w_brier_score',
-                    bs='brier_score')
+                    bs='brier_score', log_loss='log_loss', ce='log_loss')
 
     loss = LOSS_MAP[loss]
 
@@ -905,8 +905,8 @@ def analyse_results(results, diary, n_val, n_tra, epochs, architecture, method,
         cm_mean += np.true_divide(cm, n_iterations)
         acc_mean += acc/len(results)
 
-    title = 'Epoch {}, Mean CM {} (acc={:.3f})'.format(b_v_e, method, acc_mean)
-    fig = plot_confusion_matrix(cm_mean, columns=classes, rows=classes,
+    title = 'Mean CM {}\nepoch {}, acc. {:.3f}'.format(method, b_v_e, acc_mean)
+    fig = plot_confusion_matrix(cm_mean.astype(int), columns=classes, rows=classes,
                                 colorbar=False, title=title)
 
     diary.save_figure(fig, filename='{}_mean_confusion_matrix'.format(keyword))

@@ -248,12 +248,16 @@ def load_blobs(n_samples=1000, n_features=2, n_classes=6, random_state=None):
 
 
 def load_weak_blobs(method='quasi_IPL', n_samples=2000, n_features=2,
-                    n_classes=6, random_state=None, true_size=0.1, M=None,
+                    centers=6, random_state=None, true_size=0.1, M=None,
                     alpha=0.5, beta=0.3, **kwargs):
     X, y = make_blobs(n_samples=n_samples, n_features=n_features,
-                      centers=n_classes, random_state=random_state, **kwargs)
+                      centers=centers, random_state=random_state, **kwargs)
 
     if M is None:
+        if isinstance(centers, int):
+            n_classes = centers
+        else:
+            n_classes = len(centers)
         M = computeM(n_classes, method=method, alpha=alpha, beta=beta,
                      seed=random_state)
     return make_weak_true_partition(M, X, y, true_size=true_size,
