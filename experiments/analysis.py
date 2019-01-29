@@ -471,7 +471,7 @@ def analyse_weak_labels(X_z, Z_z, z_z, X_y, Z_y, z_y, Y_y, y_y, classes,
     n_extra.add_entry(row={'expected_brier_score': expected_bs})
 
     def log_loss(yp, yt):
-        -yt*np.log(yp)
+        return -yt*np.log(yp)
 
     error_matrix = compute_error_matrix(prior_y, log_loss)
     expected_ll = compute_expected_error(prior_y, error_matrix)
@@ -706,7 +706,7 @@ def train_and_test_weak_labels(X_z, Z_z, z_z,
     n_extra.add_entry(row={'expected_brier_score': expected_bs})
 
     def log_loss(yp, yt):
-        -yt*np.log(yp)
+        return -yt*np.log(yp)
 
     error_matrix = compute_error_matrix(prior_y, log_loss)
     expected_ll = compute_expected_error(prior_y, error_matrix)

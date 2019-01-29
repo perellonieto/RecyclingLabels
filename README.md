@@ -17,12 +17,28 @@ over time by the acquisition of new true labels
 ### Installation
 
 ```bash
-git clone git@github.com:perellonieto/RecyclingLabels.git
-cd RecyclingLabels
-virtualenv --system-site-packages -p python3 venv
-. venv/bin/activate
-pip install -U pip
-pip install -r requirements3.txt
+$ git clone git@github.com:perellonieto/RecyclingLabels.git
+$ cd RecyclingLabels
+$ sudo apt-get install python3.6-dev
+$ python3.6 -m venv projectname
+$ source projectname/bin/activate
+(venv) $ pip install --upgrade pip
+(venv) $ pip install -r requirements3.txt
+(venv) $ pip install ipykernel
+(venv) $ ipython kernel install --user --name=projectname
+```
+
+After this, it is possible to start a jupyter notebook and select the kernel
+_projectname_
+
+To use Theano you may need a file in ~/.keras/keras.json with the content
+
+```json
+{
+    "epsilon": 1e-07,
+    "floatx": "float32",
+    "backend": "tensorflow"
+}
 ```
 
 ### Test with EM experiment
