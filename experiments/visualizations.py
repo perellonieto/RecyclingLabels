@@ -109,25 +109,26 @@ def plot_df_heatmap(df, normalize=None, title='Heat-map',
 
 def plot_confusion_matrix(M, columns=None, rows=None, cmap=plt.cm.Blues,
                           colorbar=False, fig=None, title='Heat-map',
-                          ylabel='True label', xlabel='Predicted label'):
+                          ylabel='True label', xlabel='Predicted label',
+                          **kwargs):
     return plot_heatmap(M=M, columns=columns, rows=rows, cmap=cmap,
                         colorbar=colorbar, fig=fig, title=title, ylabel=ylabel,
-                        xlabel=xlabel)
+                        xlabel=xlabel, **kwargs)
 
 def plot_heatmap(M, columns=None, rows=None, cmap=plt.cm.Blues, colorbar=False,
-                 fig=None, title='Heat-map', ylabel=None, xlabel=None):
+                 fig=None, ax=None, title='Heat-map', ylabel=None, xlabel=None):
     if columns is None:
         columns = [str(i) for i in range(M.shape[1])]
     if rows is None:
         rows = [str(i) for i in range(M.shape[0])]
 
-    h_size = len(columns)*.5 + 2
-    v_size = len(rows)*.5 + 2
+    h_size = 5 # len(columns)*.5 + 2
+    v_size = 4 # len(rows)*.5 + 2
 
     if fig is None:
         fig = plt.figure(figsize=(h_size, v_size))
-
-    ax = fig.add_subplot(111)
+    if ax is None:
+        ax = fig.add_subplot(111)
     im = ax.imshow(M, interpolation='nearest', cmap=cmap)
     if colorbar:
         fig.colorbar(im)
@@ -185,19 +186,21 @@ def test_dual_half_circle_main():
     plt.show()
 
 def plot_multilabel_scatter(X, Y, cmap=cm.get_cmap('Accent'), edgecolor='k',
-                            linewidth=0.4, title=None, fig=None,
-                            radius_scaler=100.0, **kwargs):
+                            linewidth=0.4, title=None, fig=None, ax=None,
+                            radius_scaler=20.0, **kwargs):
     X_std = X.std(axis=0)
     X_min = X.min(axis=0)
     X_max = X.max(axis=0)
     n_classes = Y.shape[1]
 
-    radius = (X.max() - X.min())/radius_scaler
+    radius = ((X_max - X_min)/radius_scaler)[:2].min()
+    #radius = (X.max() - X.min())/radius_scaler
 
     if fig is None:
-        fig, ax = plt.subplots()
-    else:
+        fig = plt.figure(figsize=(4, 3))
+    if ax is None:
         ax = fig.add_subplot(111)
+
     for x, y in zip(X, Y):
         theta2s = np.cumsum(np.true_divide(y, y.sum())*360.0)
         theta1 = 0
@@ -205,7 +208,8 @@ def plot_multilabel_scatter(X, Y, cmap=cm.get_cmap('Accent'), edgecolor='k',
             for i, theta2 in enumerate(theta2s):
                 if theta1 != theta2:
                     w = Wedge(x[:2], radius, theta1, theta2, ec=edgecolor, lw=linewidth,
-                              fc=cmap(np.true_divide(i, n_classes)), **kwargs)
+                              fc=cmap(i), **kwargs)
+                              #fc=cmap(np.true_divide(i, n_classes)), **kwargs)
                     ax.add_patch(w)
                     theta1 = theta2
         else:

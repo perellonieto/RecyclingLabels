@@ -2,7 +2,7 @@ import numpy as np
 
 import theano.tensor as T
 
-from sklearn.metrics import log_loss
+#from sklearn.metrics import log_loss
 
 
 def compute_error_matrix(p, err_func):

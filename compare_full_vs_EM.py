@@ -11,7 +11,9 @@ import inspect
 
 import matplotlib.pyplot as plt
 
-n_classes = 10
+plt.rcParams['figure.figsize'] = (5, 4)
+
+n_classes = 12
 n_features = 100
 n_samples = 10000
 true_size = 0.02
@@ -185,9 +187,12 @@ fig = plt.figure()
 ax = fig.add_subplot(111)
 ax.set_title('Accuracy on test set with {} true labels'.format(X_te.shape[0]))
 ax.plot(list_weak_proportions*Z_t_index.shape[0], acc_EM, 'bo-', label='EM weak + {} true labels'.format(Z_v.shape[0]))
-ax.axhline(y=acc_upperbound, color='r', linestyle='-', label='{} true labels'.format(X.shape[0]))
-ax.axhline(y=acc_lowerbound, color='orange', linestyle='-', label='{} true labels'.format(Z_v.shape[0]))
+ax.axhline(y=acc_upperbound, color='red', lw=2, linestyle='-', label='{} true labels'.format(X.shape[0]))
+ax.axhline(y=acc_lowerbound, color='orange', lw=2, linestyle='-', label='{} true labels'.format(Z_v.shape[0]))
 ax.set_xlabel('Number of weak samples')
 ax.set_ylabel('Accuracy')
-ax.legend(loc=0)
+ax.set_xscale("symlog")
+ax.legend(loc=0, fancybox=True, framealpha=0.5)
+ax.grid()
+fig.tight_layout()
 fig.savefig('full_vs_EM.svg')
