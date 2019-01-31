@@ -3,7 +3,7 @@ import numpy as np
 from scipy import sparse
 
 from sklearn.utils import shuffle
-from sklearn.datasets import load_iris, make_classification
+from sklearn.datasets import load_iris, load_digits, make_classification
 from sklearn.preprocessing import label_binarize
 from sklearn.preprocessing import StandardScaler
 from sklearn.model_selection import StratifiedShuffleSplit
@@ -15,11 +15,16 @@ from wlc.WLweakener import computeM
 from wlc.WLweakener import generateWeak
 from wlc.WLweakener import binarizeWeakLabels
 from wlc.WLweakener import weak_to_decimal
+from wlc.WLweakener import weak_to_index
+
+from sklearn.linear_model import LogisticRegression
 
 # Necessary for the make_blobs modification
 # from sklearn.datasets import make_blobs
 import numbers
 from sklearn.utils import check_array, check_random_state
+
+from keras.datasets import mnist, fashion_mnist, cifar10
 
 
 def make_blobs(n_samples=100, n_features=2, centers=3, cluster_std=1.0,
@@ -438,3 +443,83 @@ def load_labelme(random_state=None, prop_valid=0.1, prop_test=0.2,
     validation = (X_val, Z_val, z_val, Y_val, y_val)
     test = (X_test, Y_test, y_test)
     return training, validation, test, categories
+
+
+def apply_weak_classifier(X, y, clf=LogisticRegression(), threshold='uniform',
+                          true_proportion=0.2, random_state=42):
+    '''
+    Creates weak and true partition by training a classifier in the weak set,
+    and applying a threshold in the predictions of the full set
+    '''
+    n_c = len(np.unique(y))
+    classes = range(0, n_c)
+    assert(n_c == np.max(y)+1)
+    Y = label_binarize(y, classes)
+
+    # Train a model to create the weak labels
+    if len(X.shape) > 2:
+        X = X.reshape(X.shape[0], -1)
+
+    # Create partition for weak and true labels
+    sss = StratifiedShuffleSplit(n_splits=1, test_size=true_proportion,
+                                 random_state=random_state)
+    for weak_fold, true_fold in sss.split(X, y):
+        # Weaken the true labels fold using the mixing matrix M
+        X_w = X[weak_fold]
+        Y_w = Y[weak_fold]
+        y_w = y[weak_fold]
+
+        clf.fit(X_w, y_w)
+        p = clf.predict_proba(X)
+
+        # Compute the weak labels in binary form
+        if threshold == 'uniform':
+            Z = p >= 1.0/Y.shape[1]
+        elif isinstance(threshold, float):
+            Z = p >= threshold
+        else:
+            Z = (p.T >= p.max(axis=1)).T
+
+        # Create the weak labels in index form
+        z = weak_to_index(Z, method='Mproper')
+
+        z_w = z[weak_fold]
+        Z_w = Z[weak_fold]
+
+        # Select the true labels fold
+        X_t = X[true_fold]
+        Y_t = Y[true_fold]
+        y_t = y[true_fold]
+        z_t = z[true_fold]
+        Z_t = Z[true_fold]
+
+    training = (X_w, Z_w, z_w)
+    validation = (X_t, Z_t, z_t, Y_t, y_t)
+    test = None
+    categories = classes
+    return training, validation, test, categories
+
+
+def load_dataset_apply_model(dataset, **kwargs):
+    if dataset == 'iris':
+        data = load_iris()
+        X = data.data
+        y = data.target
+    elif dataset == 'digits':
+        X, y = load_digits(return_X_y=True)
+    elif dataset == 'cifar10':
+        (x_train, y_train), (x_test, y_test) = cifar10.load_data()
+        X = np.concatenate((x_train, x_test))
+        y = np.concatenate((y_train, y_test))
+    elif dataset == 'mnist':
+        (x_train, y_train), (x_test, y_test) = mnist.load_data()
+        X = np.concatenate((x_train, x_test))
+        y = np.concatenate((y_train, y_test))
+    elif dataset == 'fashion_mnist':
+        (x_train, y_train), (x_test, y_test) = fashion_mnist.load_data()
+        X = np.concatenate((x_train, x_test))
+        y = np.concatenate((y_train, y_test))
+    else:
+        raise KeyError(dataset)
+
+    return apply_weak_classifier(X, y, **kwargs)
