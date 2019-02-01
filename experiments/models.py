@@ -290,7 +290,7 @@ class MySequentialOSL(Sequential):
 
 
 class MySequentialEM(Sequential):
-    def fit(self, train_x, train_t_ind, M, X_y_t=None, Y_y_t=None, test_x=None,
+    def fit(self, train_x, train_z, X_y_t=None, Y_y_t=None, test_x=None,
             test_y=None, batch_size=None, epochs=1, verbose=0, **kwargs):
         '''
 
@@ -312,7 +312,7 @@ class MySequentialEM(Sequential):
             #        self.params['M']
             # Need to incorporate this part.
             # train_t_ind is the index corresponding to the mixing matrix row
-            Q = np.multiply(predictions, M[train_t_ind])
+            Q = np.multiply(predictions, train_z)
             # FIXME there are rows that sum to 0 and this becomes a NaN
             train_em_y = Q / np.sum(Q, axis=1).reshape(-1, 1)
             # The train_em_y are floats
@@ -321,7 +321,6 @@ class MySequentialEM(Sequential):
             index_isfinite = np.where(np.isfinite(np.sum(train_em_y, axis=1)))[0]
             h = super(MySequentialEM, self).fit(train_x[index_isfinite],
                                                 train_em_y[index_isfinite],
-                                                validation_data=(X_y_t, Y_y_t),
                                                 batch_size=batch_size,
                                                 epochs=1, verbose=verbose,
                                                 **kwargs)
