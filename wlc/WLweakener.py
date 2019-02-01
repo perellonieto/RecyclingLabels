@@ -406,6 +406,7 @@ def weakCount(dfZ, dfY, categories, reg=None):
                     - 'Partial':  Only rows corresponding to weak
                                   labels existing in dfZ are
                                   regularized (by adding 1)
+                      FIXME: Add the weak set for the partial regularization
                     - 'Complete': All valuves are regularized (by adding 1)
 
     Returns
@@ -466,7 +467,7 @@ def weakCount(dfZ, dfY, categories, reg=None):
     return S
 
 
-def newWeakCount(Z, Y, categories, reg=None):
+def newWeakCount(Z, Y, categories, reg=None, Z_reg=None):
     # Number of categories
     n_cat = len(categories)
 
@@ -489,6 +490,9 @@ def newWeakCount(Z, Y, categories, reg=None):
         S = csr_matrix((2**n_cat, n_cat))
         # Flag vector of existing weak labels
         weak_list = np.unique(np.array(Z.dot(p2)))
+        if Z_reg is not None:
+            weak_list = np.unique(
+                np.concatenate((weak_list, np.array(Z_reg.dot(p2)))))
         S[weak_list, :] = 1
 
     if type(Y) == pd.DataFrame:
@@ -520,8 +524,8 @@ def weak_to_decimal(z):
     return np.array(z.dot(p2), dtype=int)
 
 
-def estimate_M(Z, Y, categories, reg=None):
-    S0 = newWeakCount(Z, Y, categories, reg=reg)
+def estimate_M(*args, **kwargs):
+    S0 = newWeakCount(*args, **kwargs)
     return S0 / np.sum(S0, axis=0)
 
 
