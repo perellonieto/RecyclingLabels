@@ -204,9 +204,10 @@ def train_weak_EM_test_results(parameters):
     np.random.seed(process_id)
     X_t = np.concatenate((X_z_t, X_y_t), axis=0)
     X_t, Z_index_t = shuffle(X_t, Z_index_t)
+    Z_t = M[Z_index_t]
     # Add validation results during training
     fit_arguments['validation_data'] = (X_y_v, Y_y_v)
-    history = classifier.fit(X_t, Z_index_t, M=M, X_y_t=X_y_t, Y_y_t=Y_y_t,
+    history = classifier.fit(X_t, Z_t, X_y_t=X_y_t, Y_y_t=Y_y_t,
                              **fit_arguments)
     # 5. Evaluate the model in the validation set with true labels
     y_pred = classifier.predict(X_y_v, verbose=verbose)
@@ -737,7 +738,8 @@ def train_and_test_weak_labels(X_z, Z_z, z_z,
         raise ValueError('Method unknown {}'.format(method))
 
     LOSS_MAP = dict(mse='mean_squared_error', wbs='w_brier_score',
-                    bs='brier_score')
+                    bs='brier_score', log_loss='log_loss', ce='log_loss')
+
 
     loss = LOSS_MAP[loss]
 
