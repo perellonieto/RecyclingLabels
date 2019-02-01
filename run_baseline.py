@@ -196,7 +196,7 @@ def main(dataset, seed, verbose, method, path_results, n_jobs, n_iterations,
         training, validation, test, classes = dataset_functions[dataset](
                 random_state=seed)
 
-    X_t, Z_t, z_t = training
+    X_t, Z_t, z_t, Y_t, y_t = training
     X_v, Z_v, z_v, Y_v, y_v = validation
 
     # Get test partition
