@@ -133,6 +133,8 @@ def make_weak_true_partition(M, X, y, true_size=0.1, random_state=None):
         X_w = X[weak_fold]
         z_w = z[weak_fold]
         Z_w = Z[weak_fold]
+        y_w = y[weak_fold]
+        Y_w = Y[weak_fold]
 
         # Select the true labels fold
         X_t = X[true_fold]
@@ -142,7 +144,7 @@ def make_weak_true_partition(M, X, y, true_size=0.1, random_state=None):
         Y_t = Y[true_fold]
 
     # TODO refactor name convention of train and val, for weak and true
-    training = (X_w, Z_w, z_w)
+    training = (X_w, Z_w, z_w, Y_w, y_w)
     validation = (X_t, Z_t, z_t, Y_t, y_t)
     test = None
     categories = classes
@@ -189,6 +191,8 @@ def load_webs(random_state=None, standardize=True, tfidf=False,
     X_train = X_train[index_train_no_0]
     Z_train = Z_train[index_train_no_0]
     z_train = z_train[index_train_no_0]
+    Y_train = Y_train[index_train_no_0]
+    y_train = y_train[index_train_no_0]
     index_valid_no_0 = (z_val != 0)
     X_val = X_val[index_valid_no_0]
     Z_val = Z_val[index_valid_no_0]
@@ -197,11 +201,10 @@ def load_webs(random_state=None, standardize=True, tfidf=False,
     y_val = y_val[index_valid_no_0]
 
     # Shuffle dataset
-    X_train, Z_train, z_train = shuffle(X_train, Z_train, z_train,
-                                        random_state=random_state)
-    X_val, Z_val, z_val, Y_val, y_val = shuffle(X_val, Z_val, z_val, Y_val,
-                                                y_val,
-                                                random_state=random_state)
+    X_train, Z_train, z_train, Y_train, y_train = shuffle(
+        X_train, Z_train, z_train, Y_train, y_train, random_state=random_state)
+    X_val, Z_val, z_val, Y_val, y_val = shuffle(
+        X_val, Z_val, z_val, Y_val, y_val, random_state=random_state)
 
     if tfidf:
         tfidf_model = TfidfTransformer()
@@ -220,7 +223,7 @@ def load_webs(random_state=None, standardize=True, tfidf=False,
         X_train = scaler_model.fit_transform(X_train)
         X_val = scaler_model.transform(X_val)
 
-    training = (X_train, Z_train, z_train)
+    training = (X_train, Z_train, z_train, Y_train, y_train)
     validation = (X_val, Z_val, z_val, Y_val, y_val)
     test = None
     return training, validation, test, categories
@@ -243,9 +246,11 @@ def load_blobs(n_samples=1000, n_features=2, n_classes=6, random_state=None):
     p2 = np.array([2**n for n in reversed(range(n_classes))])
     z = Z.dot(p2)
 
-    X_train, X_val, Z_train, Z_val, z_train, z_val, Y_train, Y_val, y_train, y_val = train_test_split(X, Z, z, Y, y, test_size=0.5, random_state=random_state)
+    (X_train, X_val, Z_train, Z_val, z_train, z_val, Y_train, Y_val, y_train,
+     y_val) = train_test_split(
+         X, Z, z, Y, y, test_size=0.5, random_state=random_state)
 
-    training = (X_train, Z_train, z_train)
+    training = (X_train, Z_train, z_train, Y_train, y_train)
     validation = (X_val, Z_val, z_val, Y_val, y_val)
     test = None
     categories = range(0, n_classes)
@@ -438,8 +443,9 @@ def load_labelme(random_state=None, prop_valid=0.1, prop_test=0.2,
     X_val, Z_val, z_val = X_train[val_indx], Z_train[val_indx], z_train[val_indx]
     Y_val, y_val = Y_train[val_indx], y_train[val_indx]
     X_train, Z_train, z_train = X_train[train_indx], Z_train[train_indx], z_train[train_indx]
+    Y_train, y_train = Y_train[train_indx], y_train[train_indx]
 
-    training = (X_train, Z_train, z_train)
+    training = (X_train, Z_train, z_train, Y_train, y_train)
     validation = (X_val, Z_val, z_val, Y_val, y_val)
     test = (X_test, Y_test, y_test)
     return training, validation, test, categories
@@ -493,7 +499,7 @@ def apply_weak_classifier(X, y, clf=LogisticRegression(), threshold='uniform',
         z_t = z[true_fold]
         Z_t = Z[true_fold]
 
-    training = (X_w, Z_w, z_w)
+    training = (X_w, Z_w, z_w, Y_w, y_w)
     validation = (X_t, Z_t, z_t, Y_t, y_t)
     test = None
     categories = classes
