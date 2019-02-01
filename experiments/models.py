@@ -321,6 +321,7 @@ class MySequentialEM(Sequential):
             index_isfinite = np.where(np.isfinite(np.sum(train_em_y, axis=1)))[0]
             h = super(MySequentialEM, self).fit(train_x[index_isfinite],
                                                 train_em_y[index_isfinite],
+                                                validation_data=(X_y_t, Y_y_t),
                                                 batch_size=batch_size,
                                                 epochs=1, verbose=verbose,
                                                 **kwargs)
