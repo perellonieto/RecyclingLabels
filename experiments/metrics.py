@@ -1,6 +1,9 @@
 import numpy as np
-
 import theano.tensor as T
+
+from keras import backend as K
+
+_EPSILON = K.epsilon()
 
 #from sklearn.metrics import log_loss
 
@@ -85,4 +88,6 @@ def w_brier_loss(y_true, y_pred, class_weights):
                   axis=-1)
 
 def log_loss(y_true, y_pred):
-    return T.mean(T.sum(-y_true*T.log(y_pred), axis=1))
+    y_pred = K.clip(y_pred, _EPSILON, 1.0-_EPSILON)
+    out = -y_true * K.log(y_pred)
+    return K.mean(out, axis=-1)

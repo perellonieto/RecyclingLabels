@@ -7,71 +7,45 @@ from sklearn.model_selection import StratifiedShuffleSplit
 from collections import Counter
 from experiments.data import load_webs, load_weak_iris, load_weak_blobs, \
                              load_toy_example, load_classification, \
-                             load_labelme
+                             load_labelme, load_dataset_apply_model
 from experiments.analysis import analyse_weak_labels, train_and_test_weak_labels
 from experiments.diary import Diary
 
-DEFAULT = {'dataset': 'iris',
-           'seed': 42,
-           'verbose': 0,
-           'epochs': 200,
-           'lr': 1.0,
-           'l1': 0.0,
-           'l2': 0.001,
-           'architecture': 'lr',
-           'optimizer': 'rmsprop',
-           'method': 'fully_supervised',
-           'n_jobs': None,
-           'n_iterations': 2,
-           'k_folds': 2,
-           'path_results': 'results',
-           'loss': 'mse',
-           'stdout': None,
-           'stderr': None,
-           'path_model': None,
-           'file_M': None,
-           'prop_weak': 1.0,
-           'prop_clean': 1.0,
-           'prop_test': 0.2,
-           'momentum': 0.5,
-           'decay': 0.5,
-           'rho': 0.9,
-           'epsilon': None,
-           'nesterov': True,
-           'batch_size': 100,
-           }
 
-dataset_functions = {'toy_example': load_toy_example,
-                     'blobs': partial(load_weak_blobs, method='random_weak'),
-                     'unbalanced': partial(load_weak_blobs,
-                                           method='random_weak',
-                                           n_samples=[100, 300, 1200, 1200,
-                                                      5600, 1400]),
-                     'blobs_webs': partial(load_weak_blobs,
-                                           method='random_weak',
-                                           n_samples=[1000, 3000, 12000, 12000,
-                                                      56000, 14000],
-                                           n_features=2099,
-                                           n_classes=6,
-                                           true_size=0.02),
-                     'iris': partial(load_weak_iris, method='random_weak',
-                                     true_size=0.3),
-                     'webs': partial(load_webs,
-                                     tfidf=True,
-                                     categories=['parking', 'b2c', 'no_b2c',
-                                                 'Other'],
-                                     standardize=True),
-                     'classification': partial(load_classification,
-                                               n_samples=60000,
-                                               n_features=2000,
-                                               n_classes=6,
-                                               n_informative=1800,
-                                               n_redundant=0,
-                                               n_repeated=0,
-                                               n_clusters_per_class=1),
-                     'labelme': partial(load_labelme,
-                                        keep_valid_test=False),
-                     }
+dataset_functions = {
+    'toy_example': load_toy_example,
+    'gaussians': partial(load_weak_blobs, method='random_weak',
+                         n_samples=100000, n_features=2,
+                         centers=[[-1, -1], [-1, 1], [1, 1]],
+                         true_size=0.01, alpha=0.2, beta=0.3),
+     'blobs': partial(load_weak_blobs, method='random_weak', n_samples=10000,
+                      n_features=4, centers=6, true_size=0.01, alpha=0.2,
+                      beta=0.3),
+     'unbalanced': partial(load_weak_blobs, method='random_weak',
+                           n_samples=[100, 300, 1200, 1200, 5600, 1400]),
+     'blobs_webs': partial(load_weak_blobs, method='random_weak',
+                           n_samples=[1000, 3000, 12000, 12000, 56000, 14000],
+                           n_features=2099, centers=6, true_size=0.02),
+     'iris': partial(load_weak_iris, method='random_weak', true_size=0.3),
+     'webs': partial(load_webs, tfidf=True, categories=['parking', 'b2c',
+                                                        'no_b2c', 'Other'],
+                     standardize=True),
+     'classification': partial(load_classification, n_samples=10000,
+                               n_features=4, n_classes=6, n_informative=4,
+                               n_redundant=0, n_repeated=0,
+                               n_clusters_per_class=2, alpha=0.5, beta=0.3,
+                               true_size=0.02),
+     'labelme': partial(load_labelme, keep_valid_test=False),
+     'iris_lr': partial(load_dataset_apply_model, dataset='iris'),
+     'digits_lr': partial(load_dataset_apply_model, dataset='digits',
+                          true_proportion=0.2),
+     'cifar10_lr': partial(load_dataset_apply_model, dataset='cifar10',
+                          true_proportion=0.2),
+     'mnist_lr': partial(load_dataset_apply_model, dataset='mnist',
+                          true_proportion=0.2),
+     'fashion_mnist_lr': partial(load_dataset_apply_model, dataset='fashion_mnist',
+                          true_proportion=0.2),
+     }
 
 
 def str2bool(v):
@@ -99,7 +73,7 @@ def parse_arguments():
                                                 example or a real dataset''',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-a', '--architecture', dest='architecture', type=str,
-                        default=DEFAULT['architecture'],
+                        default='lr',
                         help='''Model architecture. Possible options are: lr
                         (logistic regression); or a MLP with the following
                         specification: mlp100m (Multilayer Perceptron
@@ -109,109 +83,91 @@ def parse_arguments():
                         with two hidden layers of 30 units, dropout of 0.5,
                         Sigmoid activation, layer of 45 units, dropout of 0.5,
                         and SoftMax).''')
-    parser.add_argument('-c', '--epochs', dest='epochs', type=int,
-                        default=DEFAULT['epochs'], help='Number of epochs')
+    parser.add_argument('-c', '--epochs', dest='epochs', type=int, default=200,
+                        help='Number of epochs')
     parser.add_argument('-d', '--dataset', dest='dataset', type=str,
-                        default=DEFAULT['dataset'],
+                        default='iris',
                         help='''Name of the dataset to use: iris, toy_example,
                                 blobs, unbalanced, webs, blobs_webs''')
     parser.add_argument('-e', '--stderr', dest='stderr',
-                        default=DEFAULT['stderr'], action='store_true',
+                        default=None, action='store_true',
                         help='If the stderr needs to be redirected')
     parser.add_argument('-f', '--prop-weak', dest='prop_weak', type=float,
-                        default=DEFAULT['prop_weak'],
+                        default=1.0,
                         help='Proportion of weak portion to keep')
     parser.add_argument('-g', '--prop-clean', dest='prop_clean', type=float,
-                        default=DEFAULT['prop_clean'],
+                        default=1.0,
                         help='Proportion of clean portion to keep')
     parser.add_argument('--prop-test', dest='prop_test', type=float,
-                        default=DEFAULT['prop_test'],
+                        default=0.2,
                         help='''Proportion of test data from portion of data
                         with true labels''')
     parser.add_argument('-i', '--n-iterations', dest='n_iterations', type=int,
-                        default=DEFAULT['n_iterations'],
+                        default=2,
                         help='Number of iterations to repeat the validation')
     parser.add_argument('-k', '--k-folds', dest='k_folds', type=int,
-                        default=DEFAULT['k_folds'],
+                        default=2,
                         help='Number of folds for the cross-validation')
     parser.add_argument('-l', '--loss', dest='loss', type=str,
-                        default=DEFAULT['loss'],
+                        default='log_loss',
                         help='Number of iterations to repeat the validation')
     parser.add_argument('-M', '--file-M', dest='file_M', type=str,
-                        default=DEFAULT['file_M'],
+                        default=None,
                         help='''File with a precomputed M''')
     parser.add_argument('-m', '--method', dest='method', type=str,
-                        default=DEFAULT['method'],
+                        default='fully_supervised',
                         help='''Learning method to use between,
                                 Mproper, fully_supervised, fully_weak,
                                 partially_weak, EM or OSL''')
     parser.add_argument('-o', '--stdout', dest='stdout',
-                        default=DEFAULT['stdout'], action='store_true',
+                        default=None, action='store_true',
                         help='If the stdout needs to be redirected')
     parser.add_argument('-p', '--processes', dest='n_jobs', type=int,
-                        default=DEFAULT['n_jobs'],
+                        default=None,
                         help='Number of concurrent processes')
     parser.add_argument('-r', '--path-results', dest='path_results', type=str,
-                        default=DEFAULT['path_results'],
+                        default='results',
                         help='Path to the precomputed mixing matrix M')
-    parser.add_argument('-s', '--seed', dest='seed', type=int,
-                        default=DEFAULT['seed'],
+    parser.add_argument('-s', '--seed', dest='seed', type=int, default=42,
                         help='Seed for the random number generator')
     parser.add_argument('-t', '--path-model', dest='path_model', type=str,
-                        default=DEFAULT['path_model'],
+                        default=None,
                         help='Path to the model and weights')
-    parser.add_argument('-v', '--verbose', dest='verbose', type=int,
-                        default=DEFAULT['verbose'],
+    parser.add_argument('-v', '--verbose', dest='verbose', type=int, default=0,
                         help='Verbosity level being 0 the minimum value')
-    parser.add_argument('--lr', dest='lr', type=float,
-                        default=DEFAULT['lr'],
+    parser.add_argument('--lr', dest='lr', type=float, default=1.0,
                         help='Initial learning rate')
-    parser.add_argument('--l1', dest='l1', type=float,
-                        default=DEFAULT['l1'],
+    parser.add_argument('--l1', dest='l1', type=float, default=0.0,
                         help='L1 regularization')
-    parser.add_argument('--l2', dest='l2', type=float,
-                        default=DEFAULT['l2'],
+    parser.add_argument('--l2', dest='l2', type=float, default=0.001,
                         help='L2 regularization')
     parser.add_argument('--optimizer', dest='optimizer', type=str,
-                        default=DEFAULT['optimizer'],
+                        default='adam',
                         help=('Optimization method: rmsprop, adagrad, '
                               'adadelta, adam, adamax, nadam, tfoptimizer'))
-    parser.add_argument('--decay', dest='decay', type=float,
-                        default=DEFAULT['decay'],
+    parser.add_argument('--decay', dest='decay', type=float, default=0.5,
                         help='decay')
     parser.add_argument('--momentum', dest='momentum', type=float,
-                        default=DEFAULT['momentum'],
+                        default=0.5,
                         help='Momentum')
-    parser.add_argument('--rho', dest='rho', type=float,
-                        default=DEFAULT['rho'],
+    parser.add_argument('--rho', dest='rho', type=float, default=0.9,
                         help='rho')
     parser.add_argument('--epsilon', dest='epsilon', type=float_or_none,
-                        default=DEFAULT['epsilon'],
+                        default=None,
                         help='epsilon')
     parser.add_argument('--nesterov', dest='nesterov', type=str2bool,
-                        default=DEFAULT['nesterov'],
+                        default=True,
                         help='nesterov')
     parser.add_argument('--batch-size', dest='batch_size', type=int,
-                        default=DEFAULT['batch_size'],
+                        default=100,
                         help='batch_size')
     return parser.parse_args()
 
 
-def main(dataset=DEFAULT['dataset'], seed=DEFAULT['seed'],
-         verbose=DEFAULT['verbose'], method=DEFAULT['method'],
-         path_results=DEFAULT['path_results'], n_jobs=DEFAULT['n_jobs'],
-         n_iterations=DEFAULT['n_iterations'],
-         k_folds=DEFAULT['k_folds'], architecture=DEFAULT['architecture'],
-         loss=DEFAULT['loss'], stdout=DEFAULT['stdout'],
-         stderr=DEFAULT['stderr'], epochs=DEFAULT['epochs'],
-         path_model=DEFAULT['path_model'],
-         file_M=DEFAULT['file_M'], prop_weak=DEFAULT['prop_weak'],
-         prop_clean=DEFAULT['prop_clean'], prop_test=DEFAULT['prop_test'],
-         lr=DEFAULT['lr'], l1=DEFAULT['l1'], l2=DEFAULT['l2'],
-         optimizer=DEFAULT['optimizer'], momentum=DEFAULT['momentum'],
-         decay=DEFAULT['decay'], nesterov=DEFAULT['nesterov'],
-         batch_size=DEFAULT['batch_size'], rho=DEFAULT['rho'],
-         epsilon=DEFAULT['epsilon']):
+def main(dataset, seed, verbose, method, path_results, n_jobs, n_iterations,
+         k_folds, architecture, loss, stdout, stderr, epochs, path_model,
+         file_M, prop_weak, prop_clean, prop_test, lr, l1, l2, optimizer,
+         momentum, decay, nesterov, batch_size, rho, epsilon):
 
     # Store the original main arguments
     main_arguments = locals()
@@ -240,7 +196,7 @@ def main(dataset=DEFAULT['dataset'], seed=DEFAULT['seed'],
         training, validation, test, classes = dataset_functions[dataset](
                 random_state=seed)
 
-    X_t, Z_t, z_t = training
+    X_t, Z_t, z_t, Y_t, y_t = training
     X_v, Z_v, z_v, Y_v, y_v = validation
 
     # Get test partition

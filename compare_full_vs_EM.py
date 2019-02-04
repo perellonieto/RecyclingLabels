@@ -1,17 +1,18 @@
 import numpy as np
-from sklearn.datasets import make_classification, make_blobs
+from sklearn.datasets import make_classification, make_blobs, load_digits
 from experiments.data import make_weak_true_partition
-from wlc.WLweakener import computeM, weak_to_index
+from wlc.WLweakener import computeM, weak_to_index, estimate_M
 from sklearn.model_selection import StratifiedShuffleSplit
 from sklearn.linear_model import LogisticRegression
 from sklearn.utils import shuffle
 from sklearn.metrics import confusion_matrix
 from experiments.models import create_model, MyKerasClassifier
 import inspect
+from keras.callbacks import EarlyStopping
 
 import matplotlib.pyplot as plt
 
-plt.rcParams['figure.figsize'] = (5, 4)
+plt.rcParams['figure.figsize'] = (4, 3)
 
 n_classes = 12
 n_features = 100
@@ -32,10 +33,17 @@ np.random.seed(random_state)
 #                           n_informative=n_informative,
 #                           n_clusters_per_class=n_clusters_per_class)
 
+## Blobs
 centers = np.random.rand(n_classes, n_features)*2.0
 cluster_std = np.abs(np.random.randn(n_classes)*2.0)
 X, y = make_blobs(n_samples=n_samples, n_features=n_features, centers=centers,
                   cluster_std=cluster_std, random_state=random_state)
+
+## Digits
+#X, y = load_digits(return_X_y=True)
+#n_classes = 10
+#n_samples = X.shape[0]
+#n_features = X.shape[1]
 
 #==============================================================#
 # Create synthetic Mixing process
@@ -53,7 +61,7 @@ training, validation, test, classes = make_weak_true_partition(M, X, y,
                                                                true_size=true_size,
                                                                random_state=random_state)
 
-X_t, Z_t, z_t = training
+X_t, Z_t, z_t, Y_t, y_t = training
 X_v, Z_v, z_v, Y_v, y_v = validation
 
 prop_test = 0.9
@@ -78,7 +86,7 @@ print('True labels: Test partition size = {}'.format(len(y_te)))
 # Train Scikit learn baselines
 #==============================================================#
 LR = LogisticRegression()
-LR.fit(X, y)
+LR.fit(np.concatenate((X_t, X_v)), np.concatenate((y_t, y_v)))
 print('A Logistic Regression trained with all the real labels ({} samples)'.format(y.shape[0]))
 acc_upperbound = LR.score(X_te, y_te)
 print('Accuracy = {}'.format(acc_upperbound))
@@ -96,13 +104,14 @@ process_id = 0
 classifier = 'lr'
 
 categories = range(n_classes)
-# 1. Learn a mixing matrix using training with weak and true labels
-# In this code we give the true matrix M
-M_0 = M
+# 1.a. Learn a mixing matrix using training with weak and true labels
+M_0 = estimate_M(Z_v, Y_v, range(n_classes), reg='Complete')
 M_1 = computeM(c=n_classes, method='supervised')
 q_0 = X_t.shape[0] / float(X_t.shape[0] + X_v.shape[0])
 q_1 = X_v.shape[0] / float(X_t.shape[0] + X_v.shape[0])
 M_EM = np.concatenate((q_0*M_0, q_1*M_1), axis=0)
+# 1.b. True mixing matrix
+M = np.concatenate((q_0*M, q_1*M_1), axis=0)
 #  2. Compute the index of each sample relating it to the corresponding
 #     row of the new mixing matrix
 #      - Needs to compute the individual M and their weight q
@@ -123,7 +132,7 @@ print("Y_v\n{}".format(np.round(Y_v[:5])))
 #==============================================================#
 params = {'input_dim': n_features,
           'output_size': n_classes,
-          'optimizer': 'sgd',
+          'optimizer': 'adam',
           'loss': 'log_loss', #'mean_squared_error', #'log_loss'
 #          'init': 'glorot_uniform',
 #          'lr': 0.1,
@@ -134,12 +143,17 @@ params = {'input_dim': n_features,
 #          'rho': 0.1,
 #          'epsilon': 0.1,
 #          'nesterov': False,
-          'epochs': 100,
+          'epochs': 200,
 #          'batch_size': 25,
           'verbose': 0,
           'random_state': random_state,
           'training_method': 'EM',
           'architecture': 'lr',
+          'callbacks': EarlyStopping(monitor='val_loss', min_delta=0,
+                                     patience=2, verbose=0, mode='auto',
+                                     baseline=None,
+                                     restore_best_weights=False)
+
 #          'path_model': None
           }
 fit_arguments = {key: value for key, value in params.items()
@@ -154,6 +168,7 @@ make_arguments['model_num'] = process_id
 #    the corresponding rows of the mixing matrix
 list_weak_proportions = np.array([0, 0.01, 0.02, 0.03, 0.1, 0.3, 0.5, 0.7, 1.0])
 acc_EM = np.zeros_like(list_weak_proportions)
+acc_EM_proper = np.zeros_like(list_weak_proportions)
 for i, weak_proportion in enumerate(list_weak_proportions):
     last_index = int(weak_proportion*Z_t_index.shape[0])
     print('Number of weak samples = {}'.format(last_index))
@@ -164,28 +179,31 @@ for i, weak_proportion in enumerate(list_weak_proportions):
     X_tv = np.concatenate((X_t[:last_index], X_v), axis=0)
     X_tv, Z_index_tv = shuffle(X_tv, Z_index_t)
 
-    classifier = MyKerasClassifier(build_fn=create_model,
-                                   **make_arguments)
+    for m, acc_list in ((M, acc_EM_proper), (M_EM, acc_EM)):
+        classifier = MyKerasClassifier(build_fn=create_model,
+                                       **make_arguments)
 
-    # This fails with random noise (in that case the matrix M is not DxC but CxC)
-    history = classifier.fit(X_tv, Z_index_tv, M=M_EM, X_y_t=X_v, Y_y_t=Y_v,
-                             **fit_arguments)
-    # 5. Evaluate the model in the validation set with true labels
-    y_pred = classifier.predict(X_te)
-    # Compute the confusion matrix
-    cm = confusion_matrix(np.argmax(Y_te, axis=1), y_pred)
-    results = {'pid': process_id, 'cm': cm, 'history': history.history}
-    print('cm:\n{}'.format(cm))
-    acc_EM[i] = cm.diagonal().sum()/cm.sum()
-    print('Accuracy = {}'.format(acc_EM[i]))
+        # This fails with random noise (in that case the matrix M is not DxC but CxC)
+        history = classifier.fit(X_tv, Z_index_tv, M=m, X_y_t=X_v, Y_y_t=Y_v,
+                                 **fit_arguments)
+        # 5. Evaluate the model in the validation set with true labels
+        y_pred = classifier.predict(X_te)
+        # Compute the confusion matrix
+        cm = confusion_matrix(np.argmax(Y_te, axis=1), y_pred)
+        results = {'pid': process_id, 'cm': cm, 'history': history.history}
+        print('cm:\n{}'.format(cm))
+        acc_list[i] = cm.diagonal().sum()/cm.sum()
+        print('Accuracy = {}'.format(acc_list[i]))
 
 print('Acc. Upperbound = {}'.format(acc_upperbound))
+print('Acc. EM\n{}'.format(acc_EM_proper))
 print('Acc. EM\n{}'.format(acc_EM))
 print('Acc. Lowerbound = {}'.format(acc_lowerbound))
 
 fig = plt.figure()
 ax = fig.add_subplot(111)
 ax.set_title('Accuracy on test set with {} true labels'.format(X_te.shape[0]))
+ax.plot(list_weak_proportions*Z_t_index.shape[0], acc_EM_proper, 'co-', label='EM Mproper weak + {} true labels'.format(Z_v.shape[0]))
 ax.plot(list_weak_proportions*Z_t_index.shape[0], acc_EM, 'bo-', label='EM weak + {} true labels'.format(Z_v.shape[0]))
 ax.axhline(y=acc_upperbound, color='red', lw=2, linestyle='-', label='{} true labels'.format(X.shape[0]))
 ax.axhline(y=acc_lowerbound, color='orange', lw=2, linestyle='-', label='{} true labels'.format(Z_v.shape[0]))
