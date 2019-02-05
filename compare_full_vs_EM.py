@@ -2,7 +2,17 @@
 # coding: utf-8
 
 # In[1]:
+
+
+def is_interactive():
+    import __main__ as main
+    return not hasattr(main, '__file__')
+
 import sys
+
+if is_interactive():
+    get_ipython().magic(u'matplotlib inline')
+    sys.path.append('../')
 
 import numpy
 from sklearn.datasets import make_classification, make_blobs, load_digits
@@ -21,13 +31,22 @@ from matplotlib import cm
 
 from experiments.visualizations import plot_heatmap
 
-plt.rcParams['figure.figsize'] = (5, 5)
+plt.rcParams['figure.figsize'] = (5, 4)
 plt.rcParams["figure.dpi"] = 100
 
 random_state = 0
 numpy.random.seed(random_state)
 
 cmap = cm.get_cmap('Accent')
+
+from cycler import cycler
+default_cycler = (cycler(color=['darkred', 'forestgreen', 'darkblue', 'violet', 'darkorange', 'saddlebrown']) +
+                  cycler(linestyle=['-', '--', '-.', '-', '--', '-.']) + 
+                  cycler(marker=['o', 'v', 'x', '+', '-', '.']) +
+                  cycler(lw=[2, 1.8, 1.6, 1.4, 1.2, 1]))
+
+plt.rc('lines', linewidth=1)
+plt.rc('axes', prop_cycle=default_cycler)
 
 
 # # 1.a. Create synthetic clean dataset
@@ -73,9 +92,14 @@ else:
 # In[3]:
 
 
-M_method = sys.argv[1] # IPL, quasi_IPL, random_weak, random_noise, noisy, supervised
-M_alpha = float(sys.argv[2]) # Alpha = 1.0 No unsupervised in IPL
-M_beta = float(sys.argv[3]) # Beta = 0.0 No noise
+M_method = 'random_weak' # IPL, quasi_IPL, random_weak, random_noise, noisy, supervised
+M_alpha = 1.0 # Alpha = 1.0 No unsupervised in IPL
+M_beta = 0.5 # Beta = 0.0 No noise
+
+if not is_interactive():
+    M_method = sys.argv[1]
+    M_alpha = float(sys.argv[2])
+    M_beta = float(sys.argv[3])
 
 if M_method != 'IPL':
     M_alpha = 1.0
@@ -87,7 +111,7 @@ print(numpy.round(M, decimals=3))
 
 # # 1.c. Create synthetic Weak labels given M
 
-# In[56]:
+# In[4]:
 
 
 training, validation, test, classes = make_weak_true_partition(M, X, y,
@@ -116,16 +140,9 @@ print('True labels: Validation partition size = {}'.format(len(y_v)))
 print('True labels: Test partition size = {}'.format(len(y_te)))
 
 
-X_tv = numpy.concatenate((X_t, X_v))
-Y_tv = numpy.concatenate((Y_t, Y_v))
-Z_tv = numpy.concatenate((Z_t, Z_v))
-
-X_tv, Y_tv, Z_tv = shuffle(X_tv, Y_tv, Z_tv)
-
-
 # # 1.d. Sample of weak and true labels
 
-# In[57]:
+# In[ ]:
 
 
 from experiments.visualizations import plot_multilabel_scatter
@@ -144,7 +161,7 @@ _ = plot_multilabel_scatter(X_v[:100], Z_v[:100], fig=fig,
 
 # # 2.a. Train Scikit learn baselines
 
-# In[58]:
+# In[ ]:
 
 
 max_epochs = 1000
@@ -166,7 +183,7 @@ print('Accuracy = {}'.format(acc_lowerbound))
 # 
 # ## 2.b.1. Upperbound with all true labels available
 
-# In[59]:
+# In[ ]:
 
 
 from keras.models import Sequential
@@ -196,6 +213,11 @@ early_stopping = EarlyStopping(monitor=early_stop_loss, min_delta=0, patience=pa
                                restore_best_weights=True)
 
 model = make_model('categorical_crossentropy')
+
+X_tv = numpy.concatenate((X_t, X_v))
+Y_tv = numpy.concatenate((Y_t, Y_v))
+numpy.random.seed(random_state)
+X_tv, Y_tv = shuffle(X_tv, Y_tv)
 
 history = model.fit(X_tv, Y_tv, 
                     validation_data=(X_v, Y_v),
@@ -239,7 +261,7 @@ print('Accuracy = {}'.format(acc_upperbound))
 
 # ## 2.b.2. Lowerbound with a small amount of true labels
 
-# In[53]:
+# In[ ]:
 
 
 numpy.random.seed(random_state)
@@ -259,7 +281,14 @@ print('Accuracy = {}'.format(acc_lowerbound))
 
 # ## 2.b.3. Training directly with different proportions of weak labels
 
-# In[47]:
+# In[ ]:
+
+
+list_weak_proportions = numpy.array([0.0, 0.01, 0.02, 0.03, 0.1, 0.3, 0.5, 0.7, 1.0])
+acc = {}
+
+
+# In[ ]:
 
 
 def log_loss(y_true, y_pred):
@@ -267,25 +296,28 @@ def log_loss(y_true, y_pred):
     out = -y_true*K.log(y_pred)
     return K.mean(out, axis=-1)
 
-list_weak_proportions = numpy.array([0.0, 0.01, 0.02, 0.03, 0.1, 0.3, 0.5, 0.7, 1.0])
-acc_weak = numpy.zeros_like(list_weak_proportions)
-acc_list = acc_weak
+method = 'Weak'
+acc[method] = numpy.zeros_like(list_weak_proportions)
 for i, weak_proportion in enumerate(list_weak_proportions):
     last_index = int(weak_proportion*X_t.shape[0])
-
+    
+    X_tv = numpy.concatenate((X_t[:last_index], X_v), axis=0)
+    Z_tv = numpy.concatenate((Z_t[:last_index], Z_v), axis=0)
+    numpy.random.seed(random_state)
+    X_tv, Z_tv = shuffle(X_tv, Z_tv)
+    
     numpy.random.seed(random_state)
     model = make_model(log_loss)
 
     # This fails with random noise (in that case the matrix M is not DxC but CxC)
-    history = model.fit(numpy.concatenate((X_t[:last_index], X_v)),
-                        numpy.concatenate((Z_t[:last_index], Z_v)),
+    history = model.fit(X_tv, Z_tv,
                         validation_data=(X_v, Y_v),
                         epochs=max_epochs, verbose=0, callbacks=[early_stopping],
                         batch_size=batch_size)
     # 5. Evaluate the model in the test set with true labels
     y_pred = model.predict(X_te).argmax(axis=1)
-    acc_list[i] = (y_pred == y_te).mean()
-    print('\rNumber of weak samples = {}, Accuracy = {:.3f}'.format(last_index, acc_list[i]), end="", flush=True)
+    acc[method][i] = (y_pred == y_te).mean()
+    print('\rNumber of weak samples = {}, Accuracy = {:.3f}'.format(last_index, acc[method][i]), end="", flush=True)
     
     plot_results(model, X_te, y_te, history)
 
@@ -294,7 +326,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 # 
 # ## 3.a. Learning mixing matrix M
 
-# In[48]:
+# In[ ]:
 
 
 categories = range(n_classes)
@@ -315,15 +347,15 @@ print("Z_t\n{}".format(numpy.round(Z_t[:5])))
 print("Y_v\n{}".format(numpy.round(Y_v[:5])))
 
 
-# In[49]:
-
-
-M.shape
-
-
 # ## 3.b. Train with true mixing matrix M
 
-# In[50]:
+# In[ ]:
+
+
+m = {}
+
+
+# In[ ]:
 
 
 def EM_log_loss(y_true, y_pred):
@@ -333,6 +365,8 @@ def EM_log_loss(y_true, y_pred):
     out = -K.stop_gradient(Z_em_train)*K.log(y_pred)
     return K.mean(out, axis=-1)
 
+method = 'EM Mproper'
+
 #  2. Compute the index of each sample relating it to the corresponding
 #     row of the new mixing matrix
 #      - Needs to compute the individual M and their weight q
@@ -341,36 +375,36 @@ Y_v_index = weak_to_index(Y_v, method='supervised')
 print("Z_t_index {}".format(Z_t_index[:5]))
 print('Y_v_index {}'.format(Y_v_index[:5]))
 
-acc_EM_proper = numpy.zeros_like(list_weak_proportions)
-m = M_T
-acc_list = acc_EM_proper
+acc[method] = numpy.zeros_like(list_weak_proportions)
+m[method] = M_T
 for i, weak_proportion in enumerate(list_weak_proportions):
     last_index = int(weak_proportion*Z_t_index.shape[0])
 
     Z_index_t = numpy.concatenate((Z_t_index[:last_index], Y_v_index + M.shape[0]))
 
     X_tv = numpy.concatenate((X_t[:last_index], X_v), axis=0)
+    numpy.random.seed(random_state)
     X_tv, Z_index_tv = shuffle(X_tv, Z_index_t)
 
     numpy.random.seed(random_state)
     model = make_model(EM_log_loss)
 
     # This fails with random noise (in that case the matrix M is not DxC but CxC)
-    history = model.fit(X_tv, m[Z_index_tv], 
+    history = model.fit(X_tv, m[method][Z_index_tv], 
                         validation_data=(X_v, Y_v),
                         epochs=max_epochs, verbose=0, callbacks=[early_stopping],
                         batch_size=batch_size)
     # 5. Evaluate the model in the test set with true labels
     y_pred = model.predict(X_te).argmax(axis=1)
-    acc_list[i] = (y_pred == y_te).mean()
-    print('\rNumber of weak samples = {}, Accuracy = {:.3f}'.format(last_index, acc_list[i]), end="", flush=True)
+    acc[method][i] = (y_pred == y_te).mean()
+    print('\rNumber of weak samples = {}, Accuracy = {:.3f}'.format(last_index, acc[method][i]), end="", flush=True)
     
     plot_results(model, X_te, y_te, history)
 
 
 # ## 3.c. Train with estimated mixing matrix M_ME
 
-# In[51]:
+# In[ ]:
 
 
 Z_t_index = weak_to_index(Z_t, method='random_weak')
@@ -378,54 +412,103 @@ Y_v_index = weak_to_index(Y_v, method='supervised')
 print("Z_t_index {}".format(Z_t_index[:5]))
 print('Y_v_index {}'.format(Y_v_index[:5]))
 
-acc_EM = numpy.zeros_like(list_weak_proportions)
-m = M_EM
-acc_list = acc_EM
+method = 'EM M estimated'
+acc[method] = numpy.zeros_like(list_weak_proportions)
+m[method] = M_EM
 for i, weak_proportion in enumerate(list_weak_proportions):
     last_index = int(weak_proportion*Z_t_index.shape[0])
 
     Z_index_t = numpy.concatenate((Z_t_index[:last_index], Y_v_index + M_0.shape[0]))
 
     X_tv = numpy.concatenate((X_t[:last_index], X_v), axis=0)
+    numpy.random.seed(random_state)
     X_tv, Z_index_tv = shuffle(X_tv, Z_index_t)
 
     numpy.random.seed(random_state)
     model = make_model(EM_log_loss)
 
     # This fails with random noise (in that case the matrix M is not DxC but CxC)
-    history = model.fit(X_tv, m[Z_index_tv], 
+    history = model.fit(X_tv, m[method][Z_index_tv], 
                         validation_data=(X_v, Y_v),
                         epochs=max_epochs, verbose=0, callbacks=[early_stopping],
                         batch_size=batch_size)
     # 5. Evaluate the model in the test set with true labels
     y_pred = model.predict(X_te).argmax(axis=1)
-    acc_list[i] = (y_pred == y_te).mean()
-    print('\rNumber of weak samples = {}, Accuracy = {:.3f}'.format(last_index, acc_list[i]), end="", flush=True)
+    acc[method][i] = (y_pred == y_te).mean()
+    print('\rNumber of weak samples = {}, Accuracy = {:.3f}'.format(last_index, acc[method][i]), end="", flush=True)
     
     plot_results(model, X_te, y_te, history)
 
 
-# # 4. Plot results
+# ## 4. Baseline Optimistic Superset Learning
+# 
+# 
 
-# In[60]:
+# In[ ]:
+
+
+def OSL_log_loss(y_true, y_pred):
+    y_pred = K.clip(y_pred, _EPSILON, 1.0-_EPSILON)
+    O = y_true * y_pred
+    S = K.cast(K.equal(O,
+                       O.max(axis=-1).repeat(O.shape[-1]
+                                            ).reshape((-1, O.shape[-1]))),
+               'float32')
+    out = -K.stop_gradient(S) * K.log(y_pred)
+    return K.mean(out, axis=-1)
+
+method = 'OSL'
+
+acc[method] = numpy.zeros_like(list_weak_proportions)
+for i, weak_proportion in enumerate(list_weak_proportions):
+    last_index = int(weak_proportion*X_t.shape[0])
+
+    X_tv = numpy.concatenate((X_t[:last_index], X_v), axis=0)
+    Z_tv = numpy.concatenate((Z_t[:last_index], Z_v), axis=0)
+    numpy.random.seed(random_state)
+    X_tv, Z_tv = shuffle(X_tv, Z_tv)
+
+    numpy.random.seed(random_state)
+    model = make_model(OSL_log_loss)
+
+    # This fails with random noise (in that case the matrix M is not DxC but CxC)
+    history = model.fit(X_tv, Z_tv, 
+                        validation_data=(X_v, Y_v),
+                        epochs=max_epochs, verbose=0, callbacks=[early_stopping],
+                        batch_size=batch_size)
+    # 5. Evaluate the model in the test set with true labels
+    y_pred = model.predict(X_te).argmax(axis=1)
+    acc[method][i] = (y_pred == y_te).mean()
+    print('\rNumber of weak samples = {}, Accuracy = {:.3f}'.format(last_index, acc[method][i]), end="", flush=True)
+    
+    plot_results(model, X_te, y_te, history)
+
+
+# # 5. Plot results
+
+# In[ ]:
 
 
 print('Acc. Upperbound = {}'.format(acc_upperbound))
-print('Acc. EM\n{}'.format(acc_EM_proper))
-print('Acc. EM\n{}'.format(acc_EM))
+for key, value in acc.items():
+    print('Acc. {}\n{}'.format(key, value))
 print('Acc. Lowerbound = {}'.format(acc_lowerbound))
 
 fig = plt.figure()
 ax = fig.add_subplot(111)
 ax.set_title(r'Acc. on {} true labels. {} $\alpha={:0.1f}$, $\beta={:0.1f}$'.format(X_te.shape[0], M_method, M_alpha, M_beta))
-ax.plot(list_weak_proportions*Z_t_index.shape[0], acc_EM_proper, 'o-', color='cyan', label='EM Mproper weak + {} true labels'.format(Z_v.shape[0]))
-ax.plot(list_weak_proportions*Z_t_index.shape[0], acc_EM, 'v-', color='blue', label='EM weak + {} true labels'.format(Z_v.shape[0]))
-ax.plot(list_weak_proportions*Z_t_index.shape[0], acc_weak, 'x-', color='magenta', label='Weak + {} true labels'.format(Z_v.shape[0]))
-ax.axhline(y=acc_upperbound, color='red', lw=2,linestyle='--', label='{} true labels'.format(X.shape[0]))
-ax.axhline(y=acc_lowerbound, color='orange', lw=2, linestyle='-.', label='{} true labels'.format(Z_v.shape[0]))
+for key, value in acc.items():
+    ax.plot(list_weak_proportions*Z_t_index.shape[0], value, label='{} (True = {})'.format(key, Y_v.shape[0]))
+#ax.plot(list_weak_proportions*Z_t_index.shape[0], acc_EM, 'v-', color='blue', label='EM weak + {} true labels'.format(Z_v.shape[0]))
+#ax.plot(list_weak_proportions*Z_t_index.shape[0], acc_weak, 'x-', color='magenta', label='Weak + {} true labels'.format(Z_v.shape[0]))
+#ax.plot(list_weak_proportions*Z_t_index.shape[0], acc_OSL, '+-', color='green', label='OSL Weak + {} true labels'.format(Z_v.shape[0]))
+ax.axhline(y=acc_upperbound, color='red', lw=2,linestyle='--', label='Supervised (True = {})'.format(X.shape[0]))
+ax.axhline(y=acc_lowerbound, color='orange', lw=2, linestyle='-.', label='Supervised (True = {})'.format(Z_v.shape[0]))
 ax.set_xlabel('Number of weak samples')
 ax.set_ylabel('Accuracy')
 ax.set_xscale("symlog")
 ax.legend(loc=0, fancybox=True, framealpha=0.8)
 ax.grid()
+fig.tight_layout()
 fig.savefig('full_vs_em_{}_{}_a{:02.0f}_b{:02.0f}.svg'.format(dataset_name, M_method, M_alpha*10, M_beta*10))
+
