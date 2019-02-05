@@ -142,7 +142,7 @@ print('True labels: Test partition size = {}'.format(len(y_te)))
 
 # # 1.d. Sample of weak and true labels
 
-# In[ ]:
+# In[5]:
 
 
 from experiments.visualizations import plot_multilabel_scatter
@@ -161,7 +161,7 @@ _ = plot_multilabel_scatter(X_v[:100], Z_v[:100], fig=fig,
 
 # # 2.a. Train Scikit learn baselines
 
-# In[ ]:
+# In[6]:
 
 
 max_epochs = 1000
@@ -183,7 +183,7 @@ print('Accuracy = {}'.format(acc_lowerbound))
 # 
 # ## 2.b.1. Upperbound with all true labels available
 
-# In[ ]:
+# In[7]:
 
 
 from keras.models import Sequential
@@ -212,6 +212,7 @@ early_stopping = EarlyStopping(monitor=early_stop_loss, min_delta=0, patience=pa
                                verbose=0, mode='auto', baseline=None,
                                restore_best_weights=True)
 
+numpy.random.seed(random_state)
 model = make_model('categorical_crossentropy')
 
 X_tv = numpy.concatenate((X_t, X_v))
@@ -261,7 +262,7 @@ print('Accuracy = {}'.format(acc_upperbound))
 
 # ## 2.b.2. Lowerbound with a small amount of true labels
 
-# In[ ]:
+# In[8]:
 
 
 numpy.random.seed(random_state)
@@ -281,14 +282,14 @@ print('Accuracy = {}'.format(acc_lowerbound))
 
 # ## 2.b.3. Training directly with different proportions of weak labels
 
-# In[ ]:
+# In[9]:
 
 
 list_weak_proportions = numpy.array([0.0, 0.01, 0.02, 0.03, 0.1, 0.3, 0.5, 0.7, 1.0])
 acc = {}
 
 
-# In[ ]:
+# In[10]:
 
 
 def log_loss(y_true, y_pred):
@@ -326,7 +327,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 # 
 # ## 3.a. Learning mixing matrix M
 
-# In[ ]:
+# In[11]:
 
 
 categories = range(n_classes)
@@ -349,13 +350,13 @@ print("Y_v\n{}".format(numpy.round(Y_v[:5])))
 
 # ## 3.b. Train with true mixing matrix M
 
-# In[ ]:
+# In[12]:
 
 
 m = {}
 
 
-# In[ ]:
+# In[13]:
 
 
 def EM_log_loss(y_true, y_pred):
@@ -404,7 +405,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 
 # ## 3.c. Train with estimated mixing matrix M_ME
 
-# In[ ]:
+# In[14]:
 
 
 Z_t_index = weak_to_index(Z_t, method='random_weak')
@@ -444,7 +445,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 # 
 # 
 
-# In[ ]:
+# In[15]:
 
 
 def OSL_log_loss(y_true, y_pred):
@@ -486,7 +487,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 
 # # 5. Plot results
 
-# In[ ]:
+# In[16]:
 
 
 print('Acc. Upperbound = {}'.format(acc_upperbound))
