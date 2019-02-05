@@ -575,7 +575,7 @@ def weak_to_index(z, method='supervised'):
     array([ 0,  4, 11])
     """
     c = z.shape[1]
-    if method in ['supervised']:
+    if method in ['supervised', 'noisy', 'random_noise']:
         # FIXME which of both is correct?
         index = np.argmax(z, axis=1)
         #index = c - np.argmax(z, axis=1) - 1
