@@ -1,4 +1,10 @@
-import numpy as np
+
+# coding: utf-8
+
+# In[1]:
+import sys
+
+import numpy
 from sklearn.datasets import make_classification, make_blobs, load_digits
 from experiments.data import make_weak_true_partition
 from wlc.WLweakener import computeM, weak_to_index, estimate_M
@@ -11,19 +17,30 @@ import inspect
 from keras.callbacks import EarlyStopping
 
 import matplotlib.pyplot as plt
+from matplotlib import cm
 
-plt.rcParams['figure.figsize'] = (4, 3)
+from experiments.visualizations import plot_heatmap
+
+plt.rcParams['figure.figsize'] = (5, 5)
+plt.rcParams["figure.dpi"] = 100
+
+random_state = 0
+numpy.random.seed(random_state)
+
+cmap = cm.get_cmap('Accent')
+
+
+# # 1.a. Create synthetic clean dataset
+
+# In[2]:
+
 
 n_classes = 12
 n_features = 100
 n_samples = 10000
-true_size = 0.02
-random_state = 0
-np.random.seed(random_state)
 
-#==============================================================#
-# Create synthetic clean dataset
-#==============================================================#
+dataset_name = 'digits'
+
 # n_redundant = 0
 # n_clusters_per_class = 1
 # n_informative = n_features
@@ -34,29 +51,45 @@ np.random.seed(random_state)
 #                           n_clusters_per_class=n_clusters_per_class)
 
 ## Blobs
-centers = np.random.rand(n_classes, n_features)*2.0
-cluster_std = np.abs(np.random.randn(n_classes)*2.0)
-X, y = make_blobs(n_samples=n_samples, n_features=n_features, centers=centers,
-                  cluster_std=cluster_std, random_state=random_state)
+#true_size = 0.02
+#centers = np.random.rand(n_classes, n_features)*2.0
+#cluster_std = np.abs(np.random.randn(n_classes)*2.0)
+#X, y = make_blobs(n_samples=n_samples, n_features=n_features, centers=centers,
+#                  cluster_std=cluster_std, random_state=random_state)
 
 ## Digits
-#X, y = load_digits(return_X_y=True)
-#n_classes = 10
-#n_samples = X.shape[0]
-#n_features = X.shape[1]
+if dataset_name == 'digits':
+    true_size = 0.08
+    X, y = load_digits(return_X_y=True)
+    n_classes = 10
+    n_samples = X.shape[0]
+    n_features = X.shape[1]
+else:
+    raise KeyError('Dataset {} not available'.format(dataset_name))
 
-#==============================================================#
-# Create synthetic Mixing process
-#==============================================================#
-method='random_weak'
-alpha = 0.2
-beta = 0.3
-M = computeM(n_classes, method=method, alpha=alpha, beta=beta,
+
+# # 1.b. Create synthetic Mixing process
+
+# In[3]:
+
+
+M_method = sys.argv[1] # IPL, quasi_IPL, random_weak, random_noise, noisy, supervised
+M_alpha = float(sys.argv[2]) # Alpha = 1.0 No unsupervised in IPL
+M_beta = float(sys.argv[3]) # Beta = 0.0 No noise
+
+if M_method != 'IPL':
+    M_alpha = 1.0
+M = computeM(n_classes, method=M_method, alpha=M_alpha, beta=M_beta,
              seed=random_state)
 
-#==============================================================#
-# Create synthetic Weak labels given M
-#==============================================================#
+print(numpy.round(M, decimals=3))
+
+
+# # 1.c. Create synthetic Weak labels given M
+
+# In[56]:
+
+
 training, validation, test, classes = make_weak_true_partition(M, X, y,
                                                                true_size=true_size,
                                                                random_state=random_state)
@@ -82,118 +115,300 @@ Y_v, y_v = Y_v[val_indx], y_v[val_indx]
 print('True labels: Validation partition size = {}'.format(len(y_v)))
 print('True labels: Test partition size = {}'.format(len(y_te)))
 
-#==============================================================#
-# Train Scikit learn baselines
-#==============================================================#
-LR = LogisticRegression()
-LR.fit(np.concatenate((X_t, X_v)), np.concatenate((y_t, y_v)))
+
+X_tv = numpy.concatenate((X_t, X_v))
+Y_tv = numpy.concatenate((Y_t, Y_v))
+Z_tv = numpy.concatenate((Z_t, Z_v))
+
+X_tv, Y_tv, Z_tv = shuffle(X_tv, Y_tv, Z_tv)
+
+
+# # 1.d. Sample of weak and true labels
+
+# In[57]:
+
+
+from experiments.visualizations import plot_multilabel_scatter
+
+fig = plt.figure(figsize=(15, 4))
+ax = fig.add_subplot(1, 3, 1)
+_ = plot_multilabel_scatter(X_t[:100, ], Z_t[:100], fig=fig,
+                            ax=ax, title='Weak set', cmap=cmap)
+ax = fig.add_subplot(1, 3, 2)
+_ = plot_multilabel_scatter(X_v[:100], Y_v[:100], fig=fig,
+                            ax=ax, title='Weak/True set True labels', cmap=cmap)
+ax = fig.add_subplot(1, 3, 3)
+_ = plot_multilabel_scatter(X_v[:100], Z_v[:100], fig=fig,
+                            ax=ax, title='Weak/True set Weak labels', cmap=cmap)
+
+
+# # 2.a. Train Scikit learn baselines
+
+# In[58]:
+
+
+max_epochs = 1000
+
+LR = LogisticRegression(solver='lbfgs', multi_class='multinomial', max_iter=max_epochs)
+LR.fit(numpy.concatenate((X_t, X_v)), numpy.concatenate((y_t, y_v)))
 print('A Logistic Regression trained with all the real labels ({} samples)'.format(y.shape[0]))
 acc_upperbound = LR.score(X_te, y_te)
 print('Accuracy = {}'.format(acc_upperbound))
 
-LR = LogisticRegression()
+LR = LogisticRegression(solver='lbfgs', multi_class='multinomial', max_iter=max_epochs)
 LR.fit(X_v, y_v)
 print('A Logistic Regression trained with only validation true labels ({} samples)'.format(y_v.shape[0]))
 acc_lowerbound = LR.score(X_te, y_te)
 print('Accuracy = {}'.format(acc_lowerbound))
 
-#==============================================================#
-# Train EM
-#==============================================================#
-process_id = 0
-classifier = 'lr'
+
+# # 2.b. Train Keras baselines
+# 
+# ## 2.b.1. Upperbound with all true labels available
+
+# In[59]:
+
+
+from keras.models import Sequential
+from keras.layers import Dense
+from keras import backend as K
+
+_EPSILON = K.epsilon()
+
+def make_model(loss):
+    model = Sequential() 
+    model.add(Dense(n_classes, input_dim=n_features, activation='softmax',
+                bias_initializer='zeros',
+                kernel_initializer='random_uniform')) 
+    model.compile(optimizer='adam', loss=loss,
+                  metrics=['accuracy', 'mean_squared_error',
+                           'categorical_crossentropy'])
+    return model
+
+from keras.callbacks import EarlyStopping
+
+batch_size = 256
+patience = 100
+early_stop_loss = 'val_mean_squared_error'
+
+early_stopping = EarlyStopping(monitor=early_stop_loss, min_delta=0, patience=patience, 
+                               verbose=0, mode='auto', baseline=None,
+                               restore_best_weights=True)
+
+model = make_model('categorical_crossentropy')
+
+history = model.fit(X_tv, Y_tv, 
+                    validation_data=(X_v, Y_v),
+                    epochs=max_epochs, verbose=0, callbacks=[early_stopping],
+                    batch_size=batch_size)
+
+def plot_results(model, X_test, y_test, history):
+    clf_proba_wt_test = model.predict_proba(X_test)
+    clf_pred_wt_test = numpy.argmax(clf_proba_wt_test, axis=1)
+    cm = confusion_matrix(y_test, clf_pred_wt_test)
+
+    from experiments.visualizations import plot_confusion_matrix
+    fig = plt.figure(figsize=(16, 3))
+    n_fig = 5
+    ax = fig.add_subplot(1, n_fig, 1)
+    _ = ax.plot(history.history['loss'], label='Training loss')
+    _ = ax.plot(history.history['val_loss'], label='Validation loss')
+    ax.legend()
+    ax = fig.add_subplot(1, n_fig, 2)
+    _ = ax.plot(history.history['categorical_crossentropy'], label='Training CE')
+    _ = ax.plot(history.history['val_categorical_crossentropy'], label='Validation CE')
+    ax.legend()
+    ax = fig.add_subplot(1, n_fig, 3)
+    _ = ax.plot(history.history['mean_squared_error'], label='Training MSE')
+    _ = ax.plot(history.history['val_mean_squared_error'], label='Validation MSE')
+    ax.legend()
+    ax = fig.add_subplot(1, n_fig, 4)
+    _ = ax.plot(history.history['acc'], label='Training acc')
+    _ = ax.plot(history.history['val_acc'], label='Validation acc')
+    ax.legend()
+    ax = fig.add_subplot(1, n_fig, 5)
+    acc = (y_test == clf_pred_wt_test).mean()
+    _ = plot_confusion_matrix(cm, ax=ax, title='acc. {:.3}'.format(acc))
+    
+plot_results(model, X_te, y_te, history)
+
+print('A Keras Logistic Regression trained with only validation true labels ({} samples)'.format(X_t.shape[0] + X_v.shape[0]))
+acc_upperbound = (model.predict_proba(X_te).argmax(axis=1) == y_te).mean()
+print('Accuracy = {}'.format(acc_upperbound))
+
+
+# ## 2.b.2. Lowerbound with a small amount of true labels
+
+# In[53]:
+
+
+numpy.random.seed(random_state)
+model = make_model('categorical_crossentropy')
+
+history = model.fit(X_v, Y_v, 
+                    validation_data=(X_v, Y_v),
+                    epochs=max_epochs, verbose=0, callbacks=[early_stopping],
+                    batch_size=batch_size)
+
+plot_results(model, X_te, y_te, history)
+
+print('A Keras Logistic Regression trained with only validation true labels ({} samples)'.format(X_v.shape[0]))
+acc_lowerbound = (model.predict_proba(X_te).argmax(axis=1) == y_te).mean()
+print('Accuracy = {}'.format(acc_lowerbound))
+
+
+# ## 2.b.3. Training directly with different proportions of weak labels
+
+# In[47]:
+
+
+def log_loss(y_true, y_pred):
+    y_pred = K.clip(y_pred, _EPSILON, 1.0-_EPSILON)
+    out = -y_true*K.log(y_pred)
+    return K.mean(out, axis=-1)
+
+list_weak_proportions = numpy.array([0.0, 0.01, 0.02, 0.03, 0.1, 0.3, 0.5, 0.7, 1.0])
+acc_weak = numpy.zeros_like(list_weak_proportions)
+acc_list = acc_weak
+for i, weak_proportion in enumerate(list_weak_proportions):
+    last_index = int(weak_proportion*X_t.shape[0])
+
+    numpy.random.seed(random_state)
+    model = make_model(log_loss)
+
+    # This fails with random noise (in that case the matrix M is not DxC but CxC)
+    history = model.fit(numpy.concatenate((X_t[:last_index], X_v)),
+                        numpy.concatenate((Z_t[:last_index], Z_v)),
+                        validation_data=(X_v, Y_v),
+                        epochs=max_epochs, verbose=0, callbacks=[early_stopping],
+                        batch_size=batch_size)
+    # 5. Evaluate the model in the test set with true labels
+    y_pred = model.predict(X_te).argmax(axis=1)
+    acc_list[i] = (y_pred == y_te).mean()
+    print('\rNumber of weak samples = {}, Accuracy = {:.3f}'.format(last_index, acc_list[i]), end="", flush=True)
+    
+    plot_results(model, X_te, y_te, history)
+
+
+# # 3. Train EM
+# 
+# ## 3.a. Learning mixing matrix M
+
+# In[48]:
+
 
 categories = range(n_classes)
 # 1.a. Learn a mixing matrix using training with weak and true labels
-M_0 = estimate_M(Z_v, Y_v, range(n_classes), reg='Complete')
+M_0 = estimate_M(Z_v, Y_v, range(n_classes), reg='Partial', Z_reg=Z_t)
 M_1 = computeM(c=n_classes, method='supervised')
 q_0 = X_t.shape[0] / float(X_t.shape[0] + X_v.shape[0])
 q_1 = X_v.shape[0] / float(X_t.shape[0] + X_v.shape[0])
-M_EM = np.concatenate((q_0*M_0, q_1*M_1), axis=0)
+M_EM = numpy.concatenate((q_0*M_0, q_1*M_1), axis=0)
 # 1.b. True mixing matrix
-M = np.concatenate((q_0*M, q_1*M_1), axis=0)
+M_T = numpy.concatenate((q_0*M, q_1*M_1), axis=0)
+
+print('q0 = {}, q1 = {}'.format(q_0, q_1))
+print("M_0\n{}".format(numpy.round(M_0, decimals=3)))
+print("M_1\n{}".format(numpy.round(M_1, decimals=3)))
+print("M_EM\n{}".format(numpy.round(M_EM, decimals=3)))
+print("Z_t\n{}".format(numpy.round(Z_t[:5])))
+print("Y_v\n{}".format(numpy.round(Y_v[:5])))
+
+
+# In[49]:
+
+
+M.shape
+
+
+# ## 3.b. Train with true mixing matrix M
+
+# In[50]:
+
+
+def EM_log_loss(y_true, y_pred):
+    y_pred = K.clip(y_pred, _EPSILON, 1.0-_EPSILON)
+    Q = y_true * y_pred
+    Z_em_train = Q / Q.sum(axis=-1, keepdims=True)
+    out = -K.stop_gradient(Z_em_train)*K.log(y_pred)
+    return K.mean(out, axis=-1)
+
 #  2. Compute the index of each sample relating it to the corresponding
 #     row of the new mixing matrix
 #      - Needs to compute the individual M and their weight q
-Z_t_index = weak_to_index(Z_t, method='Mproper')
+Z_t_index = weak_to_index(Z_t, method=M_method)
 Y_v_index = weak_to_index(Y_v, method='supervised')
-
-print('q0 = {}, q1 = {}'.format(q_0, q_1))
-print("M_0\n{}".format(np.round(M_0, decimals=3)))
-print("M_1\n{}".format(np.round(M_1, decimals=3)))
-print("M_EM\n{}".format(np.round(M_EM, decimals=3)))
-print("Z_t\n{}".format(np.round(Z_t[:5])))
 print("Z_t_index {}".format(Z_t_index[:5]))
 print('Y_v_index {}'.format(Y_v_index[:5]))
-print("Y_v\n{}".format(np.round(Y_v[:5])))
 
-#==============================================================#
-# set Neural Network parameters
-#==============================================================#
-params = {'input_dim': n_features,
-          'output_size': n_classes,
-          'optimizer': 'adam',
-          'loss': 'log_loss', #'mean_squared_error', #'log_loss'
-#          'init': 'glorot_uniform',
-#          'lr': 0.1,
-#          'l1': 0.1,
-#          'l2': 0.1,
-#          'momentum': True,
-#          'decay': 0.1,
-#          'rho': 0.1,
-#          'epsilon': 0.1,
-#          'nesterov': False,
-          'epochs': 200,
-#          'batch_size': 25,
-          'verbose': 0,
-          'random_state': random_state,
-          'training_method': 'EM',
-          'architecture': 'lr',
-          'callbacks': EarlyStopping(monitor='val_loss', min_delta=0,
-                                     patience=2, verbose=0, mode='auto',
-                                     baseline=None,
-                                     restore_best_weights=False)
-
-#          'path_model': None
-          }
-fit_arguments = {key: value for key, value in params.items()
-                 if key in inspect.getargspec(create_model().fit)[0]}
-make_arguments = {key: value for key, value in params.items()
-                  if key in inspect.getargspec(create_model)[0]}
-make_arguments['model_num'] = process_id
-
-# 3. Give the mixing matrix to the model for future use
-#    I need to give the matrix M to the fit function
-# 4. Train model using all the sets with instead of labels the index of
-#    the corresponding rows of the mixing matrix
-list_weak_proportions = np.array([0, 0.01, 0.02, 0.03, 0.1, 0.3, 0.5, 0.7, 1.0])
-acc_EM = np.zeros_like(list_weak_proportions)
-acc_EM_proper = np.zeros_like(list_weak_proportions)
+acc_EM_proper = numpy.zeros_like(list_weak_proportions)
+m = M_T
+acc_list = acc_EM_proper
 for i, weak_proportion in enumerate(list_weak_proportions):
     last_index = int(weak_proportion*Z_t_index.shape[0])
-    print('Number of weak samples = {}'.format(last_index))
 
-    Z_index_t = np.concatenate((Z_t_index[:last_index], Y_v_index + M_0.shape[0]))
-    np.random.seed(process_id)
+    Z_index_t = numpy.concatenate((Z_t_index[:last_index], Y_v_index + M.shape[0]))
 
-    X_tv = np.concatenate((X_t[:last_index], X_v), axis=0)
+    X_tv = numpy.concatenate((X_t[:last_index], X_v), axis=0)
     X_tv, Z_index_tv = shuffle(X_tv, Z_index_t)
 
-    for m, acc_list in ((M, acc_EM_proper), (M_EM, acc_EM)):
-        classifier = MyKerasClassifier(build_fn=create_model,
-                                       **make_arguments)
+    numpy.random.seed(random_state)
+    model = make_model(EM_log_loss)
 
-        # This fails with random noise (in that case the matrix M is not DxC but CxC)
-        history = classifier.fit(X_tv, Z_index_tv, M=m, X_y_t=X_v, Y_y_t=Y_v,
-                                 **fit_arguments)
-        # 5. Evaluate the model in the validation set with true labels
-        y_pred = classifier.predict(X_te)
-        # Compute the confusion matrix
-        cm = confusion_matrix(np.argmax(Y_te, axis=1), y_pred)
-        results = {'pid': process_id, 'cm': cm, 'history': history.history}
-        print('cm:\n{}'.format(cm))
-        acc_list[i] = cm.diagonal().sum()/cm.sum()
-        print('Accuracy = {}'.format(acc_list[i]))
+    # This fails with random noise (in that case the matrix M is not DxC but CxC)
+    history = model.fit(X_tv, m[Z_index_tv], 
+                        validation_data=(X_v, Y_v),
+                        epochs=max_epochs, verbose=0, callbacks=[early_stopping],
+                        batch_size=batch_size)
+    # 5. Evaluate the model in the test set with true labels
+    y_pred = model.predict(X_te).argmax(axis=1)
+    acc_list[i] = (y_pred == y_te).mean()
+    print('\rNumber of weak samples = {}, Accuracy = {:.3f}'.format(last_index, acc_list[i]), end="", flush=True)
+    
+    plot_results(model, X_te, y_te, history)
+
+
+# ## 3.c. Train with estimated mixing matrix M_ME
+
+# In[51]:
+
+
+Z_t_index = weak_to_index(Z_t, method='random_weak')
+Y_v_index = weak_to_index(Y_v, method='supervised')
+print("Z_t_index {}".format(Z_t_index[:5]))
+print('Y_v_index {}'.format(Y_v_index[:5]))
+
+acc_EM = numpy.zeros_like(list_weak_proportions)
+m = M_EM
+acc_list = acc_EM
+for i, weak_proportion in enumerate(list_weak_proportions):
+    last_index = int(weak_proportion*Z_t_index.shape[0])
+
+    Z_index_t = numpy.concatenate((Z_t_index[:last_index], Y_v_index + M_0.shape[0]))
+
+    X_tv = numpy.concatenate((X_t[:last_index], X_v), axis=0)
+    X_tv, Z_index_tv = shuffle(X_tv, Z_index_t)
+
+    numpy.random.seed(random_state)
+    model = make_model(EM_log_loss)
+
+    # This fails with random noise (in that case the matrix M is not DxC but CxC)
+    history = model.fit(X_tv, m[Z_index_tv], 
+                        validation_data=(X_v, Y_v),
+                        epochs=max_epochs, verbose=0, callbacks=[early_stopping],
+                        batch_size=batch_size)
+    # 5. Evaluate the model in the test set with true labels
+    y_pred = model.predict(X_te).argmax(axis=1)
+    acc_list[i] = (y_pred == y_te).mean()
+    print('\rNumber of weak samples = {}, Accuracy = {:.3f}'.format(last_index, acc_list[i]), end="", flush=True)
+    
+    plot_results(model, X_te, y_te, history)
+
+
+# # 4. Plot results
+
+# In[60]:
+
 
 print('Acc. Upperbound = {}'.format(acc_upperbound))
 print('Acc. EM\n{}'.format(acc_EM_proper))
@@ -202,15 +417,15 @@ print('Acc. Lowerbound = {}'.format(acc_lowerbound))
 
 fig = plt.figure()
 ax = fig.add_subplot(111)
-ax.set_title('Accuracy on test set with {} true labels'.format(X_te.shape[0]))
-ax.plot(list_weak_proportions*Z_t_index.shape[0], acc_EM_proper, 'co-', label='EM Mproper weak + {} true labels'.format(Z_v.shape[0]))
-ax.plot(list_weak_proportions*Z_t_index.shape[0], acc_EM, 'bo-', label='EM weak + {} true labels'.format(Z_v.shape[0]))
-ax.axhline(y=acc_upperbound, color='red', lw=2, linestyle='-', label='{} true labels'.format(X.shape[0]))
-ax.axhline(y=acc_lowerbound, color='orange', lw=2, linestyle='-', label='{} true labels'.format(Z_v.shape[0]))
+ax.set_title(r'Acc. on {} true labels. {} $\alpha={:0.1f}$, $\beta={:0.1f}$'.format(X_te.shape[0], M_method, M_alpha, M_beta))
+ax.plot(list_weak_proportions*Z_t_index.shape[0], acc_EM_proper, 'o-', color='cyan', label='EM Mproper weak + {} true labels'.format(Z_v.shape[0]))
+ax.plot(list_weak_proportions*Z_t_index.shape[0], acc_EM, 'v-', color='blue', label='EM weak + {} true labels'.format(Z_v.shape[0]))
+ax.plot(list_weak_proportions*Z_t_index.shape[0], acc_weak, 'x-', color='magenta', label='Weak + {} true labels'.format(Z_v.shape[0]))
+ax.axhline(y=acc_upperbound, color='red', lw=2,linestyle='--', label='{} true labels'.format(X.shape[0]))
+ax.axhline(y=acc_lowerbound, color='orange', lw=2, linestyle='-.', label='{} true labels'.format(Z_v.shape[0]))
 ax.set_xlabel('Number of weak samples')
 ax.set_ylabel('Accuracy')
 ax.set_xscale("symlog")
-ax.legend(loc=0, fancybox=True, framealpha=0.5)
+ax.legend(loc=0, fancybox=True, framealpha=0.8)
 ax.grid()
-fig.tight_layout()
-fig.savefig('full_vs_EM.svg')
+fig.savefig('full_vs_em_{}_{}_a{:02.0f}_b{:02.0f}.svg'.format(dataset_name, M_method, M_alpha*10, M_beta*10))
