@@ -189,6 +189,11 @@ def plot_multilabel_scatter(X, Y, cmap=cm.get_cmap('Accent'), edgecolor='k',
                             linewidth=0.4, title=None, fig=None, ax=None,
                             radius_scaler=20.0, **kwargs):
     X_std = X.std(axis=0)
+    if X.shape[1] > 2:
+        biggest_variance = np.argsort(X_std)[-2:]
+        X_std = X_std[biggest_variance]
+        X = X[:,biggest_variance]
+
     X_min = X.min(axis=0)
     X_max = X.max(axis=0)
     n_classes = Y.shape[1]
