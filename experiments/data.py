@@ -152,12 +152,13 @@ def make_weak_true_partition(M, X, y, true_size=0.1, random_state=None):
 
 
 def load_webs(random_state=None, standardize=True, tfidf=False,
-              categories=['blog', 'inmo', 'parking', 'b2c', 'no_b2c', 'Other']):
+              categories=['blog', 'inmo', 'parking', 'b2c', 'no_b2c', 'Other'],
+              folder='data/'):
     n_cat = len(categories)
 
     # Note that the pickle file contains a multi-index dataframe. We take the
     # label (multi-)column only.
-    dfY = pd.read_csv('data/Y_newlabels.csv', index_col=0)
+    dfY = pd.read_csv(folder + 'Y_newlabels.csv', index_col=0)
     Y_val = dfY[categories].as_matrix()
     y_val = Y_val.argmax(axis=1)
 
@@ -165,11 +166,11 @@ def load_webs(random_state=None, standardize=True, tfidf=False,
         print("Oops!, there are unexpected weak labels in the new dataset."
               "This may cause some errors below")
 
-    X = np.load('data/X_full.npy', encoding='latin1')
+    X = np.load(folder + 'X_full.npy', encoding='latin1')
     X = X.item()
 
     # Label dataframe
-    dfZ = pd.read_csv('data/Z_full.csv', index_col=0)
+    dfZ = pd.read_csv(folder + 'Z_full.csv', index_col=0)
 
     indices_val = [dfZ.index.get_loc(label) for label in dfY.index]
     Z_val = dfZ.iloc[indices_val][categories].as_matrix().astype(int)
@@ -191,8 +192,6 @@ def load_webs(random_state=None, standardize=True, tfidf=False,
     X_train = X_train[index_train_no_0]
     Z_train = Z_train[index_train_no_0]
     z_train = z_train[index_train_no_0]
-    Y_train = Y_train[index_train_no_0]
-    y_train = y_train[index_train_no_0]
     index_valid_no_0 = (z_val != 0)
     X_val = X_val[index_valid_no_0]
     Z_val = Z_val[index_valid_no_0]
@@ -201,8 +200,8 @@ def load_webs(random_state=None, standardize=True, tfidf=False,
     y_val = y_val[index_valid_no_0]
 
     # Shuffle dataset
-    X_train, Z_train, z_train, Y_train, y_train = shuffle(
-        X_train, Z_train, z_train, Y_train, y_train, random_state=random_state)
+    X_train, Z_train, z_train, = shuffle(
+        X_train, Z_train, z_train, random_state=random_state)
     X_val, Z_val, z_val, Y_val, y_val = shuffle(
         X_val, Z_val, z_val, Y_val, y_val, random_state=random_state)
 
@@ -223,7 +222,7 @@ def load_webs(random_state=None, standardize=True, tfidf=False,
         X_train = scaler_model.fit_transform(X_train)
         X_val = scaler_model.transform(X_val)
 
-    training = (X_train, Z_train, z_train, Y_train, y_train)
+    training = (X_train, Z_train, z_train, None, None)
     validation = (X_val, Z_val, z_val, Y_val, y_val)
     test = None
     return training, validation, test, categories
