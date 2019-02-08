@@ -14,6 +14,9 @@ if is_interactive():
     get_ipython().magic(u'matplotlib inline')
     sys.path.append('../')
 
+import matplotlib
+matplotlib.use('Agg')
+
 import numpy
 from sklearn.datasets import make_classification, make_blobs, load_digits
 from experiments.data import make_weak_true_partition
@@ -121,7 +124,7 @@ training, validation, test, classes = make_weak_true_partition(M, X, y,
 X_t, Z_t, z_t, Y_t, y_t = training
 X_v, Z_v, z_v, Y_v, y_v = validation
 
-prop_test = 0.9
+prop_test = 0.5
 sss = StratifiedShuffleSplit(n_splits=1, random_state=random_state,
                              train_size=(1. - prop_test),
                              test_size=prop_test)
