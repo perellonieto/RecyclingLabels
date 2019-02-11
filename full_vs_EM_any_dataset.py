@@ -145,7 +145,7 @@ elif dataset_name == 'webs':
     only_weak, weak_and_true, only_true, classes = load_webs(tfidf=True, standardize=True,
                                                 categories=['blog', 'inmo', 'parking', 'b2c', 'no_b2c', 'Other'],
                                                 random_state=random_state,
-                                                folder='../data/')
+                                                folder='./data/')
     X_w, Z_w, z_w, Y_w, y_w = only_weak
     X_wt, Z_wt, z_wt, Y_wt, y_wt = weak_and_true
     
