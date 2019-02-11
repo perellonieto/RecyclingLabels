@@ -25,6 +25,9 @@ from experiments.models import create_model, MyKerasClassifier
 import inspect
 from keras.callbacks import EarlyStopping
 
+import matplotlib
+matplotlib.use('Agg')
+
 import matplotlib.pyplot as plt
 from matplotlib import cm
 
@@ -69,8 +72,12 @@ if is_interactive():
     dataset_name = 'blobs'
 else:
     dataset_name = sys.argv[2]
+    
 n_samples = 1000
+n_features = 2
+n_classes = 3
 true_size = 0.2
+classes = list(range(n_classes))
 only_weak = ()
 weak_and_true = ()
 only_true = ()
@@ -114,14 +121,12 @@ elif dataset_name == 'separable':
              [-1,  1],
              [ 1,  1]]
     std = 1.0
-    n_features = 2
     priors = numpy.array([.3, .3, .4])
     samples_per_class = (n_samples*priors).astype(int)
     X_t, y_t = make_blobs(n_samples=samples_per_class, n_features=n_features, centers=means,
                       cluster_std=std, random_state=random_state)
     only_true = (X_t, y_t)
     n_classes = 3
-    classes = list(range(n_classes))
     n_samples = X_t.shape[0]
     n_features = X_t.shape[1]
 elif dataset_name == 'non_separable':
@@ -140,7 +145,7 @@ elif dataset_name == 'webs':
     only_weak, weak_and_true, only_true, classes = load_webs(tfidf=True, standardize=True,
                                                 categories=['blog', 'inmo', 'parking', 'b2c', 'no_b2c', 'Other'],
                                                 random_state=random_state,
-                                                folder='../data/')
+                                                folder='./data/')
     X_w, Z_w, z_w, Y_w, y_w = only_weak
     X_wt, Z_wt, z_wt, Y_wt, y_wt = weak_and_true
     
@@ -191,6 +196,8 @@ if not only_weak and not weak_and_true:
     X_wt, Z_wt, z_wt, Y_wt, y_wt = weak_and_true
 else:
     M_method = None
+    M_alpha = None
+    M_beta = None
     M = estimate_M(Z_wt, Y_wt, range(n_classes), reg='Partial', Z_reg=Z_w)
     
 print('Samples with only weak labels = {}'.format(0 if not only_weak else only_weak[0].shape[0]))
@@ -379,6 +386,8 @@ if y_w is not None:
     print('A Keras Logistic Regression trained with all the real labels ({} samples)'.format(y_w.shape[0] + y_wt_val.shape[0]))
     acc_upperbound = (model.predict_proba(X_wt_test).argmax(axis=1) == y_wt_test).mean()
     print('Accuracy = {}'.format(acc_upperbound))
+else:
+    acc_upperbound = None
 
 
 # ## 2.b.2. Lowerbound with a small amount of true labels
@@ -470,6 +479,7 @@ if M is not None:
     print("M_T shape = {}\n{}".format(M_T.shape, numpy.round(M_T, decimals=3)))
 
     if n_classes < 5:
+        # FIXME problem here when true M is square and estimated is not
         fig = plt.figure(figsize=(10, 5))
         for i, (title, m) in enumerate([(r'Original $M$', M),
                                         (r'Estimated $M_0$', M_0),
@@ -613,46 +623,9 @@ for i, weak_proportion in enumerate(list_weak_proportions):
     plot_results(model, X_wt_test, y_wt_test, history)
 
 
-# # 5. Plot results
+# # 5. Save results
 
 # In[18]:
-
-
-if M is not None:
-    print('Acc. Upperbound = {}'.format(acc_upperbound))
-for key, value in acc.items():
-    print('Acc. {}\n{}'.format(key, value))
-print('Acc. Lowerbound = {}'.format(acc_lowerbound))
-
-fig = plt.figure()
-ax = fig.add_subplot(111)
-if M_method is not None:
-    M_text = r'{} $\alpha={:0.1f}$, $\beta={:0.1f}$'.format(M_method, M_alpha, M_beta)
-else:
-    M_text = ''
-ax.set_title(r'Acc. on {} true labels. {}'.format(X_wt_val.shape[0], M_text))
-for key, value in acc.items():
-    ax.plot(list_weak_proportions*Z_w.shape[0], value, label='{} (True = {})'.format(key, Y_wt_val.shape[0]))
-#ax.plot(list_weak_proportions*Z_t_index.shape[0], acc_EM, 'v-', color='blue', label='EM weak + {} true labels'.format(Z_v.shape[0]))
-#ax.plot(list_weak_proportions*Z_t_index.shape[0], acc_weak, 'x-', color='magenta', label='Weak + {} true labels'.format(Z_v.shape[0]))
-#ax.plot(list_weak_proportions*Z_t_index.shape[0], acc_OSL, '+-', color='green', label='OSL Weak + {} true labels'.format(Z_v.shape[0]))
-if y_w is not None:
-    ax.axhline(y=acc_upperbound, color='red', lw=2,linestyle='--', label='Supervised (True = {})'.format(X_w.shape[0]))
-ax.axhline(y=acc_lowerbound, color='orange', lw=2, linestyle='-.', label='Supervised (True = {})'.format(Z_wt_val.shape[0]))
-ax.set_xlabel('Number of weak samples')
-ax.set_ylabel('Accuracy')
-ax.set_xscale("symlog")
-ax.legend(loc=0, fancybox=True, framealpha=0.8)
-ax.grid()
-fig.tight_layout()
-if M_method is not None:
-    M_text = '_{}_a{:02.0f}_b{:02.0f}'.format(M_method, M_alpha, M_beta)
-else:
-    M_text = ''
-fig.savefig('full_vs_em_{}{}.svg'.format(dataset_name, M_text))
-
-
-# In[53]:
 
 
 import pandas
@@ -674,8 +647,51 @@ print(df_experiment)
 df_experiment.to_json('_'.join([str(i) for i in (random_state, dataset_name, n_samples, M_method)]) + '.json')
 
 
-# In[54]:
+
+# ## 5.b. Update saved results
+
+# In[19]:
 
 
-pandas.read_json('_'.join([str(i) for i in (random_state, dataset_name, n_samples, M_method)]) + '.json')
+df_experiment = pandas.read_json('_'.join([str(i) for i in (random_state, dataset_name, n_samples, M_method)]) + '.json')
+locals().update(df_experiment)
+
+
+# # 6. Plot results
+
+# In[20]:
+
+
+if acc_upperbound is not None:
+    print('Acc. Upperbound = {}'.format(acc_upperbound))
+for key, value in acc.items():
+    print('Acc. {}\n{}'.format(key, value))
+print('Acc. Lowerbound = {}'.format(acc_lowerbound))
+
+fig = plt.figure()
+ax = fig.add_subplot(111)
+if M_method is not None:
+    M_text = r'{} $\alpha={:0.1f}$, $\beta={:0.1f}$'.format(M_method, M_alpha, M_beta)
+else:
+    M_text = ''
+ax.set_title(r'Acc. on {} true labels. {}'.format(X_wt_val.shape[0], M_text))
+for key, value in acc.items():
+    ax.plot(list_weak_proportions*Z_w.shape[0], value, label='{} (True = {})'.format(key, Y_wt_val.shape[0]))
+#ax.plot(list_weak_proportions*Z_t_index.shape[0], acc_EM, 'v-', color='blue', label='EM weak + {} true labels'.format(Z_v.shape[0]))
+#ax.plot(list_weak_proportions*Z_t_index.shape[0], acc_weak, 'x-', color='magenta', label='Weak + {} true labels'.format(Z_v.shape[0]))
+#ax.plot(list_weak_proportions*Z_t_index.shape[0], acc_OSL, '+-', color='green', label='OSL Weak + {} true labels'.format(Z_v.shape[0]))
+if acc_upperbound is not None:
+    ax.axhline(y=acc_upperbound, color='red', lw=2,linestyle='--', label='Supervised (True = {})'.format(X_w.shape[0]))
+ax.axhline(y=acc_lowerbound, color='orange', lw=2, linestyle='-.', label='Supervised (True = {})'.format(Z_wt_val.shape[0]))
+ax.set_xlabel('Number of weak samples')
+ax.set_ylabel('Accuracy')
+ax.set_xscale("symlog")
+ax.legend(loc=0, fancybox=True, framealpha=0.8)
+ax.grid()
+fig.tight_layout()
+if M_method is not None:
+    M_text = '_{}_a{:02.0f}_b{:02.0f}'.format(M_method, M_alpha, M_beta)
+else:
+    M_text = ''
+fig.savefig('full_vs_em_{}{}.svg'.format(dataset_name, M_text))
 
