@@ -671,7 +671,7 @@ df_experiment = pandas.DataFrame.from_dict(
         ), orient='index')
 print(df_experiment)
 if M_method is not None:
-    M_text = '_{}_a{:02.0f}_b{:02.0f}'.format(M_method, M_alpha, M_beta)
+    M_text = '_{}_a{:02.0f}_b{:02.0f}'.format(M_method, 10*M_alpha, 10*M_beta)
 else:
     M_text = ''
 filename = 'full_vs_em_{}_{}_{}{}'.format(random_state, dataset_name, n_samples, M_text)
