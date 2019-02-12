@@ -30,6 +30,8 @@ else:
     M_beta = float(sys.argv[5])
     data_folder = './data/'
 
+print(locals())
+
 import numpy
 from experiments.data import make_weak_true_partition
 from wlc.WLweakener import computeM, weak_to_index, estimate_M
@@ -668,7 +670,12 @@ df_experiment = pandas.DataFrame.from_dict(
          n_wt_samples = n_wt_samples,
         ), orient='index')
 print(df_experiment)
-df_experiment.to_json('_'.join([str(i) for i in (random_state, dataset_name, n_samples, M_method)]) + '.json')
+if M_method is not None:
+    M_text = '_{}_a{:02.0f}_b{:02.0f}'.format(M_method, M_alpha, M_beta)
+else:
+    M_text = ''
+filename = 'full_vs_em_{}_{}_{}{}'.format(random_state, dataset_name, n_samples, M_text)
+df_experiment.to_json(filename + '.json')
 
 
 # ## 5.b. Update saved results
@@ -676,7 +683,7 @@ df_experiment.to_json('_'.join([str(i) for i in (random_state, dataset_name, n_s
 # In[ ]:
 
 
-df_experiment = pandas.read_json('_'.join([str(i) for i in (random_state, dataset_name, n_samples, M_method)]) + '.json')
+df_experiment = pandas.read_json(filename + '.json')
 locals().update(df_experiment)
 
 
@@ -709,9 +716,5 @@ ax.set_xscale("symlog")
 ax.legend(loc=0, fancybox=True, framealpha=0.8)
 ax.grid()
 fig.tight_layout()
-if M_method is not None:
-    M_text = '_{}_a{:02.0f}_b{:02.0f}'.format(M_method, M_alpha, M_beta)
-else:
-    M_text = ''
-fig.savefig('full_vs_em_{}_{}{}.svg'.format(random_state, dataset_name, M_text))
+fig.savefig(filename + '.svg')
 
