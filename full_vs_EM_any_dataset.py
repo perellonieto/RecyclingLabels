@@ -145,7 +145,7 @@ elif dataset_name == 'webs':
     only_weak, weak_and_true, only_true, classes = load_webs(tfidf=True, standardize=True,
                                                 categories=['blog', 'inmo', 'parking', 'b2c', 'no_b2c', 'Other'],
                                                 random_state=random_state,
-                                                folder='./data/')
+                                                folder='../data/')
     X_w, Z_w, z_w, Y_w, y_w = only_weak
     X_wt, Z_wt, z_wt, Y_wt, y_wt = weak_and_true
     
@@ -199,10 +199,13 @@ else:
     M_alpha = None
     M_beta = None
     M = estimate_M(Z_wt, Y_wt, range(n_classes), reg='Partial', Z_reg=Z_w)
-    
-print('Samples with only weak labels = {}'.format(0 if not only_weak else only_weak[0].shape[0]))
-print('Samples with weak and true labels = {}'.format(0 if not weak_and_true else weak_and_true[0].shape[0]))
-print('Samples with only true labels = {}'.format(0 if not only_true else only_true[0].shape[0]))
+
+n_w_samples = 0 if not only_weak else only_weak[0].shape[0]
+n_wt_samples = 0 if not weak_and_true else weak_and_true[0].shape[0]
+n_t_samples = 0 if not only_true else only_true[0].shape[0]
+print('Samples with only weak labels = {}'.format(n_w_samples))
+print('Samples with weak and true labels = {}'.format(n_wt_samples))
+print('Samples with only true labels = {}'.format(n_t_samples))
 
 
 # # 1.c. Show weak and true samples
@@ -237,15 +240,18 @@ sss = StratifiedShuffleSplit(n_splits=1, random_state=random_state,
                              test_size=prop_test)
 
 val_indx, test_indx = next(sss.split(X_wt, y_wt))
-print('Weak and true labels: Original partition size = {}'.format(len(z_wt)))
+n_wt_samples = len(z_wt)
+print('Weak and true labels: Original partition size = {}'.format(n_wt_samples))
 # test partition
 X_wt_test, Z_wt_test, z_test = X_wt[test_indx], Z_wt[test_indx], z_wt[test_indx]
 Y_wt_test, y_wt_test = Y_wt[test_indx], y_wt[test_indx]
 # Validation partition
 X_wt_val, Z_wt_val, z_wt_val = X_wt[val_indx], Z_wt[val_indx], z_wt[val_indx]
 Y_wt_val, y_wt_val = Y_wt[val_indx], y_wt[val_indx]
-print('Weak and true labels for validation partition size = {}'.format(len(y_wt_val)))
-print('True labels for test partition size = {}'.format(len(y_wt_test)))
+n_wt_samples_train = len(y_wt_val)
+n_t_samples_test = len(y_wt_test)
+print('Weak and true labels for validation partition size = {}'.format(n_wt_samples_train))
+print('True labels for test partition size = {}'.format(n_t_samples_test))
 
 
 # # 2.a. Train Scikit learn baselines
@@ -629,6 +635,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 
 
 import pandas
+weak_proportions = list_weak_proportions*Z_w.shape[0]
 
 df_experiment = pandas.DataFrame.from_dict(
     dict(random_state=random_state,
@@ -638,14 +645,18 @@ df_experiment = pandas.DataFrame.from_dict(
          M_method=M_method,
          M_alpha=M_alpha,
          M_beta=M_beta,
-         weak_proportions=list_weak_proportions*Z_w.shape[0],
+         weak_proportions=weak_proportions,
          acc_methods=acc,
          acc_upperbound=acc_upperbound,
          acc_lowerbound=acc_lowerbound,
+         n_w_samples = n_w_samples,
+         n_t_samples = n_t_samples,
+         n_wt_samples_train = n_wt_samples_train,
+         n_t_samples_test = n_t_samples_test,
+         n_wt_samples = n_wt_samples,
         ), orient='index')
 print(df_experiment)
 df_experiment.to_json('_'.join([str(i) for i in (random_state, dataset_name, n_samples, M_method)]) + '.json')
-
 
 
 # ## 5.b. Update saved results
@@ -659,7 +670,7 @@ locals().update(df_experiment)
 
 # # 6. Plot results
 
-# In[20]:
+# In[23]:
 
 
 if acc_upperbound is not None:
@@ -674,15 +685,12 @@ if M_method is not None:
     M_text = r'{} $\alpha={:0.1f}$, $\beta={:0.1f}$'.format(M_method, M_alpha, M_beta)
 else:
     M_text = ''
-ax.set_title(r'Acc. on {} true labels. {}'.format(X_wt_val.shape[0], M_text))
+ax.set_title(r'Acc. on {} true labels. {}'.format(n_wt_samples_train, M_text))
 for key, value in acc.items():
-    ax.plot(list_weak_proportions*Z_w.shape[0], value, label='{} (True = {})'.format(key, Y_wt_val.shape[0]))
-#ax.plot(list_weak_proportions*Z_t_index.shape[0], acc_EM, 'v-', color='blue', label='EM weak + {} true labels'.format(Z_v.shape[0]))
-#ax.plot(list_weak_proportions*Z_t_index.shape[0], acc_weak, 'x-', color='magenta', label='Weak + {} true labels'.format(Z_v.shape[0]))
-#ax.plot(list_weak_proportions*Z_t_index.shape[0], acc_OSL, '+-', color='green', label='OSL Weak + {} true labels'.format(Z_v.shape[0]))
+    ax.plot(weak_proportions, value, label='{} (True = {})'.format(key, n_wt_samples_train))
 if acc_upperbound is not None:
-    ax.axhline(y=acc_upperbound, color='red', lw=2,linestyle='--', label='Supervised (True = {})'.format(X_w.shape[0]))
-ax.axhline(y=acc_lowerbound, color='orange', lw=2, linestyle='-.', label='Supervised (True = {})'.format(Z_wt_val.shape[0]))
+    ax.axhline(y=acc_upperbound, color='red', lw=2,linestyle='--', label='Supervised (True = {})'.format(n_w_samples))
+ax.axhline(y=acc_lowerbound, color='orange', lw=2, linestyle='-.', label='Supervised (True = {})'.format(n_wt_samples_train))
 ax.set_xlabel('Number of weak samples')
 ax.set_ylabel('Accuracy')
 ax.set_xscale("symlog")
