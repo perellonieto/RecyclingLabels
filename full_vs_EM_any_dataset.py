@@ -701,5 +701,5 @@ if M_method is not None:
     M_text = '_{}_a{:02.0f}_b{:02.0f}'.format(M_method, M_alpha, M_beta)
 else:
     M_text = ''
-fig.savefig('full_vs_em_{}{}.svg'.format(dataset_name, M_text))
+fig.savefig('full_vs_em_{}_{}{}.svg'.format(random_state, dataset_name, M_text))
 
