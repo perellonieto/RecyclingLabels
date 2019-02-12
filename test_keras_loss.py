@@ -58,7 +58,7 @@ def EM_log_loss_tensor(y_true, y_pred):
     y_pred = K.clip(y_pred, _EPSILON, 1.0-_EPSILON)
     Q = y_true * y_pred
     Z_em_train = Q / K.sum(Q, axis=-1, keepdims=True)
-    out = -Z_em_train*K.log(y_pred)
+    out = -K.stop_gradient(Z_em_train)*K.log(y_pred)
     return K.mean(out, axis=-1)
 
 def EM_log_loss_np(y_true, y_pred):
