@@ -598,7 +598,7 @@ def OSL_log_loss(y_true, y_pred):
     y_pred = K.clip(y_pred, _EPSILON, 1.0-_EPSILON)
     O = y_true * y_pred
     S = K.cast(K.equal(O,
-                       O.max(axis=-1).repeat(O.shape[-1]
+                       K.max(O, axis=-1).repeat(O.shape[-1]
                                             ).reshape((-1, O.shape[-1]))),
                'float32')
     out = -K.stop_gradient(S) * K.log(y_pred)
