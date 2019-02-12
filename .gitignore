@@ -11,3 +11,5 @@ venv/
 backups
 
 log*
+*.svg
+*.json
