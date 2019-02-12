@@ -362,7 +362,7 @@ m = {}
 def EM_log_loss(y_true, y_pred):
     y_pred = K.clip(y_pred, _EPSILON, 1.0-_EPSILON)
     Q = y_true * y_pred
-    Z_em_train = Q / Q.sum(axis=-1, keepdims=True)
+    Z_em_train = Q / K.sum(Q, axis=-1, keepdims=True)
     out = -K.stop_gradient(Z_em_train)*K.log(y_pred)
     return K.mean(out, axis=-1)
 
