@@ -18,7 +18,7 @@ if is_interactive():
     sys.path.append('../')
     random_state = 7
     dataset_name = 'blobs'
-    M_method = 'random_weak' # IPL, quasi_IPL, random_weak, random_noise, noisy, supervised
+    M_method = 'random_noise' # IPL, quasi_IPL, random_weak, random_noise, noisy, supervised
     M_alpha = 1.0 # Alpha = 1.0 No unsupervised in IPL
     M_beta = 0.5 # Beta = 0.0 No noise
     data_folder = '../data/'
@@ -28,7 +28,7 @@ else:
     M_method = sys.argv[3]
     M_alpha = float(sys.argv[4])
     M_beta = float(sys.argv[5])
-    data_folder = './data'
+    data_folder = './data/'
 
 import numpy
 from experiments.data import make_weak_true_partition
@@ -482,7 +482,7 @@ if M is not None:
     M_T = numpy.concatenate((q_0*M, q_1*M_1), axis=0)
     print("M_T shape = {}\n{}".format(M_T.shape, numpy.round(M_T, decimals=3)))
 
-    if n_classes < 5:
+    if n_classes < 5 and M.shape[0] != M.shape[1]:
         # FIXME problem here when true M is square and estimated is not
         fig = plt.figure(figsize=(10, 5))
         for i, (title, m_aux) in enumerate([(r'Original $M$', M),
@@ -508,10 +508,14 @@ def EM_log_loss(y_true, y_pred):
     return K.mean(out, axis=-1)
 
 
-# In[15]:
+# ### Index are different
+# 
+# - Be careful as the indices from the true matrix can be smaller than the estimated, as the estimated is always the long version while the original one can be square
+
+# In[17]:
 
 
-Z_w_index = weak_to_index(Z_w, method='random_weak')
+Z_w_index = weak_to_index(Z_w, method=M_method)
 Y_wt_val_index = weak_to_index(Y_wt_val, method='supervised')
 
 print("Z_w_index {}".format(Z_w_index[:5]))
@@ -524,7 +528,7 @@ print('Mixing matrix M shape = {}'.format(m[method].shape))
 for i, weak_proportion in enumerate(list_weak_proportions):
     last_index = int(weak_proportion*Z_w.shape[0])
     
-    ZY_wt_aux_index = numpy.concatenate((Z_w_index[:last_index], Y_wt_val_index + M_0.shape[0]))
+    ZY_wt_aux_index = numpy.concatenate((Z_w_index[:last_index], Y_wt_val_index + M.shape[0]))
     X_wt_aux = numpy.concatenate((X_w[:last_index], X_wt_val), axis=0)
     ZY_wt_aux = m[method][ZY_wt_aux_index]
 
@@ -546,7 +550,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 
 # ## 3.c. Train with estimated mixing matrix M_ME
 
-# In[16]:
+# In[ ]:
 
 
 Z_w_index = weak_to_index(Z_w, method='random_weak')
@@ -598,7 +602,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 # - uses the predictions for the weak labels
 # - **TODO** This function assumes there are no fully unsupervised samples!!! The current approach will assign 1/n_zeros as the weak label (this may not be bad, if we assume that it needs to belong to one of the classes).
 
-# In[17]:
+# In[ ]:
 
 
 def OSL_log_loss(y_true, y_pred):
@@ -639,7 +643,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 
 # # 5. Save results
 
-# In[18]:
+# In[ ]:
 
 
 import pandas
@@ -669,7 +673,7 @@ df_experiment.to_json('_'.join([str(i) for i in (random_state, dataset_name, n_s
 
 # ## 5.b. Update saved results
 
-# In[19]:
+# In[ ]:
 
 
 df_experiment = pandas.read_json('_'.join([str(i) for i in (random_state, dataset_name, n_samples, M_method)]) + '.json')
@@ -678,7 +682,7 @@ locals().update(df_experiment)
 
 # # 6. Plot results
 
-# In[20]:
+# In[ ]:
 
 
 if acc_upperbound is not None:
