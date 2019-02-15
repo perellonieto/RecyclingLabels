@@ -32,13 +32,17 @@ declare -a m_b_list=(
     1.0
 )
 
+dataset='blobs'
+
 for random_seed in "${r_list[@]}"
 do
     for m in "${m_list[@]}"
     do
         for b in "${m_b_list[@]}"
         do
-            python full_vs_EM_any_dataset.py $random_seed blobs "${m}" 1.0 "${b}"
+            python full_vs_EM_any_dataset.py $random_seed $dataset \
+                "${m}" 1.0 "${b}" > "${dataset}_${random_seed}_${m}_10_${b}.out" \
+                2> "${dataset}_${random_seed}_${m}_10_${b}.err"
         done
     done
 done
