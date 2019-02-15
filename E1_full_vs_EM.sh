@@ -24,7 +24,7 @@ declare -a m_list=(
     quasi_IPL
 )
 
-declare -a m_b_list=(
+declare -a m_a_list=(
     0.0
     0.2
     0.5
@@ -32,13 +32,17 @@ declare -a m_b_list=(
     1.0
 )
 
+dataset_name='blobs'
+test_proportion='0.8'
+
 for random_seed in "${r_list[@]}"
 do
     for m in "${m_list[@]}"
     do
-        for b in "${m_b_list[@]}"
+        for a in "${m_a_list[@]}"
         do
-            python full_vs_EM_any_dataset.py $random_seed blobs "${m}" 1.0 "${b}"
+            python full_vs_EM_any_dataset.py $random_seed $dataset_name \
+            $test_proportion $m $a
         done
     done
 done
