@@ -18,5 +18,6 @@ declare -a r_list=(
 
 for random_seed in "${r_list[@]}"
 do
-    python full_vs_EM_any_dataset.py $random_seed webs random_weak 1.0 0.5
+    python full_vs_EM_any_dataset.py $random_seed webs random_weak \
+        1.0 0.5 > "${random_seed}_webs.out" 2> "${random_seed}_webs.err"
 done
