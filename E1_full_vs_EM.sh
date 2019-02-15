@@ -29,7 +29,8 @@ do
         do
             echo "python full_vs_EM_any_dataset.py $random_seed $dataset_name $test_proportion $m $a"
             python full_vs_EM_any_dataset.py $random_seed $dataset_name \
-            $test_proportion $m $a
+            $test_proportion $m $a > "${dataset}_${random_seed}_${m}_${a}.out" \
+                2> "${dataset}_${random_seed}_${m}_${a}.err"
         done
     done
 done
