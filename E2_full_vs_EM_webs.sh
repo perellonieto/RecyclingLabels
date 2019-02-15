@@ -2,25 +2,25 @@
 
 source ./venv/bin/activate
 
-declare -a r_list=(
-    0
-    1
-    2
-    3
-    4
-    5
-    6
-    7
-    8
-    9
-    10
+declare -a test_list=(
+    0.6
+    0.7
+    0.8
+    0.9
+    0.95
+    0.98
+    0.99
 )
 
 dataset_name='webs'
-test_proportion='0.8'
 
-for random_seed in "${r_list[@]}"
+for random_seed in {1..100};
 do
-    python full_vs_EM_any_dataset.py $random_seed $dataset_name \
-        $test_proportion random_weak 1.0 0.5 > "${random_seed}_webs.out" 2> "${random_seed}_webs.err"
+    for test_proportion in "${test_list[@]}"
+    do
+        echo "python full_vs_EM_any_dataset.py $random_seed $dataset_name $test_proportion random_weak 1.0 0.5"
+        python full_vs_EM_any_dataset.py $random_seed $dataset_name \
+            $test_proportion random_weak 1.0 0.5 > "${dataset}_${random_seed}.out" \
+                2> "${dataset}_${random_seed}.err"
+    done
 done
