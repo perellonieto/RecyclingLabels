@@ -351,7 +351,7 @@ from keras.callbacks import EarlyStopping
 
 batch_size = 1024
 patience = 500
-early_stop_loss = 'val_categorical_correntropy'
+early_stop_loss = 'val_categorical_crossentropy'
 
 early_stopping = EarlyStopping(monitor=early_stop_loss, min_delta=0, patience=patience, 
                                verbose=0, mode='auto', baseline=None,
@@ -436,7 +436,8 @@ print('Accuracy = {}'.format(acc_lowerbound))
 # In[ ]:
 
 
-list_weak_proportions = numpy.array([0.0, 0.001, 0.005, 0.01, 0.02, 0.03, 0.1, 0.3, 0.5, 0.7, 1.0])
+list_weak_proportions = numpy.array([0.0, 0.001, 0.005, 0.01, 0.02, 0.03, 0.1,
+                                     0.3, 0.5, 0.7, 1.0])
 acc = {}
 
 
