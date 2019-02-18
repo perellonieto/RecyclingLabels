@@ -31,7 +31,7 @@ else:
     dataset_name = sys.argv[2]
     prop_test = float(sys.argv[3])
     prop_val = float(sys.argv[4])
-    if len(sys.argv) > 4:
+    if len(sys.argv) > 5:
         M_method = sys.argv[5]
         M_alpha = float(sys.argv[6])
         if len(sys.argv) > 7:
