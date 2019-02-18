@@ -23,8 +23,8 @@ if is_interactive():
     prop_test = 0.8
     prop_val = 0.5
     M_method = 'noisy' # IPL, quasi_IPL, random_weak, random_noise, noisy, supervisedg
-    M_alpha = 0.2 # Alpha = 1.0 No unsupervised in IPL
-    M_beta = 1 - M_alpha # Beta = 0.0 No noise
+    M_alpha = 0.5 # Alpha = 1.0 No unsupervised in IPL
+    M_beta = 0.5 # Beta = 0.0 No noise
     data_folder = '../data/'
 else:
     random_state = int(sys.argv[1])
@@ -361,7 +361,7 @@ _ = plot_confusion_matrix(cm, ax=ax, title='Test acc. {:.3}'.format(acc))
 # **TODO: check what happens when there is a typo on the early_stop_loss**
 # 
 
-# In[41]:
+# In[8]:
 
 
 from keras.models import Sequential
@@ -431,7 +431,7 @@ def plot_results(model, X_test, y_test, history):
 
 # ## 2.b.2. Upperbound if multiple true labels are available
 
-# In[42]:
+# In[9]:
 
 
 if y_w is not None:
@@ -456,7 +456,7 @@ else:
 
 # ## 2.b.2. Lowerbound with a small amount of true labels
 
-# In[50]:
+# In[10]:
 
 
 numpy.random.seed(random_state)
@@ -478,14 +478,14 @@ print('Accuracy = {}'.format(acc_lowerbound))
 
 # ## 2.b.3. Training directly with different proportions of weak labels
 
-# In[44]:
+# In[11]:
 
 
 list_weak_proportions = numpy.array([0.0, 0.001, 0.005, 0.01, 0.02, 0.03, 0.1, 0.3, 0.5, 0.7, 1.0])
 acc = {}
 
 
-# In[51]:
+# In[12]:
 
 
 method = 'Weak'
@@ -518,7 +518,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 # 
 # ## 3.a. Learning mixing matrix M
 
-# In[52]:
+# In[13]:
 
 
 categories = range(n_classes)
@@ -580,7 +580,7 @@ def EM_log_loss(y_true, y_pred):
 # 
 # - Be careful as the indices from the true matrix can be smaller than the estimated, as the estimated is always the long version while the original one can be square
 
-# In[53]:
+# In[15]:
 
 
 Z_w_index = weak_to_index(Z_w, method=M_method)
@@ -620,7 +620,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 
 # ## 3.c. Train with estimated mixing matrix M_ME
 
-# In[58]:
+# In[16]:
 
 
 Z_w_index = weak_to_index(Z_w, method='random_weak')
@@ -674,7 +674,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 # - uses the predictions for the weak labels
 # - **TODO** This function assumes there are no fully unsupervised samples!!! The current approach will assign 1/n_zeros as the weak label (this may not be bad, if we assume that it needs to belong to one of the classes).
 
-# In[54]:
+# In[17]:
 
 
 def OSL_log_loss(y_true, y_pred):
@@ -764,7 +764,7 @@ locals().update(df_experiment)
 
 # # 6. Plot results
 
-# In[59]:
+# In[43]:
 
 
 if acc_upperbound is not None:
@@ -776,27 +776,22 @@ print('Acc. Lowerbound = {}'.format(acc_lowerbound))
 fig = plt.figure()
 ax = fig.add_subplot(111)
 if M_method is not None:
-    M_text = r'{} $\alpha={:0.1f}$, $\beta={:0.1f}$'.format(M_method, M_alpha, M_beta)
+    M_text = "\n" + r"{} $\alpha={:0.1f}$, $\beta={:0.1f}$".format(M_method, M_alpha, M_beta)
 else:
     M_text = ''
-ax.set_title(r'Acc. on {} true labels. {}'.format(n_wt_samples_train, M_text))
+ax.set_title("All methods used {} train. and {} valid. true labels.{}".format(
+    n_wt_samples_train, n_wt_samples_val, M_text))
 for key, value in acc.items():
-    ax.plot(weak_proportions, value, label='{} (True = {})'.format(key, n_wt_samples_train))
+    ax.plot(weak_proportions, value, label='{}'.format(key, n_wt_samples_train))
 if acc_upperbound is not None:
-    ax.axhline(y=acc_upperbound, color='red', lw=2,linestyle='--', label='Supervised (True = {})'.format(n_w_samples))
-ax.axhline(y=acc_lowerbound, color='orange', lw=2, linestyle='-.', label='Supervised (True = {})'.format(n_wt_samples_train))
+    ax.axhline(y=acc_upperbound, color='red', lw=2,linestyle='--', label='Superv. (+{} true)'.format(n_wt_samples))
+ax.axhline(y=acc_lowerbound, color='orange', lw=2, linestyle='-.', label='Supervised')
 ax.set_xlabel('Number of weak samples')
-ax.set_ylabel('Accuracy')
+ax.set_ylabel('Accuracy on {} true labels'.format(n_wt_samples_test))
 ax.set_xscale("symlog")
 ax.legend(loc=0, fancybox=True, framealpha=0.8)
 ax.grid()
 fig.tight_layout()
 fig.savefig(filename + '.svg')
 print('Saved figure as {}.svg'.format(filename))
-
-
-# In[57]:
-
-
-acc.keys()
 
