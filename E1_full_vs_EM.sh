@@ -20,6 +20,7 @@ declare -a m_a_list=(
 
 dataset_name='blobs'
 test_proportion='0.8'
+val_proportion='0.5'
 
 for random_seed in {1..10};
 do
@@ -29,8 +30,8 @@ do
         do
             echo "python full_vs_EM_any_dataset.py $random_seed $dataset_name $test_proportion $m $a"
             python full_vs_EM_any_dataset.py $random_seed $dataset_name \
-                $test_proportion $m $a > "${dataset}_${random_seed}_${m}_${a}.out" \
-                2> "${dataset}_${random_seed}_${m}_${a}.err"
+                $test_proportion $val_proportion $m $a > "${dataset_name}_${random_seed}_${m}_${a}.out" \
+                2> "${dataset_name}_${random_seed}_${m}_${a}.err"
         done
     done
 done
