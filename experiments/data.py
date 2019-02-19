@@ -319,7 +319,7 @@ def load_classification(method='quasi_IPL', n_samples=1000, n_features=20,
 
 
 def load_labelme(random_state=None, prop_valid=0.1, prop_test=0.2,
-                 keep_valid_test=False):
+                 keep_valid_test=False, folder='data/'):
     '''
     Loads the LabelMe dataset and reasigns de data in the following manner:
         - Training data divided by two portions -> train and valid
@@ -351,14 +351,14 @@ def load_labelme(random_state=None, prop_valid=0.1, prop_test=0.2,
     # Load train with majority voting
     # =================================================== #
     # Load features (I think these are hidden activations in a VGG16 network)
-    X_train = np.load('data/LabelMe/prepared/data_train_vgg16.npy')
+    X_train = np.load(folder + 'LabelMe/prepared/data_train_vgg16.npy')
     X_train = X_train.reshape(X_train.shape[0], -1)
 
     # TODO see difference between labels_train_mv and labels_train
-    #y_train_mv = np.load('data/LabelMe/prepared/labels_train_mv.npy')
-    y_train = np.load('data/LabelMe/prepared/labels_train.npy')
+    #y_train_mv = np.load(folder + 'LabelMe/prepared/labels_train_mv.npy')
+    y_train = np.load(folder + 'LabelMe/prepared/labels_train.npy')
     Y_train = label_binarize(y_train, range(n_classes))
-    y_answers = np.load('data/LabelMe/prepared/answers.npy')
+    y_answers = np.load(folder + 'LabelMe/prepared/answers.npy')
 
     # Convert answers to binary weak labels
     Z_train = np.zeros((X_train.shape[0], n_classes)).astype(int)
@@ -377,14 +377,14 @@ def load_labelme(random_state=None, prop_valid=0.1, prop_test=0.2,
         # =================================================== #
         # Load valid and test and join to create test
         # =================================================== #
-        X_valid = np.load('data/LabelMe/prepared/data_valid_vgg16.npy')
-        X_test = np.load('data/LabelMe/prepared/data_test_vgg16.npy')
+        X_valid = np.load(folder + 'LabelMe/prepared/data_valid_vgg16.npy')
+        X_test = np.load(folder + 'LabelMe/prepared/data_test_vgg16.npy')
         X_valid = X_valid.reshape(X_valid.shape[0], -1)
         X_test = X_test.reshape(X_test.shape[0], -1)
         X_test = np.concatenate((X_valid, X_test))
 
-        y_valid = np.load('data/LabelMe/prepared/labels_valid.npy')
-        y_test = np.load('data/LabelMe/prepared/labels_test.npy')
+        y_valid = np.load(folder + 'LabelMe/prepared/labels_valid.npy')
+        y_test = np.load(folder + 'LabelMe/prepared/labels_test.npy')
         y_test = np.concatenate((y_valid, y_test))
         Y_test = label_binarize(y_test, range(n_classes))
     else:
@@ -448,7 +448,6 @@ def load_labelme(random_state=None, prop_valid=0.1, prop_test=0.2,
     validation = (X_val, Z_val, z_val, Y_val, y_val)
     test = (X_test, Y_test, y_test)
     return training, validation, test, categories
-
 
 def apply_weak_classifier(X, y, clf=LogisticRegression(), threshold='uniform',
                           true_proportion=0.2, random_state=42):
