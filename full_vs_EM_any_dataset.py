@@ -176,7 +176,7 @@ elif dataset_name == 'labelme':
                                                 folder=data_folder,
                                                 keep_valid_test=False,
                                                 prop_test=prop_test,
-                                                prop_val=prop_val)
+                                                prop_valid=prop_val)
     X_w, Z_w, z_w, Y_w, y_w = only_weak
     X_wt, Z_wt, z_wt, Y_wt, y_wt = weak_and_true
     X_t, Y_t, y_t = only_true
