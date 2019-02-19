@@ -467,7 +467,7 @@ def weakCount(dfZ, dfY, categories, reg=None):
     return S
 
 
-def newWeakCount(Z, Y, categories, reg=None, Z_reg=None):
+def newWeakCount(Z, Y, categories, reg=None, Z_reg=None, alpha=1.0):
     # Number of categories
     n_cat = len(categories)
 
@@ -485,7 +485,7 @@ def newWeakCount(Z, Y, categories, reg=None, Z_reg=None):
     if reg is None:
         S = csr_matrix((2**n_cat, n_cat))
     elif reg == 'Complete':
-        S = csr_matrix(np.ones((2**n_cat, n_cat)))
+        S = csr_matrix(np.ones((2**n_cat, n_cat))*alpha)
     elif reg == 'Partial':
         S = csr_matrix((2**n_cat, n_cat))
         # Flag vector of existing weak labels
@@ -493,7 +493,7 @@ def newWeakCount(Z, Y, categories, reg=None, Z_reg=None):
         if Z_reg is not None:
             weak_list = np.unique(
                 np.concatenate((weak_list, np.array(Z_reg.dot(p2)))))
-        S[weak_list, :] = 1
+        S[weak_list, :] = alpha
 
     if type(Y) == pd.DataFrame:
         # Convert weak label dataframe into matrix
