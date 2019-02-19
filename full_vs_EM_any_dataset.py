@@ -19,7 +19,7 @@ if is_interactive():
     get_ipython().magic(u'matplotlib inline')
     sys.path.append('../')
     random_state = 0
-    dataset_name = 'labelme'
+    dataset_name = 'iris_lr'
     prop_test = 0.7
     prop_val = 0.5
     M_method = 'noisy' # IPL, quasi_IPL, random_weak, random_noise, noisy, supervisedg
@@ -89,6 +89,8 @@ numpy.random.seed(random_state)
 
 from sklearn.datasets import make_classification, make_blobs, load_digits
 from experiments.data import load_webs, load_labelme
+from experiments.data import load_dataset_apply_model
+from sklearn.naive_bayes import GaussianNB
     
 n_samples = 2000
 n_features = 20
@@ -184,6 +186,27 @@ elif dataset_name == 'labelme':
     n_classes = Y_wt.shape[1]
     n_features = X_w.shape[1]
     n_samples = X_wt.shape[0] + X_w.shape[0] + X_t.shape[0]
+elif dataset_name == 'iris_lr':
+    
+    only_weak, weak_and_true, only_true, classes = load_dataset_apply_model(dataset='iris', 
+                                                                           true_proportion=0.3,
+                                                                           clf=GaussianNB())
+    X_w, Z_w, z_w, Y_w, y_w = only_weak
+    X_wt, Z_wt, z_wt, Y_wt, y_wt = weak_and_true
+    
+    n_classes = Y_wt.shape[1]
+    n_features = X_w.shape[1]
+    n_samples = X_wt.shape[0] + X_w.shape[0]
+elif dataset_name == 'digits_lr':
+    only_weak, weak_and_true, only_true, classes = load_dataset_apply_model(dataset='digits', 
+                                                                           true_proportion=0.3,
+                                                                           clf=GaussianNB())
+    X_w, Z_w, z_w, Y_w, y_w = only_weak
+    X_wt, Z_wt, z_wt, Y_wt, y_wt = weak_and_true
+    
+    n_classes = Y_wt.shape[1]
+    n_features = X_w.shape[1]
+    n_samples = X_wt.shape[0] + X_w.shape[0]
 else:
     raise KeyError('Dataset {} not available'.format(dataset_name))
 
@@ -262,7 +285,7 @@ _ = plot_multilabel_scatter(X_wt[:100], Z_wt[:100], fig=fig,
 # 
 # If there is a set with only true labels, it is ussed always as a test set only (not validation)
 
-# In[ ]:
+# In[5]:
 
 
 # prop_test is defined in the arguments
@@ -319,7 +342,7 @@ print('True labels for test partition size = {}'.format(n_wt_samples_test))
 #     - $S_{wt.train}$
 #     - $S_{wt.val}$
 
-# In[ ]:
+# In[6]:
 
 
 max_epochs = 2000
@@ -354,7 +377,7 @@ if y_w is not None:
 #     - $S_{wt.train}$
 #     - $S_{wt.val}$
 
-# In[ ]:
+# In[7]:
 
 
 max_epochs = 2000
@@ -386,7 +409,7 @@ _ = plot_confusion_matrix(cm, ax=ax, title='Test acc. {:.3}'.format(acc))
 # **TODO: check what happens when there is a typo on the early_stop_loss**
 # 
 
-# In[ ]:
+# In[8]:
 
 
 from keras.models import Sequential
@@ -456,7 +479,7 @@ def plot_results(model, X_test, y_test, history):
 
 # ## 2.b.2. Upperbound if multiple true labels are available
 
-# In[ ]:
+# In[9]:
 
 
 if y_w is not None:
@@ -481,7 +504,7 @@ else:
 
 # ## 2.b.2. Lowerbound with a small amount of true labels
 
-# In[ ]:
+# In[10]:
 
 
 numpy.random.seed(random_state)
@@ -503,14 +526,14 @@ print('Accuracy = {}'.format(acc_lowerbound))
 
 # ## 2.b.3. Training directly with different proportions of weak labels
 
-# In[ ]:
+# In[11]:
 
 
 list_weak_proportions = numpy.array([0.0, 0.001, 0.005, 0.01, 0.02, 0.03, 0.1, 0.3, 0.5, 0.7, 1.0])
 acc = {}
 
 
-# In[ ]:
+# In[12]:
 
 
 method = 'Weak'
@@ -543,15 +566,15 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 # 
 # ## 3.a. Learning mixing matrix M
 
-# In[ ]:
+# In[13]:
 
 
 categories = range(n_classes)
 from wlc.WLweakener import newWeakCount
-w_count = newWeakCount(Z_wt_train, Y_wt_train, range(n_classes), reg='Partial', Z_reg=Z_w).astype(int)
+w_count = newWeakCount(Z_wt_train, Y_wt_train, range(n_classes), reg='Partial', Z_reg=Z_w, alpha=0.1)
 print("Weak count\n{}".format(w_count.todense()))
 # 1.a. Learn a mixing matrix using training with weak and true labels
-M_0 = estimate_M(Z_wt_train, Y_wt_train, range(n_classes), reg='Partial', Z_reg=Z_w)
+M_0 = estimate_M(Z_wt_train, Y_wt_train, range(n_classes), reg='Partial', Z_reg=Z_w, alpha=0.1)
 M_1 = computeM(c=n_classes, method='supervised')
 q_0 = X_w.shape[0] / float(X_w.shape[0] + X_wt_train.shape[0])
 q_1 = X_wt_train.shape[0] / float(X_w.shape[0] + X_wt_train.shape[0])
@@ -588,7 +611,7 @@ if M is not None:
 
 # ## 3.b. Train with true mixing matrix M if available
 
-# In[ ]:
+# In[14]:
 
 
 m = {}
@@ -605,7 +628,7 @@ def EM_log_loss(y_true, y_pred):
 # 
 # - Be careful as the indices from the true matrix can be smaller than the estimated, as the estimated is always the long version while the original one can be square
 
-# In[ ]:
+# In[15]:
 
 
 Z_w_index = weak_to_index(Z_w, method=M_method)
@@ -645,7 +668,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 
 # ## 3.c. Train with estimated mixing matrix M_ME
 
-# In[ ]:
+# In[16]:
 
 
 Z_w_index = weak_to_index(Z_w, method='random_weak')
@@ -699,7 +722,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 # - uses the predictions for the weak labels
 # - **TODO** This function assumes there are no fully unsupervised samples!!! The current approach will assign 1/n_zeros as the weak label (this may not be bad, if we assume that it needs to belong to one of the classes).
 
-# In[ ]:
+# In[17]:
 
 
 def OSL_log_loss(y_true, y_pred):
@@ -744,7 +767,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 
 # # 5. Save results
 
-# In[ ]:
+# In[18]:
 
 
 import pandas
@@ -780,7 +803,7 @@ df_experiment.to_json(filename + '.json')
 
 # ## 5.b. Update saved results
 
-# In[ ]:
+# In[19]:
 
 
 df_experiment = pandas.read_json(filename + '.json')
@@ -789,7 +812,7 @@ locals().update(df_experiment)
 
 # # 6. Plot results
 
-# In[ ]:
+# In[20]:
 
 
 if acc_upperbound is not None:
