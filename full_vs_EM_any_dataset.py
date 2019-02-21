@@ -664,7 +664,7 @@ if M is not None:
     # FIXME problem here when true M is square and estimated is not
     m_list = [(r'Original $M$', M), (r'Weak Count', w_count.todense()),
               (r'Estimated $M_0$', M_0)]
-    if M.shape[0] == M.shape[1]:
+    if M.shape[0] != M.shape[1]:
         m_list.append((r'$|M - M_0|$', numpy.abs(M - M_0)))
         
     fig = plt.figure(figsize=(10, 5))
