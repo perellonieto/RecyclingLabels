@@ -19,12 +19,12 @@ if is_interactive():
     get_ipython().magic(u'matplotlib inline')
     sys.path.append('../')
     random_state = 0
-    dataset_name = 'iris_lr'
+    dataset_name = 'digits'
     prop_test = 0.7
     prop_val = 0.5
-    M_method = 'noisy' # IPL, quasi_IPL, random_weak, random_noise, noisy, supervisedg
-    M_alpha = 0.5 # Alpha = 1.0 No unsupervised in IPL
-    M_beta = 0.5 # Beta = 0.0 No noise
+    M_method = 'random_weak' # IPL, quasi_IPL, random_weak, random_noise, noisy, supervisedg
+    M_alpha = 0.7 # Alpha = 1.0 No unsupervised in IPL
+    M_beta = 0.3 # Beta = 0.0 No noise
     data_folder = '../data/'
 else:
     random_state = int(sys.argv[1])
@@ -69,7 +69,7 @@ cmap = cm.get_cmap('Accent')
 from cycler import cycler
 default_cycler = (cycler(color=['darkred', 'forestgreen', 'darkblue', 'violet', 'darkorange', 'saddlebrown']) +
                   cycler(linestyle=['-', '--', '-.', '-', '--', '-.']) + 
-                  cycler(marker=['o', 'v', 'x', '+', '-', '.']) +
+                  cycler(marker=['o', 'v', 'x', '*', '+', '.']) +
                   cycler(lw=[2, 1.8, 1.6, 1.4, 1.2, 1]))
 
 plt.rc('lines', linewidth=1)
@@ -92,10 +92,10 @@ from experiments.data import load_webs, load_labelme
 from experiments.data import load_dataset_apply_model
 from sklearn.naive_bayes import GaussianNB
     
-n_samples = 2000
+n_samples = 5000
 n_features = 20
 n_classes = 3
-true_size = 0.1
+true_size = 0.4
 classes = list(range(n_classes))
 only_weak = ()
 weak_and_true = ()
@@ -134,11 +134,26 @@ elif dataset_name == 'make_classification':
                                n_informative=n_informative,
                                n_clusters_per_class=n_clusters_per_class)
     only_true = (X_t, y_t)
+elif dataset_name == 'quasi_separable':
+    
+    means = [[-1, 0],
+             [-1, 1],
+             [ 1, 1]]
+    n_classes = len(means)
+    classes = list(range(n_classes))
+    std = 1.0
+    priors = numpy.array([1/3, 1/3, 1/3])
+    samples_per_class = (n_samples*priors).astype(int)
+    X_t, y_t = make_blobs(n_samples=samples_per_class, n_features=n_features, centers=means,
+                      cluster_std=std, random_state=random_state)
+    only_true = (X_t, y_t)
+    n_samples = X_t.shape[0]
+    n_features = X_t.shape[1]
 elif dataset_name == 'separable':
     
-    means = [[-1, -1],
-             [-1,  1],
-             [ 1,  1]]
+    means = [[-1, 0],
+             [-1, 1],
+             [ 1, 1]]
     n_classes = len(means)
     classes = list(range(n_classes))
     std = .5
@@ -163,7 +178,8 @@ elif dataset_name == 'non_separable':
     n_features = X_t.shape[1]
 elif dataset_name == 'webs':
     only_weak, weak_and_true, only_true, classes = load_webs(tfidf=True, standardize=True,
-                                                categories=['blog', 'inmo', 'parking', 'b2c', 'no_b2c', 'Other'],
+                                                #categories=['blog', 'inmo', 'parking', 'b2c', 'no_b2c', 'Other'],
+                                                categories=['parking', 'b2c', 'no_b2c', 'Other'],
                                                 random_state=random_state,
                                                 folder=data_folder)
     X_w, Z_w, z_w, Y_w, y_w = only_weak
@@ -256,8 +272,7 @@ n_t_samples = 0 if not only_true else only_true[0].shape[0]
 print('Samples with only weak labels = {}'.format(n_w_samples))
 print('Samples with weak and true labels = {}'.format(n_wt_samples))
 print('Samples with only true labels = {}'.format(n_t_samples))
-
-print(Y_wt.mean(axis=0))
+print('Class priors \n{}'.format(Y_wt.mean(axis=0)))
 
 
 # # 1.c. Show weak and true samples
@@ -305,7 +320,7 @@ Y_wt_train, y_wt_train = Y_wt[train_indx], y_wt[train_indx]
 X_wt_test, Z_wt_test, z_test = X_wt[test_indx], Z_wt[test_indx], z_wt[test_indx]
 Y_wt_test, y_wt_test = Y_wt[test_indx], y_wt[test_indx]
 
-if n_only_true != 0:
+if n_t_samples != 0:
     X_wt_test = numpy.concatenate((X_wt_test, X_t))
     Y_wt_test = numpy.concatenate((Y_wt_test, Y_t))
     y_wt_test = numpy.concatenate((y_wt_test, y_t))
@@ -424,7 +439,7 @@ def log_loss(y_true, y_pred):
     out = -y_true*K.log(y_pred)
     return K.mean(out, axis=-1)
 
-def make_model(loss):
+def make_model_lr(loss):
     model = Sequential() 
     model.add(Dense(n_classes, input_dim=n_features, activation='softmax',
                 bias_initializer='zeros', 
@@ -436,14 +451,27 @@ def make_model(loss):
     print('Sample of first weights = {}'.format(numpy.round(model.get_weights()[0][0], decimals=3)))
     return model
 
+def make_model_mlp(loss):
+    model = Sequential() 
+    model.add(Dense(20, input_dim=n_features))
+    model.add(Dense(20))
+    model.add(Dense(n_classes, activation='softmax'))
+    model.compile(optimizer='adam', loss=loss,
+                  metrics=['accuracy', 'mean_squared_error',
+                           'categorical_crossentropy'])
+    print('Sample of first weights = {}'.format(numpy.round(model.get_weights()[0][0], decimals=3)))
+    return model
+
+make_model = make_model_lr
+
 from keras.callbacks import EarlyStopping
 
-batch_size = 1024
+batch_size = 2048
 patience = 500
 early_stop_loss = 'val_categorical_crossentropy' # TODO Check what happens when there is a typo in this loss
 
 early_stopping = EarlyStopping(monitor=early_stop_loss, min_delta=0, patience=patience, 
-                               verbose=0, mode='auto', baseline=None,
+                               verbose=1, mode='auto', baseline=None,
                                restore_best_weights=True)
 
 def plot_results(model, X_test, y_test, history):
@@ -456,18 +484,25 @@ def plot_results(model, X_test, y_test, history):
     ax = fig.add_subplot(1, n_fig, 1)
     _ = ax.plot(history.history['loss'], label='Training loss')
     _ = ax.plot(history.history['val_loss'], label='Validation loss')
+    ax.set_yscale("symlog")
+    ax.set_xscale("symlog")
     ax.legend()
     ax = fig.add_subplot(1, n_fig, 2)
     _ = ax.plot(history.history['categorical_crossentropy'], label='Training CE')
     _ = ax.plot(history.history['val_categorical_crossentropy'], label='Validation CE')
+    ax.set_yscale("symlog")
+    ax.set_xscale("symlog")
     ax.legend()
     ax = fig.add_subplot(1, n_fig, 3)
     _ = ax.plot(history.history['mean_squared_error'], label='Training MSE')
     _ = ax.plot(history.history['val_mean_squared_error'], label='Validation MSE')
+    ax.set_yscale("symlog")
+    ax.set_xscale("symlog")
     ax.legend()
     ax = fig.add_subplot(1, n_fig, 4)
     _ = ax.plot(history.history['acc'], label='Training acc')
     _ = ax.plot(history.history['val_acc'], label='Validation acc')
+    ax.set_xscale("symlog")
     ax.legend()
     ax = fig.add_subplot(1, n_fig, 5)
     acc = (y_test == clf_pred_wt_test).mean()
@@ -530,10 +565,41 @@ print('Accuracy = {}'.format(acc_lowerbound))
 
 
 list_weak_proportions = numpy.array([0.0, 0.001, 0.005, 0.01, 0.02, 0.03, 0.1, 0.3, 0.5, 0.7, 1.0])
+list_weak_proportions = numpy.array([0.0, 0.1, 0.5, 0.7, 0.9, 1.0])
 acc = {}
 
 
 # In[12]:
+
+
+if y_w is not None:
+    method = 'True'
+    acc[method] = numpy.zeros_like(list_weak_proportions)
+    for i, weak_proportion in enumerate(list_weak_proportions):
+        last_index = int(weak_proportion*X_w.shape[0])
+
+
+        X_aux_train = numpy.concatenate((X_w[:last_index], X_wt_train))
+        Y_aux_train = numpy.concatenate((Y_w[:last_index], Y_wt_train))
+
+        numpy.random.seed(random_state)
+        model = make_model(log_loss)
+
+        print('Sample of train labels = {}'.format(numpy.round(Y_aux_train[:2], decimals=2)))
+        print('Sample of validation labels = {}'.format(numpy.round(Y_wt_val[:2], decimals=2)))
+        history = model.fit(X_aux_train, Y_aux_train,
+                            validation_data=(X_wt_val, Y_wt_val),
+                            epochs=max_epochs, verbose=0, callbacks=[early_stopping],
+                            batch_size=batch_size, shuffle=True)
+        # 5. Evaluate the model in the test set with true labels
+        y_pred = model.predict(X_wt_test).argmax(axis=1)
+        acc[method][i] = (y_pred == y_wt_test).mean()
+        print('Number of weak samples = {} from total {}, Accuracy = {:.3f}'.format(last_index, Y_aux_train.shape[0], acc[method][i]))
+
+        plot_results(model, X_wt_test, y_wt_test, history)
+
+
+# In[13]:
 
 
 method = 'Weak'
@@ -566,15 +632,15 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 # 
 # ## 3.a. Learning mixing matrix M
 
-# In[13]:
+# In[14]:
 
 
 categories = range(n_classes)
 from wlc.WLweakener import newWeakCount
-w_count = newWeakCount(Z_wt_train, Y_wt_train, range(n_classes), reg='Partial', Z_reg=Z_w, alpha=0.1)
+w_count = newWeakCount(Z_wt_train, Y_wt_train, range(n_classes), reg='Partial', Z_reg=Z_w, alpha=1).astype(int)
 print("Weak count\n{}".format(w_count.todense()))
 # 1.a. Learn a mixing matrix using training with weak and true labels
-M_0 = estimate_M(Z_wt_train, Y_wt_train, range(n_classes), reg='Partial', Z_reg=Z_w, alpha=0.1)
+M_0 = estimate_M(Z_wt_train, Y_wt_train, range(n_classes), reg='Partial', Z_reg=Z_w, alpha=1)
 M_1 = computeM(c=n_classes, method='supervised')
 q_0 = X_w.shape[0] / float(X_w.shape[0] + X_wt_train.shape[0])
 q_1 = X_wt_train.shape[0] / float(X_w.shape[0] + X_wt_train.shape[0])
@@ -595,23 +661,27 @@ if M is not None:
     if M_T.shape == M_EM.shape:
         print('Mean Squared Difference between True and estimated M = {}'.format(numpy.mean(numpy.square(M_T - M_EM))))
 
-    if n_classes < 5 and M.shape[0] != M.shape[1]:
-        # FIXME problem here when true M is square and estimated is not
-        fig = plt.figure(figsize=(10, 5))
-        for i, (title, m_aux) in enumerate([(r'Original $M$', M),
-                                        (r'Weak Count', w_count.todense()),
-                                        (r'Estimated $M_0$', M_0),
-                                        (r'$|M - M_0|$', numpy.abs(M - M_0))]):
-            ax = fig.add_subplot(1,4,i+1)
+    # FIXME problem here when true M is square and estimated is not
+    m_list = [(r'Original $M$', M), (r'Weak Count', w_count.todense()),
+              (r'Estimated $M_0$', M_0)]
+    if M.shape[0] == M.shape[1]:
+        m_list.append((r'$|M - M_0|$', numpy.abs(M - M_0)))
+        
+    fig = plt.figure(figsize=(10, 5))
+    for i, (title, m_aux) in enumerate(m_list):
+        ax = fig.add_subplot(1,len(m_list),i+1)
+        if n_classes < 5:
             from wlc.WLweakener import binarizeWeakLabels
             rows = binarizeWeakLabels(numpy.arange(m_aux.shape[0]), c=m_aux.shape[1])
             fig = plot_heatmap(m_aux, rows=rows, title=title, fig=fig, ax=ax,
                                xlabel='True label', ylabel='Weak label')
+        else:
+            ax.imshow(m_aux, interpolation='nearest', aspect='auto')
 
 
 # ## 3.b. Train with true mixing matrix M if available
 
-# In[14]:
+# In[15]:
 
 
 m = {}
@@ -628,7 +698,7 @@ def EM_log_loss(y_true, y_pred):
 # 
 # - Be careful as the indices from the true matrix can be smaller than the estimated, as the estimated is always the long version while the original one can be square
 
-# In[15]:
+# In[16]:
 
 
 Z_w_index = weak_to_index(Z_w, method=M_method)
@@ -657,7 +727,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
     history = model.fit(X_wt_aux, ZY_wt_aux, 
                         validation_data=(X_wt_val, Y_wt_val),
                         epochs=max_epochs, verbose=0, callbacks=[early_stopping],
-                        batch_size=batch_size)
+                        batch_size=batch_size, shuffle=True)
     # 5. Evaluate the model in the test set with true labels
     y_pred = model.predict(X_wt_test).argmax(axis=1)
     acc[method][i] = (y_pred == y_wt_test).mean()
@@ -668,7 +738,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 
 # ## 3.c. Train with estimated mixing matrix M_ME
 
-# In[16]:
+# In[17]:
 
 
 Z_w_index = weak_to_index(Z_w, method='random_weak')
@@ -707,7 +777,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
     history = model.fit(X_wt_aux, ZY_wt_aux, 
                         validation_data=(X_wt_val, Y_wt_val),
                         epochs=max_epochs, verbose=0, callbacks=[early_stopping],
-                        batch_size=batch_size)
+                        batch_size=batch_size, shuffle=True)
     # 5. Evaluate the model in the test set with true labels
     y_pred = model.predict(X_wt_test).argmax(axis=1)
     acc[method][i] = (y_pred == y_wt_test).mean()
@@ -722,7 +792,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 # - uses the predictions for the weak labels
 # - **TODO** This function assumes there are no fully unsupervised samples!!! The current approach will assign 1/n_zeros as the weak label (this may not be bad, if we assume that it needs to belong to one of the classes).
 
-# In[17]:
+# In[18]:
 
 
 def OSL_log_loss(y_true, y_pred):
@@ -756,7 +826,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
     history = model.fit(X_aux_train, Z_aux_train, 
                         validation_data=(X_wt_val, Y_wt_val),
                         epochs=max_epochs, verbose=0, callbacks=[early_stopping],
-                        batch_size=batch_size)
+                        batch_size=batch_size, shuffle=True)
     # 5. Evaluate the model in the test set with true labels
     y_pred = model.predict(X_wt_test).argmax(axis=1)
     acc[method][i] = (y_pred == y_wt_test).mean()
@@ -767,7 +837,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 
 # # 5. Save results
 
-# In[18]:
+# In[19]:
 
 
 import pandas
@@ -803,7 +873,7 @@ df_experiment.to_json(filename + '.json')
 
 # ## 5.b. Update saved results
 
-# In[19]:
+# In[20]:
 
 
 df_experiment = pandas.read_json(filename + '.json')
@@ -812,7 +882,7 @@ locals().update(df_experiment)
 
 # # 6. Plot results
 
-# In[20]:
+# In[21]:
 
 
 if acc_upperbound is not None:
@@ -832,11 +902,11 @@ ax.set_title("All methods used {} train. and {} valid. true labels.{}".format(
 for key, value in acc.items():
     ax.plot(weak_proportions, value, label='{}'.format(key, n_wt_samples_train))
 if acc_upperbound is not None:
-    ax.axhline(y=acc_upperbound, color='red', lw=2,linestyle='--', label='Superv. (+{} true)'.format(n_wt_samples))
-ax.axhline(y=acc_lowerbound, color='orange', lw=2, linestyle='-.', label='Supervised')
+    ax.axhline(y=acc_upperbound, color='black', lw=2,linestyle='--', label='Superv. (+{} true)'.format(n_wt_samples))
+ax.axhline(y=acc_lowerbound, color='gray', lw=2, linestyle='-.', label='Supervised')
 ax.set_xlabel('Number of weak samples')
 ax.set_ylabel('Accuracy on {} true labels'.format(n_wt_samples_test))
-ax.set_xscale("symlog")
+#ax.set_xscale("symlog")
 ax.legend(loc=0, fancybox=True, framealpha=0.8)
 ax.grid()
 fig.tight_layout()
