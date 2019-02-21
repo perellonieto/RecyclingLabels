@@ -19,12 +19,12 @@ if is_interactive():
     get_ipython().magic(u'matplotlib inline')
     sys.path.append('../')
     random_state = 0
-    dataset_name = 'digits'
+    dataset_name = 'blobs'
     prop_test = 0.7
     prop_val = 0.5
-    M_method = 'random_weak' # IPL, quasi_IPL, random_weak, random_noise, noisy, supervisedg
-    M_alpha = 0.7 # Alpha = 1.0 No unsupervised in IPL
-    M_beta = 0.3 # Beta = 0.0 No noise
+    M_method = 'noisy' # IPL, quasi_IPL, random_weak, random_noise, noisy, supervisedg
+    M_alpha = 0.5 # Alpha = 1.0 No unsupervised in IPL
+    M_beta = 0.5 # Beta = 0.0 No noise
     data_folder = '../data/'
 else:
     random_state = int(sys.argv[1])
@@ -105,7 +105,7 @@ if dataset_name == 'digits':
     true_size = 0.1
     X_t, y_t = load_digits(return_X_y=True)
     n_classes = 10
-    true_size = 0.1
+    true_size = 0.4
     classes = list(range(n_classes))
     n_samples = X_t.shape[0]
     n_features = X_t.shape[1]
@@ -569,6 +569,8 @@ list_weak_proportions = numpy.array([0.0, 0.1, 0.5, 0.7, 0.9, 1.0])
 acc = {}
 
 
+# ## 2.b.4. Training with different proportions of true labels if available
+
 # In[12]:
 
 
@@ -664,7 +666,7 @@ if M is not None:
     # FIXME problem here when true M is square and estimated is not
     m_list = [(r'Original $M$', M), (r'Weak Count', w_count.todense()),
               (r'Estimated $M_0$', M_0)]
-    if M.shape[0] == M.shape[1]:
+    if M.shape == M_0.shape:
         m_list.append((r'$|M - M_0|$', numpy.abs(M - M_0)))
         
     fig = plt.figure(figsize=(10, 5))
@@ -787,12 +789,69 @@ for i, weak_proportion in enumerate(list_weak_proportions):
     plot_results(model, X_wt_test, y_wt_test, history)
 
 
+# ## 3.d. Training with virtual labels
+
+# In[ ]:
+
+
+Z_w_index = weak_to_index(Z_w, method='random_weak')
+Y_wt_train_index = weak_to_index(Y_wt_train, method='supervised')
+
+print("Z_w_index {}".format(Z_w_index[:5]))
+print('Y_wt_train_index {}'.format(Y_wt_train_index[:5]))
+
+method = 'Virtual M estimated'
+acc[method] = numpy.zeros_like(list_weak_proportions)
+m[method] = M_EM
+print('Mixing matrix M shape = {}'.format(m[method].shape))
+print(m[method])
+for i, weak_proportion in enumerate(list_weak_proportions):
+    last_index = int(weak_proportion*Z_w.shape[0])
+    
+    X_wt_aux = numpy.concatenate((X_w[:last_index], X_wt_train))
+    ZY_wt_aux_index = numpy.concatenate((Z_w_index[:last_index], Y_wt_train_index + M_0.shape[0]))
+    
+    # Change weights q for the actual sizes
+    q_0 = last_index / float(last_index + X_wt_train.shape[0])
+    q_1 = X_wt_train.shape[0] / float(last_index + X_wt_train.shape[0])
+    print("Size set weak = {:.0f}, size set true = {:.0f}".format(last_index, X_wt_train.shape[0]))
+    print("q_0 = {}, q_1 = {}".format(q_0, q_1))
+    m_aux = numpy.concatenate((q_0*M_0, q_1*M_1), axis=0)
+    #m_aux = M_EM # numpy.concatenate((q_0*M_0, q_1*M_1), axis=0)
+    
+        
+    V_aux = numpy.linalg.pinv(m_aux)
+    print(V_aux)
+    
+    ZY_wt_aux = V_aux.T[ZY_wt_aux_index]
+    
+    #print(m_aux)
+    #ZY_wt_aux = m_aux[ZY_wt_aux_index]
+
+    numpy.random.seed(random_state)
+    model = make_model('mse')
+
+    print('Sample of train labels = {}'.format(numpy.round(ZY_wt_aux[:2], decimals=2)))
+    print('Sample of validation labels = {}'.format(numpy.round(Y_wt_val[:2], decimals=2)))
+    history = model.fit(X_wt_aux, ZY_wt_aux, 
+                        validation_data=(X_wt_val, Y_wt_val),
+                        epochs=max_epochs, verbose=0, callbacks=[early_stopping],
+                        batch_size=batch_size, shuffle=True)
+    # 5. Evaluate the model in the test set with true labels
+    y_pred = model.predict(X_wt_test).argmax(axis=1)
+    acc[method][i] = (y_pred == y_wt_test).mean()
+    print('Number of weak samples = {} and true = {}, Accuracy = {:.3f}'.format(last_index, X_wt_train.shape[0], acc[method][i]))
+
+    
+    plot_results(model, X_wt_test, y_wt_test, history)
+
+
 # ## 4. Baseline Optimistic Superset Learning
 # 
 # - uses the predictions for the weak labels
 # - **TODO** This function assumes there are no fully unsupervised samples!!! The current approach will assign 1/n_zeros as the weak label (this may not be bad, if we assume that it needs to belong to one of the classes).
 
-# In[18]:
+# In[ ]:
 
 
 def OSL_log_loss(y_true, y_pred):
@@ -837,7 +896,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 
 # # 5. Save results
 
-# In[19]:
+# In[ ]:
 
 
 import pandas
@@ -873,7 +932,7 @@ df_experiment.to_json(filename + '.json')
 
 # ## 5.b. Update saved results
 
-# In[20]:
+# In[ ]:
 
 
 df_experiment = pandas.read_json(filename + '.json')
@@ -882,7 +941,7 @@ locals().update(df_experiment)
 
 # # 6. Plot results
 
-# In[21]:
+# In[ ]:
 
 
 if acc_upperbound is not None:
@@ -899,7 +958,7 @@ else:
     M_text = ''
 ax.set_title("All methods used {} train. and {} valid. true labels.{}".format(
     n_wt_samples_train, n_wt_samples_val, M_text))
-for key, value in acc.items():
+for key, value in sorted(acc.items()):
     ax.plot(weak_proportions, value, label='{}'.format(key, n_wt_samples_train))
 if acc_upperbound is not None:
     ax.axhline(y=acc_upperbound, color='black', lw=2,linestyle='--', label='Superv. (+{} true)'.format(n_wt_samples))
