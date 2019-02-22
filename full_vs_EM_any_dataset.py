@@ -20,7 +20,7 @@ if is_interactive():
     sys.path.append('../')
     random_state = 0
     dataset_name = 'blobs'
-    prop_test = 0.7
+    prop_test = 0.8
     prop_val = 0.5
     M_method = 'noisy' # IPL, quasi_IPL, random_weak, random_noise, noisy, supervisedg
     M_alpha = 0.5 # Alpha = 1.0 No unsupervised in IPL
@@ -113,7 +113,8 @@ if dataset_name == 'digits':
 elif dataset_name == 'blobs':
     n_classes = 4
     classes = list(range(n_classes))
-    n_samples = 2000
+    n_samples = 10000
+    true_size = 0.3
     n_features = 60
     centers = numpy.random.rand(n_classes, n_features)*n_features
     cluster_std = numpy.abs(numpy.random.randn(n_classes)*n_features)
@@ -357,33 +358,29 @@ print('True labels for test partition size = {}'.format(n_wt_samples_test))
 #     - $S_{wt.train}$
 #     - $S_{wt.val}$
 
-# In[6]:
-
-
-max_epochs = 2000
-
-if y_w is not None:
-    X_aux_train = numpy.concatenate((X_w, X_wt_train, X_wt_val))
-    y_aux_train = numpy.concatenate((y_w, y_wt_train, y_wt_val))
-    LR = LogisticRegression(solver='lbfgs', multi_class='multinomial', max_iter=max_epochs, penalty='l2', C=0.01)
-    LR.fit(X_aux_train, y_aux_train)
-    print('A Logistic Regression trained with all the real labels ({} samples)'.format(y_aux_train.shape[0]))
-    acc_upperbound = LR.score(X_wt_test, y_wt_test)
-    print('Accuracy = {}'.format(acc_upperbound))
-
-    fig = plt.figure(figsize=(8,3))
-    clf_pred =  LR.predict(X_aux_train)
-    cm = confusion_matrix(y_aux_train, clf_pred)
-    acc = (y_aux_train == clf_pred).mean()
-    ax = fig.add_subplot(1, 2, 1)
-    _ = plot_confusion_matrix(cm, ax=ax, title='Training acc. {:.3}'.format(acc))
-
-    clf_pred =  LR.predict(X_wt_test)
-    cm = confusion_matrix(y_wt_test, clf_pred)
-    acc = (y_wt_test == clf_pred).mean()
-    ax = fig.add_subplot(1, 2, 2)
-    _ = plot_confusion_matrix(cm, ax=ax, title='Test acc. {:.3}'.format(acc))
-
+# max_epochs = 2000
+# 
+# if y_w is not None:
+#     X_aux_train = numpy.concatenate((X_w, X_wt_train, X_wt_val))
+#     y_aux_train = numpy.concatenate((y_w, y_wt_train, y_wt_val))
+#     LR = LogisticRegression(solver='lbfgs', multi_class='multinomial', max_iter=max_epochs, penalty='l2', C=0.01)
+#     LR.fit(X_aux_train, y_aux_train)
+#     print('A Logistic Regression trained with all the real labels ({} samples)'.format(y_aux_train.shape[0]))
+#     acc_upperbound = LR.score(X_wt_test, y_wt_test)
+#     print('Accuracy = {}'.format(acc_upperbound))
+# 
+#     fig = plt.figure(figsize=(8,3))
+#     clf_pred =  LR.predict(X_aux_train)
+#     cm = confusion_matrix(y_aux_train, clf_pred)
+#     acc = (y_aux_train == clf_pred).mean()
+#     ax = fig.add_subplot(1, 2, 1)
+#     _ = plot_confusion_matrix(cm, ax=ax, title='Training acc. {:.3}'.format(acc))
+# 
+#     clf_pred =  LR.predict(X_wt_test)
+#     cm = confusion_matrix(y_wt_test, clf_pred)
+#     acc = (y_wt_test == clf_pred).mean()
+#     ax = fig.add_subplot(1, 2, 2)
+#     _ = plot_confusion_matrix(cm, ax=ax, title='Test acc. {:.3}'.format(acc))
 
 # ## 2.a.2. Lowerbound if we have access to a limited set of true labels
 # 
@@ -392,40 +389,38 @@ if y_w is not None:
 #     - $S_{wt.train}$
 #     - $S_{wt.val}$
 
-# In[7]:
-
-
-max_epochs = 2000
-
-X_aux_train = numpy.concatenate((X_wt_train, X_wt_val))
-y_aux_train = numpy.concatenate((y_wt_train, y_wt_val))
-LR = LogisticRegression(solver='lbfgs', multi_class='multinomial', max_iter=max_epochs, penalty='l2', C=0.01)
-LR.fit(X_aux_train, y_aux_train)
-print('A Logistic Regression trained with all the real labels ({} samples)'.format(y_aux_train.shape[0]))
-acc_upperbound = LR.score(X_wt_test, y_wt_test)
-print('Accuracy = {}'.format(acc_upperbound))
-
-fig = plt.figure(figsize=(8,3))
-clf_pred =  LR.predict(X_aux_train)
-cm = confusion_matrix(y_aux_train, clf_pred)
-acc = (y_aux_train == clf_pred).mean()
-ax = fig.add_subplot(1, 2, 1)
-_ = plot_confusion_matrix(cm, ax=ax, title='Training acc. {:.3}'.format(acc))
-
-clf_pred =  LR.predict(X_wt_test)
-cm = confusion_matrix(y_wt_test, clf_pred)
-acc = (y_wt_test == clf_pred).mean()
-ax = fig.add_subplot(1, 2, 2)
-_ = plot_confusion_matrix(cm, ax=ax, title='Test acc. {:.3}'.format(acc))
-
+# max_epochs = 2000
+# 
+# X_aux_train = numpy.concatenate((X_wt_train, X_wt_val))
+# y_aux_train = numpy.concatenate((y_wt_train, y_wt_val))
+# LR = LogisticRegression(solver='lbfgs', multi_class='multinomial', max_iter=max_epochs, penalty='l2', C=0.01)
+# LR.fit(X_aux_train, y_aux_train)
+# print('A Logistic Regression trained with all the real labels ({} samples)'.format(y_aux_train.shape[0]))
+# acc_upperbound = LR.score(X_wt_test, y_wt_test)
+# print('Accuracy = {}'.format(acc_upperbound))
+# 
+# fig = plt.figure(figsize=(8,3))
+# clf_pred =  LR.predict(X_aux_train)
+# cm = confusion_matrix(y_aux_train, clf_pred)
+# acc = (y_aux_train == clf_pred).mean()
+# ax = fig.add_subplot(1, 2, 1)
+# _ = plot_confusion_matrix(cm, ax=ax, title='Training acc. {:.3}'.format(acc))
+# 
+# clf_pred =  LR.predict(X_wt_test)
+# cm = confusion_matrix(y_wt_test, clf_pred)
+# acc = (y_wt_test == clf_pred).mean()
+# ax = fig.add_subplot(1, 2, 2)
+# _ = plot_confusion_matrix(cm, ax=ax, title='Test acc. {:.3}'.format(acc))
 
 # # 2.b. Train Keras baselines
 # 
 # **TODO: check what happens when there is a typo on the early_stop_loss**
 # 
 
-# In[8]:
+# In[6]:
 
+
+max_epochs = 2000
 
 from keras.models import Sequential
 from keras.layers import Dense
@@ -514,7 +509,7 @@ def plot_results(model, X_test, y_test, history):
 
 # ## 2.b.2. Upperbound if multiple true labels are available
 
-# In[9]:
+# In[8]:
 
 
 if y_w is not None:
@@ -530,7 +525,7 @@ if y_w is not None:
 
     plot_results(model, X_wt_test, y_wt_test, history)
 
-    print('A Keras Logistic Regression trained with all the real labels ({} samples)'.format(y_aux_train.shape[0]))
+    print('A Keras Logistic Regression trained with all the real labels ({} samples)'.format(Y_aux_train.shape[0]))
     acc_upperbound = (model.predict_proba(X_wt_test).argmax(axis=1) == y_wt_test).mean()
     print('Accuracy = {}'.format(acc_upperbound))
 else:
@@ -539,7 +534,7 @@ else:
 
 # ## 2.b.2. Lowerbound with a small amount of true labels
 
-# In[10]:
+# In[9]:
 
 
 numpy.random.seed(random_state)
@@ -561,17 +556,17 @@ print('Accuracy = {}'.format(acc_lowerbound))
 
 # ## 2.b.3. Training directly with different proportions of weak labels
 
-# In[11]:
+# In[10]:
 
 
-list_weak_proportions = numpy.array([0.0, 0.001, 0.005, 0.01, 0.02, 0.03, 0.1, 0.3, 0.5, 0.7, 1.0])
-list_weak_proportions = numpy.array([0.0, 0.1, 0.5, 0.7, 0.9, 1.0])
+list_weak_proportions = numpy.array([0.0, 0.001, 0.005, 0.01, 0.02, 0.03, 0.05, 0.1, 0.3, 0.5, 0.7, 1.0])
+#list_weak_proportions = numpy.array([0.0, 0.1, 0.5])
 acc = {}
 
 
 # ## 2.b.4. Training with different proportions of true labels if available
 
-# In[12]:
+# In[ ]:
 
 
 if y_w is not None:
@@ -601,7 +596,7 @@ if y_w is not None:
         plot_results(model, X_wt_test, y_wt_test, history)
 
 
-# In[13]:
+# In[ ]:
 
 
 method = 'Weak'
@@ -634,7 +629,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 # 
 # ## 3.a. Learning mixing matrix M
 
-# In[14]:
+# In[ ]:
 
 
 categories = range(n_classes)
@@ -683,7 +678,7 @@ if M is not None:
 
 # ## 3.b. Train with true mixing matrix M if available
 
-# In[15]:
+# In[ ]:
 
 
 m = {}
@@ -700,7 +695,7 @@ def EM_log_loss(y_true, y_pred):
 # 
 # - Be careful as the indices from the true matrix can be smaller than the estimated, as the estimated is always the long version while the original one can be square
 
-# In[16]:
+# In[ ]:
 
 
 Z_w_index = weak_to_index(Z_w, method=M_method)
@@ -740,7 +735,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 
 # ## 3.c. Train with estimated mixing matrix M_ME
 
-# In[17]:
+# In[ ]:
 
 
 Z_w_index = weak_to_index(Z_w, method='random_weak')
@@ -791,60 +786,56 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 
 # ## 3.d. Training with virtual labels
 
-# In[ ]:
-
-
-Z_w_index = weak_to_index(Z_w, method='random_weak')
-Y_wt_train_index = weak_to_index(Y_wt_train, method='supervised')
-
-print("Z_w_index {}".format(Z_w_index[:5]))
-print('Y_wt_train_index {}'.format(Y_wt_train_index[:5]))
-
-method = 'Virtual M estimated'
-acc[method] = numpy.zeros_like(list_weak_proportions)
-m[method] = M_EM
-print('Mixing matrix M shape = {}'.format(m[method].shape))
-print(m[method])
-for i, weak_proportion in enumerate(list_weak_proportions):
-    last_index = int(weak_proportion*Z_w.shape[0])
-    
-    X_wt_aux = numpy.concatenate((X_w[:last_index], X_wt_train))
-    ZY_wt_aux_index = numpy.concatenate((Z_w_index[:last_index], Y_wt_train_index + M_0.shape[0]))
-    
-    # Change weights q for the actual sizes
-    q_0 = last_index / float(last_index + X_wt_train.shape[0])
-    q_1 = X_wt_train.shape[0] / float(last_index + X_wt_train.shape[0])
-    print("Size set weak = {:.0f}, size set true = {:.0f}".format(last_index, X_wt_train.shape[0]))
-    print("q_0 = {}, q_1 = {}".format(q_0, q_1))
-    m_aux = numpy.concatenate((q_0*M_0, q_1*M_1), axis=0)
-    #m_aux = M_EM # numpy.concatenate((q_0*M_0, q_1*M_1), axis=0)
-    
-        
-    V_aux = numpy.linalg.pinv(m_aux)
-    print(V_aux)
-    
-    ZY_wt_aux = V_aux.T[ZY_wt_aux_index]
-    
-    #print(m_aux)
-    #ZY_wt_aux = m_aux[ZY_wt_aux_index]
-
-    numpy.random.seed(random_state)
-    model = make_model('mse')
-
-    print('Sample of train labels = {}'.format(numpy.round(ZY_wt_aux[:2], decimals=2)))
-    print('Sample of validation labels = {}'.format(numpy.round(Y_wt_val[:2], decimals=2)))
-    history = model.fit(X_wt_aux, ZY_wt_aux, 
-                        validation_data=(X_wt_val, Y_wt_val),
-                        epochs=max_epochs, verbose=0, callbacks=[early_stopping],
-                        batch_size=batch_size, shuffle=True)
-    # 5. Evaluate the model in the test set with true labels
-    y_pred = model.predict(X_wt_test).argmax(axis=1)
-    acc[method][i] = (y_pred == y_wt_test).mean()
-    print('Number of weak samples = {} and true = {}, Accuracy = {:.3f}'.format(last_index, X_wt_train.shape[0], acc[method][i]))
-
-    
-    plot_results(model, X_wt_test, y_wt_test, history)
-
+# Z_w_index = weak_to_index(Z_w, method='random_weak')
+# Y_wt_train_index = weak_to_index(Y_wt_train, method='supervised')
+# 
+# print("Z_w_index {}".format(Z_w_index[:5]))
+# print('Y_wt_train_index {}'.format(Y_wt_train_index[:5]))
+# 
+# method = 'Virtual M estimated'
+# acc[method] = numpy.zeros_like(list_weak_proportions)
+# m[method] = M_EM
+# print('Mixing matrix M shape = {}'.format(m[method].shape))
+# print(m[method])
+# for i, weak_proportion in enumerate(list_weak_proportions):
+#     last_index = int(weak_proportion*Z_w.shape[0])
+#     
+#     X_wt_aux = numpy.concatenate((X_w[:last_index], X_wt_train))
+#     ZY_wt_aux_index = numpy.concatenate((Z_w_index[:last_index], Y_wt_train_index + M_0.shape[0]))
+#     
+#     # Change weights q for the actual sizes
+#     q_0 = last_index / float(last_index + X_wt_train.shape[0])
+#     q_1 = X_wt_train.shape[0] / float(last_index + X_wt_train.shape[0])
+#     print("Size set weak = {:.0f}, size set true = {:.0f}".format(last_index, X_wt_train.shape[0]))
+#     print("q_0 = {}, q_1 = {}".format(q_0, q_1))
+#     m_aux = numpy.concatenate((q_0*M_0, q_1*M_1), axis=0)
+#     #m_aux = M_EM # numpy.concatenate((q_0*M_0, q_1*M_1), axis=0)
+#     
+#         
+#     V_aux = numpy.linalg.pinv(m_aux)
+#     print(V_aux)
+#     
+#     ZY_wt_aux = V_aux.T[ZY_wt_aux_index]
+#     
+#     #print(m_aux)
+#     #ZY_wt_aux = m_aux[ZY_wt_aux_index]
+# 
+#     numpy.random.seed(random_state)
+#     model = make_model('mse')
+# 
+#     print('Sample of train labels = {}'.format(numpy.round(ZY_wt_aux[:2], decimals=2)))
+#     print('Sample of validation labels = {}'.format(numpy.round(Y_wt_val[:2], decimals=2)))
+#     history = model.fit(X_wt_aux, ZY_wt_aux, 
+#                         validation_data=(X_wt_val, Y_wt_val),
+#                         epochs=max_epochs, verbose=0, callbacks=[early_stopping],
+#                         batch_size=batch_size, shuffle=True)
+#     # 5. Evaluate the model in the test set with true labels
+#     y_pred = model.predict(X_wt_test).argmax(axis=1)
+#     acc[method][i] = (y_pred == y_wt_test).mean()
+#     print('Number of weak samples = {} and true = {}, Accuracy = {:.3f}'.format(last_index, X_wt_train.shape[0], acc[method][i]))
+# 
+#     
+#     plot_results(model, X_wt_test, y_wt_test, history)
 
 # ## 4. Baseline Optimistic Superset Learning
 # 
@@ -965,7 +956,7 @@ if acc_upperbound is not None:
 ax.axhline(y=acc_lowerbound, color='gray', lw=2, linestyle='-.', label='Supervised')
 ax.set_xlabel('Number of weak samples')
 ax.set_ylabel('Accuracy on {} true labels'.format(n_wt_samples_test))
-#ax.set_xscale("symlog")
+ax.set_xscale("symlog")
 ax.legend(loc=0, fancybox=True, framealpha=0.8)
 ax.grid()
 fig.tight_layout()
