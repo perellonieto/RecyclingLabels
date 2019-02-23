@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[1]:
+# In[3]:
 
 
 # This code can be downloaded as a Python script and run as:
@@ -28,6 +28,7 @@ if is_interactive():
     data_folder = '../data/'
     max_epochs = 2000
 else:
+    
     random_state = int(sys.argv[1])
     dataset_name = sys.argv[2]
     prop_test = float(sys.argv[3])
@@ -513,6 +514,7 @@ def plot_results(model, X_test, y_test, history):
 
 
 if y_w is not None:
+    print('Training Upperbound')
     numpy.random.seed(random_state)
     model = make_model(log_loss)
 
@@ -540,6 +542,7 @@ else:
 numpy.random.seed(random_state)
 model = make_model(log_loss)
 
+print('Training Lowerbound')
 print('Sample of train labels = {}'.format(numpy.round(Y_wt_train[:2], decimals=2)))
 print('Sample of validation labels = {}'.format(numpy.round(Y_wt_val[:2], decimals=2)))
 history = model.fit(X_wt_train, Y_wt_train, 
@@ -570,6 +573,7 @@ acc = {}
 
 
 if y_w is not None:
+    print('Training Upperbound with increasing number of true labels')
     method = 'True'
     acc[method] = numpy.zeros_like(list_weak_proportions)
     for i, weak_proportion in enumerate(list_weak_proportions):
@@ -600,6 +604,7 @@ if y_w is not None:
 
 
 method = 'Weak'
+print('Training {}'.format(method))
 acc[method] = numpy.zeros_like(list_weak_proportions)
 for i, weak_proportion in enumerate(list_weak_proportions):
     last_index = int(weak_proportion*X_w.shape[0])
@@ -705,6 +710,7 @@ print("Z_w_index {}".format(Z_w_index[:5]))
 print('Y_wt_train_index {}'.format(Y_wt_train_index[:5]))
 
 method = 'EM M original'
+print('Training {}'.format(method))
 acc[method] = numpy.zeros_like(list_weak_proportions)
 m[method] = M_T
 print('Mixing matrix M shape = {}'.format(m[method].shape))
@@ -745,6 +751,7 @@ print("Z_w_index {}".format(Z_w_index[:5]))
 print('Y_wt_train_index {}'.format(Y_wt_train_index[:5]))
 
 method = 'EM M estimated'
+print('Training {}'.format(method))
 acc[method] = numpy.zeros_like(list_weak_proportions)
 m[method] = M_EM
 print('Mixing matrix M shape = {}'.format(m[method].shape))
@@ -859,6 +866,7 @@ def OSL_log_loss(y_true, y_pred):
     return K.mean(out, axis=-1)
 
 method = 'OSL'
+print('Training {}'.format(method))
 
 acc[method] = numpy.zeros_like(list_weak_proportions)
 for i, weak_proportion in enumerate(list_weak_proportions):
