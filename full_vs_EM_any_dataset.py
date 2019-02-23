@@ -26,16 +26,18 @@ if is_interactive():
     M_alpha = 0.6 # Alpha = 1.0 No unsupervised in IPL
     M_beta = 0.4 # Beta = 0.0 No noise
     data_folder = '../data/'
+    max_epochs = 2000
 else:
     random_state = int(sys.argv[1])
     dataset_name = sys.argv[2]
     prop_test = float(sys.argv[3])
     prop_val = float(sys.argv[4])
-    if len(sys.argv) > 5:
-        M_method = sys.argv[5]
-        M_alpha = float(sys.argv[6])
-        if len(sys.argv) > 7:
-            M_beta = float(sys.argv[7])
+    max_epochs = int(sys.argv[5])
+    if len(sys.argv) > 6:
+        M_method = sys.argv[6]
+        M_alpha = float(sys.argv[7])
+        if len(sys.argv) > 8:
+            M_beta = float(sys.argv[8])
         else:
             M_beta = 1 - M_alpha
     data_folder = './data/'
@@ -419,8 +421,6 @@ print('True labels for test partition size = {}'.format(n_wt_samples_test))
 
 # In[6]:
 
-
-max_epochs = 2000
 
 from keras.models import Sequential
 from keras.layers import Dense

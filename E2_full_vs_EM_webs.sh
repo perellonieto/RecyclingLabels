@@ -10,6 +10,7 @@ declare -a test_list=(
 )
 
 val_proportion='0.5'
+max_epochs=2000
 
 for random_seed in {1..100};
 do
@@ -17,7 +18,7 @@ do
     do
         echo "python full_vs_EM_any_dataset.py $random_seed webs $test_proportion $val_proportion"
         python full_vs_EM_any_dataset.py $random_seed webs \
-            $test_proportion $val_proportion \
+            $test_proportion $val_proportion $max_epochs \
             > "webs_${random_seed}_${test_proportion}.out" \
             2> "webs_${random_seed}_${test_proportion}.err"
     done
