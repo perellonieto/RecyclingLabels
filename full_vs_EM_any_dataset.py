@@ -463,7 +463,7 @@ make_model = make_model_lr
 from keras.callbacks import EarlyStopping
 
 batch_size = 2048
-patience = 500
+patience = int(max_epochs/6)
 early_stop_loss = 'val_categorical_crossentropy' # TODO Check what happens when there is a typo in this loss
 
 early_stopping = EarlyStopping(monitor=early_stop_loss, min_delta=0, patience=patience, 
