@@ -1,7 +1,7 @@
 
 # coding: utf-8
 
-# In[3]:
+# In[1]:
 
 
 # This code can be downloaded as a Python script and run as:
@@ -304,7 +304,7 @@ _ = plot_multilabel_scatter(X_wt[:100], Z_wt[:100], fig=fig,
 # 
 # If there is a set with only true labels, it is ussed always as a test set only (not validation)
 
-# In[5]:
+# In[ ]:
 
 
 # prop_test is defined in the arguments
@@ -420,7 +420,7 @@ print('True labels for test partition size = {}'.format(n_wt_samples_test))
 # **TODO: check what happens when there is a typo on the early_stop_loss**
 # 
 
-# In[6]:
+# In[ ]:
 
 
 from keras.models import Sequential
@@ -471,6 +471,9 @@ early_stopping = EarlyStopping(monitor=early_stop_loss, min_delta=0, patience=pa
                                restore_best_weights=True)
 
 def plot_results(model, X_test, y_test, history):
+    if not is_interactive():
+        return
+    
     clf_proba_wt_test = model.predict_proba(X_test)
     clf_pred_wt_test = numpy.argmax(clf_proba_wt_test, axis=1)
     cm = confusion_matrix(y_test, clf_pred_wt_test)
@@ -503,14 +506,11 @@ def plot_results(model, X_test, y_test, history):
     ax = fig.add_subplot(1, n_fig, 5)
     acc = (y_test == clf_pred_wt_test).mean()
     _ = plot_confusion_matrix(cm, ax=ax, title='Test acc. {:.3}'.format(acc))
-    
-    if not is_interactive():
-        plt.close(fig)
 
 
 # ## 2.b.2. Upperbound if multiple true labels are available
 
-# In[7]:
+# In[ ]:
 
 
 if y_w is not None:
