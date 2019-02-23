@@ -504,6 +504,24 @@ def apply_weak_classifier(X, y, clf=LogisticRegression(), threshold='uniform',
     return training, validation, test, categories
 
 
+def load_mnist(random_state=0):
+    (x_train, y_train), (x_test, y_test) = mnist.load_data()
+    X = np.concatenate((x_train, x_test))
+    y = np.concatenate((y_train, y_test))
+    if random_state is not None:
+        X, y = shuffle(X, y, random_state=random_state)
+    return X, y
+
+
+def load_cifar10(random_state=0):
+    (x_train, y_train), (x_test, y_test) = cifar10.load_data()
+    X = np.concatenate((x_train, x_test))
+    y = np.concatenate((y_train, y_test))
+    if random_state is not None:
+        X, y = shuffle(X, y, random_state=random_state)
+    return X, y
+
+
 def load_dataset_apply_model(dataset, **kwargs):
     if dataset == 'iris':
         data = load_iris()

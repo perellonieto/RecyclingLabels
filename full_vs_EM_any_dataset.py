@@ -19,12 +19,12 @@ if is_interactive():
     get_ipython().magic(u'matplotlib inline')
     sys.path.append('../')
     random_state = 0
-    dataset_name = 'blobs'
-    prop_test = 0.8
+    dataset_name = 'mnist'
+    prop_test = 0.95
     prop_val = 0.5
     M_method = 'noisy' # IPL, quasi_IPL, random_weak, random_noise, noisy, supervisedg
-    M_alpha = 0.5 # Alpha = 1.0 No unsupervised in IPL
-    M_beta = 0.5 # Beta = 0.0 No noise
+    M_alpha = 0.6 # Alpha = 1.0 No unsupervised in IPL
+    M_beta = 0.4 # Beta = 0.0 No noise
     data_folder = '../data/'
 else:
     random_state = int(sys.argv[1])
@@ -88,7 +88,7 @@ plt.rc('axes', prop_cycle=default_cycler)
 numpy.random.seed(random_state)
 
 from sklearn.datasets import make_classification, make_blobs, load_digits
-from experiments.data import load_webs, load_labelme
+from experiments.data import load_webs, load_labelme, load_mnist
 from experiments.data import load_dataset_apply_model
 from sklearn.naive_bayes import GaussianNB
     
@@ -107,7 +107,6 @@ if dataset_name == 'digits':
     n_classes = 10
     true_size = 0.4
     classes = list(range(n_classes))
-    n_samples = X_t.shape[0]
     n_features = X_t.shape[1]
     only_true = (X_t, y_t)
 elif dataset_name == 'blobs':
@@ -148,7 +147,6 @@ elif dataset_name == 'quasi_separable':
     X_t, y_t = make_blobs(n_samples=samples_per_class, n_features=n_features, centers=means,
                       cluster_std=std, random_state=random_state)
     only_true = (X_t, y_t)
-    n_samples = X_t.shape[0]
     n_features = X_t.shape[1]
 elif dataset_name == 'separable':
     
@@ -163,7 +161,6 @@ elif dataset_name == 'separable':
     X_t, y_t = make_blobs(n_samples=samples_per_class, n_features=n_features, centers=means,
                       cluster_std=std, random_state=random_state)
     only_true = (X_t, y_t)
-    n_samples = X_t.shape[0]
     n_features = X_t.shape[1]
 elif dataset_name == 'non_separable':
     std = 2.0
@@ -176,7 +173,6 @@ elif dataset_name == 'non_separable':
     only_true = (X_t, y_t)
     n_classes = 3
     n_samples = X_t.shape[0]
-    n_features = X_t.shape[1]
 elif dataset_name == 'webs':
     only_weak, weak_and_true, only_true, classes = load_webs(tfidf=True, standardize=True,
                                                 #categories=['blog', 'inmo', 'parking', 'b2c', 'no_b2c', 'Other'],
@@ -188,7 +184,6 @@ elif dataset_name == 'webs':
     
     n_classes = Y_wt.shape[1]
     n_features = X_w.shape[1]
-    n_samples = X_wt.shape[0] + X_w.shape[0]
 elif dataset_name == 'labelme':
     only_weak, weak_and_true, only_true, classes = load_labelme(
                                                 random_state=random_state,
@@ -202,7 +197,6 @@ elif dataset_name == 'labelme':
     
     n_classes = Y_wt.shape[1]
     n_features = X_w.shape[1]
-    n_samples = X_wt.shape[0] + X_w.shape[0] + X_t.shape[0]
 elif dataset_name == 'iris_lr':
     
     only_weak, weak_and_true, only_true, classes = load_dataset_apply_model(dataset='iris', 
@@ -213,7 +207,6 @@ elif dataset_name == 'iris_lr':
     
     n_classes = Y_wt.shape[1]
     n_features = X_w.shape[1]
-    n_samples = X_wt.shape[0] + X_w.shape[0]
 elif dataset_name == 'digits_lr':
     only_weak, weak_and_true, only_true, classes = load_dataset_apply_model(dataset='digits', 
                                                                            true_proportion=0.3,
@@ -223,17 +216,24 @@ elif dataset_name == 'digits_lr':
     
     n_classes = Y_wt.shape[1]
     n_features = X_w.shape[1]
-    n_samples = X_wt.shape[0] + X_w.shape[0]
+elif dataset_name == 'mnist':
+    X_t, y_t = load_mnist(random_state=random_state)
+    X_t = X_t.reshape(X_t.shape[0], -1)
+    only_true = (X_t, y_t)
+    n_classes = 10
+    n_features = X_t.shape[1]
 else:
     raise KeyError('Dataset {} not available'.format(dataset_name))
-
-print('Number of features = {}'.format(n_features))
-print('Number of classes = {}'.format(n_classes))
-print('Class names = {}'.format(classes))
 
 n_only_weak = 0 if not only_weak else only_weak[0].shape[0]
 n_weak_and_true = 0 if not weak_and_true else weak_and_true[0].shape[0]
 n_only_true = 0 if not only_true else only_true[0].shape[0]
+
+n_samples = n_only_weak + n_weak_and_true + n_only_true
+
+print('Number of features = {}'.format(n_features))
+print('Number of classes = {}'.format(n_classes))
+print('Class names = {}'.format(classes))
 print('Samples with only weak labels = {}'.format(n_only_weak))
 print('Samples with weak and true labels = {}'.format(n_weak_and_true))
 print('Samples with only true labels = {}'.format(n_only_true))
@@ -480,24 +480,24 @@ def plot_results(model, X_test, y_test, history):
     _ = ax.plot(history.history['loss'], label='Training loss')
     _ = ax.plot(history.history['val_loss'], label='Validation loss')
     ax.set_yscale("symlog")
-    ax.set_xscale("symlog")
+    #ax.set_xscale("symlog")
     ax.legend()
     ax = fig.add_subplot(1, n_fig, 2)
     _ = ax.plot(history.history['categorical_crossentropy'], label='Training CE')
     _ = ax.plot(history.history['val_categorical_crossentropy'], label='Validation CE')
     ax.set_yscale("symlog")
-    ax.set_xscale("symlog")
+    #ax.set_xscale("symlog")
     ax.legend()
     ax = fig.add_subplot(1, n_fig, 3)
     _ = ax.plot(history.history['mean_squared_error'], label='Training MSE')
     _ = ax.plot(history.history['val_mean_squared_error'], label='Validation MSE')
     ax.set_yscale("symlog")
-    ax.set_xscale("symlog")
+    #ax.set_xscale("symlog")
     ax.legend()
     ax = fig.add_subplot(1, n_fig, 4)
     _ = ax.plot(history.history['acc'], label='Training acc')
     _ = ax.plot(history.history['val_acc'], label='Validation acc')
-    ax.set_xscale("symlog")
+    #ax.set_xscale("symlog")
     ax.legend()
     ax = fig.add_subplot(1, n_fig, 5)
     acc = (y_test == clf_pred_wt_test).mean()
@@ -509,7 +509,7 @@ def plot_results(model, X_test, y_test, history):
 
 # ## 2.b.2. Upperbound if multiple true labels are available
 
-# In[8]:
+# In[7]:
 
 
 if y_w is not None:
@@ -534,7 +534,7 @@ else:
 
 # ## 2.b.2. Lowerbound with a small amount of true labels
 
-# In[9]:
+# In[ ]:
 
 
 numpy.random.seed(random_state)
@@ -556,7 +556,7 @@ print('Accuracy = {}'.format(acc_lowerbound))
 
 # ## 2.b.3. Training directly with different proportions of weak labels
 
-# In[10]:
+# In[ ]:
 
 
 list_weak_proportions = numpy.array([0.0, 0.001, 0.005, 0.01, 0.02, 0.03, 0.05, 0.1, 0.3, 0.5, 0.7, 1.0])
