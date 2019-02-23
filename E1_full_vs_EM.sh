@@ -11,25 +11,25 @@ declare -a m_list=(
 )
 
 declare -a m_a_list=(
-    0.0
-    0.2
-    0.5
+    0.9
     0.8
-    1.0
+    0.7
+    0.6
+    0.5
 )
 
 declare -a dataset_list=(
     blobs
     make_classification
-    digits
-    non_separable
-    separable
+#    digits
+#    non_separable
+#    separable
 )
 
-test_proportion='0.5'
+test_proportion='0.8'
 val_proportion='0.5'
 
-for random_seed in {1..10};
+for random_seed in {1..100};
 do
     for dataset_name in "${dataset_list[@]}"
     do
