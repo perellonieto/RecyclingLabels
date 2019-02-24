@@ -19,7 +19,7 @@ if is_interactive():
     get_ipython().magic(u'matplotlib inline')
     sys.path.append('../')
     random_state = 0
-    dataset_name = 'mnist'
+    dataset_name = 'blobs'
     prop_test = 0.95
     prop_val = 0.5
     M_method = 'noisy' # IPL, quasi_IPL, random_weak, random_noise, noisy, supervisedg
@@ -91,7 +91,7 @@ plt.rc('axes', prop_cycle=default_cycler)
 numpy.random.seed(random_state)
 
 from sklearn.datasets import make_classification, make_blobs, load_digits
-from experiments.data import load_webs, load_labelme, load_mnist
+from experiments.data import load_webs, load_labelme, load_mnist, load_cifar10
 from experiments.data import load_dataset_apply_model
 from sklearn.naive_bayes import GaussianNB
     
@@ -99,7 +99,6 @@ n_samples = 5000
 n_features = 20
 n_classes = 3
 true_size = 0.4
-classes = list(range(n_classes))
 only_weak = ()
 weak_and_true = ()
 only_true = ()
@@ -222,9 +221,19 @@ elif dataset_name == 'digits_lr':
 elif dataset_name == 'mnist':
     X_t, y_t = load_mnist(random_state=random_state)
     X_t = X_t.reshape(X_t.shape[0], -1)
+    print(y_t.shape)
     only_true = (X_t, y_t)
     n_classes = 10
+    classes = list(range(n_classes))
     n_features = X_t.shape[1]
+elif dataset_name == 'cifar10':
+    X_t, y_t = load_cifar10(random_state=random_state)
+    X_t = X_t.reshape(X_t.shape[0], -1)
+    y_t = y_t.reshape(-1, )
+    only_true = (X_t, y_t)
+    n_classes = 10
+    classes = list(range(n_classes))
+    n_features = X_t.shape[-1]
 else:
     raise KeyError('Dataset {} not available'.format(dataset_name))
 
@@ -304,7 +313,7 @@ _ = plot_multilabel_scatter(X_wt[:100], Z_wt[:100], fig=fig,
 # 
 # If there is a set with only true labels, it is ussed always as a test set only (not validation)
 
-# In[ ]:
+# In[5]:
 
 
 # prop_test is defined in the arguments
@@ -420,7 +429,7 @@ print('True labels for test partition size = {}'.format(n_wt_samples_test))
 # **TODO: check what happens when there is a typo on the early_stop_loss**
 # 
 
-# In[ ]:
+# In[6]:
 
 
 from keras.models import Sequential
@@ -510,7 +519,7 @@ def plot_results(model, X_test, y_test, history):
 
 # ## 2.b.2. Upperbound if multiple true labels are available
 
-# In[ ]:
+# In[7]:
 
 
 if y_w is not None:
@@ -536,7 +545,7 @@ else:
 
 # ## 2.b.2. Lowerbound with a small amount of true labels
 
-# In[ ]:
+# In[8]:
 
 
 numpy.random.seed(random_state)
@@ -559,7 +568,7 @@ print('Accuracy = {}'.format(acc_lowerbound))
 
 # ## 2.b.3. Training directly with different proportions of weak labels
 
-# In[ ]:
+# In[9]:
 
 
 list_weak_proportions = numpy.array([0.0, 0.001, 0.005, 0.01, 0.02, 0.03, 0.05, 0.1, 0.3, 0.5, 0.7, 1.0])
@@ -569,7 +578,7 @@ acc = {}
 
 # ## 2.b.4. Training with different proportions of true labels if available
 
-# In[ ]:
+# In[10]:
 
 
 if y_w is not None:
