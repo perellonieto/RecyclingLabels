@@ -19,7 +19,7 @@ if is_interactive():
     get_ipython().magic(u'matplotlib inline')
     sys.path.append('../')
     random_state = 0
-    dataset_name = 'make_classification'
+    dataset_name = 'blobs'
     prop_test = 0.8
     prop_val = 0.5
     M_method_list = ['noisy', 'quasi_IPL', 'random_weak', 'random_noise'] # IPL, quasi_IPL, random_weak, random_noise, noisy, supervisedg
@@ -309,7 +309,7 @@ for i, M_method in enumerate(M_method_list):
 # 
 # In the following plots we show only the 2 features with most variance on every set
 
-# In[6]:
+# In[5]:
 
 
 from experiments.visualizations import plot_multilabel_scatter
@@ -331,7 +331,7 @@ for i in range(len(Z_wt_list)):
 # 
 # If there is a set with only true labels, it is ussed always as a test set only (not validation)
 
-# In[7]:
+# In[6]:
 
 
 X_wt_train_list = []
@@ -435,7 +435,7 @@ for i in range(len(y_wt_list)):
 # **TODO: check what happens when there is a typo on the early_stop_loss**
 # 
 
-# In[8]:
+# In[7]:
 
 
 from keras.models import Sequential
@@ -525,7 +525,7 @@ def plot_results(model, X_test, y_test, history):
 
 # ## 2.b.2. Upperbound if multiple true labels are available
 
-# In[9]:
+# In[8]:
 
 
 print('Training Upperbound')
@@ -569,7 +569,7 @@ print('Accuracy = {}'.format(acc_upperbound))
 
 # ## 2.b.3. Training directly with different proportions of weak labels
 
-# In[10]:
+# In[9]:
 
 
 list_weak_proportions = numpy.array([0.001, 0.005, 0.01, 0.02, 0.03, 0.05, 0.1, 0.3, 0.5, 0.7, 1.0])
@@ -579,7 +579,7 @@ acc = {}
 
 # ## 2.b.4. Training with different proportions of true labels if available
 
-# In[ ]:
+# In[10]:
 
 
 print('Training Upperbound with increasing number of true labels')
@@ -614,7 +614,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
     plot_results(model, X_t, y_t, history)
 
 
-# In[ ]:
+# In[11]:
 
 
 print('Training only with the weak labels')
@@ -698,7 +698,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 
 # ## 3.b. Train with true mixing matrix M if available
 
-# In[ ]:
+# In[12]:
 
 
 m = {}
@@ -715,7 +715,7 @@ def EM_log_loss(y_true, y_pred):
 # 
 # - Be careful as the indices from the true matrix can be smaller than the estimated, as the estimated is always the long version while the original one can be square
 
-# In[ ]:
+# In[13]:
 
 
 Z_wt_train_index_list = []
@@ -766,22 +766,28 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 
 # ## 3.c. Train with estimated mixing matrix M_ME
 
-# In[ ]:
+# In[23]:
 
-
-Z_wt_train_index_list = []
-last_index = 0
-M_E = numpy.concatenate(M_list)
 
 M_E_list = []
+q_list = []
 for i in range(len(Y_wt_val_list)):
     M_E_list.append(estimate_M(Z_wt_val_list[i], Y_wt_val_list[i],
                                range(n_classes), reg='Partial', Z_reg=Z_wt_train_list[i], alpha=1))
-    M_E_list[-1] *= len(Y_wt_val_list[i])/sum([len(Y_wt_val_list[j]) for j in range(len(Y_wt_val_list))])
-    
+    print('Set with M {}'.format(M_method_list[i]))
+    print('Estimated M\n{}'.format(M_E_list[-1]))
+    q_list.append(len(Y_wt_val_list[i])/sum([len(Y_wt_val_list[j]) for j in range(len(Y_wt_val_list))]))
+    print('Factor q_{} = {}'.format(i, q_list[-1]))
+    M_E_list[-1] *= q_list[-1]
+
+M_E = numpy.concatenate(M_E_list)
+
+Z_wt_train_index_list = []
+last_index = 0
 for i in range(len(M_method_list)):
+    print('Begining of M_{} = {}'.format(i, last_index))
     Z_wt_train_index_list.append(last_index + weak_to_index(Z_wt_train_list[i], method='Mproper'))
-    last_index += len(M_E[i])
+    last_index += len(M_E_list[i])
 
 X_aux_val = numpy.concatenate(X_wt_val_list)
 Y_aux_val = numpy.concatenate(Y_wt_val_list)
@@ -808,7 +814,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
     numpy.random.seed(random_state)
     model = make_model(EM_log_loss)
 
-    print('Sample of train labels = {}'.format(numpy.round(X_aux_train[:2], decimals=2)))
+    print('Sample of train labels = {}'.format(numpy.round(Z_aux_train[:2], decimals=2)))
     print('Sample of validation labels = {}'.format(numpy.round(Y_aux_val[:2], decimals=2)))
     history = model.fit(X_aux_train, V_aux_train, 
                         validation_data=(X_aux_val, Y_aux_val),
@@ -880,7 +886,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 # - uses the predictions for the weak labels
 # - **TODO** This function assumes there are no fully unsupervised samples!!! The current approach will assign 1/n_zeros as the weak label (this may not be bad, if we assume that it needs to belong to one of the classes).
 
-# In[ ]:
+# In[15]:
 
 
 def OSL_log_loss(y_true, y_pred):
@@ -947,7 +953,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 
 # # 5. Save results
 
-# In[ ]:
+# In[16]:
 
 
 import pandas
@@ -979,7 +985,7 @@ df_experiment.to_json(filename + '.json')
 
 # ## 5.b. Update saved results
 
-# In[ ]:
+# In[17]:
 
 
 df_experiment = pandas.read_json(filename + '.json')
@@ -988,7 +994,7 @@ locals().update(df_experiment)
 
 # # 6. Plot results
 
-# In[ ]:
+# In[24]:
 
 
 if acc_upperbound is not None:
