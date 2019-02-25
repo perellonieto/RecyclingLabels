@@ -20,9 +20,9 @@ if is_interactive():
     sys.path.append('../')
     random_state = 0
     dataset_name = 'blobs'
-    prop_test = 0.95
+    prop_test = 0.9
     prop_val = 0.5
-    M_method = 'noisy' # IPL, quasi_IPL, random_weak, random_noise, noisy, supervisedg
+    M_method = 'quasi_IPL' # IPL, quasi_IPL, random_weak, random_noise, noisy, supervisedg
     M_alpha = 0.6 # Alpha = 1.0 No unsupervised in IPL
     M_beta = 0.4 # Beta = 0.0 No noise
     data_folder = '../data/'
@@ -114,19 +114,20 @@ if dataset_name == 'digits':
 elif dataset_name == 'blobs':
     n_classes = 4
     classes = list(range(n_classes))
-    n_samples = 10000
+    n_samples = 20000
     true_size = 0.3
-    n_features = 60
+    n_features = 30
     centers = numpy.random.rand(n_classes, n_features)*n_features
     cluster_std = numpy.abs(numpy.random.randn(n_classes)*n_features)
     X_t, y_t = make_blobs(n_samples=n_samples, n_features=n_features, centers=centers,
                       cluster_std=cluster_std, random_state=random_state)
     only_true = (X_t, y_t)
 elif dataset_name == 'make_classification':
-    n_classes = 12
+    n_classes = 6
     classes = list(range(n_classes))
-    n_features = 100
-    n_samples = 10000
+    n_samples = 20000
+    true_size = 0.3
+    n_features = 60
     n_redundant = 0
     n_clusters_per_class = 1
     n_informative = n_features
@@ -370,29 +371,31 @@ print('True labels for test partition size = {}'.format(n_wt_samples_test))
 #     - $S_{wt.train}$
 #     - $S_{wt.val}$
 
-# max_epochs = 2000
-# 
-# if y_w is not None:
-#     X_aux_train = numpy.concatenate((X_w, X_wt_train, X_wt_val))
-#     y_aux_train = numpy.concatenate((y_w, y_wt_train, y_wt_val))
-#     LR = LogisticRegression(solver='lbfgs', multi_class='multinomial', max_iter=max_epochs, penalty='l2', C=0.01)
-#     LR.fit(X_aux_train, y_aux_train)
-#     print('A Logistic Regression trained with all the real labels ({} samples)'.format(y_aux_train.shape[0]))
-#     acc_upperbound = LR.score(X_wt_test, y_wt_test)
-#     print('Accuracy = {}'.format(acc_upperbound))
-# 
-#     fig = plt.figure(figsize=(8,3))
-#     clf_pred =  LR.predict(X_aux_train)
-#     cm = confusion_matrix(y_aux_train, clf_pred)
-#     acc = (y_aux_train == clf_pred).mean()
-#     ax = fig.add_subplot(1, 2, 1)
-#     _ = plot_confusion_matrix(cm, ax=ax, title='Training acc. {:.3}'.format(acc))
-# 
-#     clf_pred =  LR.predict(X_wt_test)
-#     cm = confusion_matrix(y_wt_test, clf_pred)
-#     acc = (y_wt_test == clf_pred).mean()
-#     ax = fig.add_subplot(1, 2, 2)
-#     _ = plot_confusion_matrix(cm, ax=ax, title='Test acc. {:.3}'.format(acc))
+# In[6]:
+
+
+if y_w is not None:
+    X_aux_train = numpy.concatenate((X_w, X_wt_train, X_wt_val))
+    y_aux_train = numpy.concatenate((y_w, y_wt_train, y_wt_val))
+    LR = LogisticRegression(solver='lbfgs', multi_class='multinomial', max_iter=max_epochs, penalty='l2', C=0.01)
+    LR.fit(X_aux_train, y_aux_train)
+    print('A Logistic Regression trained with all the real labels ({} samples)'.format(y_aux_train.shape[0]))
+    acc_upperbound = LR.score(X_wt_test, y_wt_test)
+    print('Accuracy = {}'.format(acc_upperbound))
+
+    fig = plt.figure(figsize=(8,3))
+    clf_pred =  LR.predict(X_aux_train)
+    cm = confusion_matrix(y_aux_train, clf_pred)
+    acc = (y_aux_train == clf_pred).mean()
+    ax = fig.add_subplot(1, 2, 1)
+    _ = plot_confusion_matrix(cm, ax=ax, title='Training acc. {:.3}'.format(acc))
+
+    clf_pred =  LR.predict(X_wt_test)
+    cm = confusion_matrix(y_wt_test, clf_pred)
+    acc = (y_wt_test == clf_pred).mean()
+    ax = fig.add_subplot(1, 2, 2)
+    _ = plot_confusion_matrix(cm, ax=ax, title='Test acc. {:.3}'.format(acc))
+
 
 # ## 2.a.2. Lowerbound if we have access to a limited set of true labels
 # 
@@ -401,35 +404,37 @@ print('True labels for test partition size = {}'.format(n_wt_samples_test))
 #     - $S_{wt.train}$
 #     - $S_{wt.val}$
 
-# max_epochs = 2000
-# 
-# X_aux_train = numpy.concatenate((X_wt_train, X_wt_val))
-# y_aux_train = numpy.concatenate((y_wt_train, y_wt_val))
-# LR = LogisticRegression(solver='lbfgs', multi_class='multinomial', max_iter=max_epochs, penalty='l2', C=0.01)
-# LR.fit(X_aux_train, y_aux_train)
-# print('A Logistic Regression trained with all the real labels ({} samples)'.format(y_aux_train.shape[0]))
-# acc_upperbound = LR.score(X_wt_test, y_wt_test)
-# print('Accuracy = {}'.format(acc_upperbound))
-# 
-# fig = plt.figure(figsize=(8,3))
-# clf_pred =  LR.predict(X_aux_train)
-# cm = confusion_matrix(y_aux_train, clf_pred)
-# acc = (y_aux_train == clf_pred).mean()
-# ax = fig.add_subplot(1, 2, 1)
-# _ = plot_confusion_matrix(cm, ax=ax, title='Training acc. {:.3}'.format(acc))
-# 
-# clf_pred =  LR.predict(X_wt_test)
-# cm = confusion_matrix(y_wt_test, clf_pred)
-# acc = (y_wt_test == clf_pred).mean()
-# ax = fig.add_subplot(1, 2, 2)
-# _ = plot_confusion_matrix(cm, ax=ax, title='Test acc. {:.3}'.format(acc))
+# In[7]:
+
+
+X_aux_train = numpy.concatenate((X_wt_train, X_wt_val))
+y_aux_train = numpy.concatenate((y_wt_train, y_wt_val))
+LR = LogisticRegression(solver='lbfgs', multi_class='multinomial', max_iter=max_epochs, penalty='l2', C=0.01)
+LR.fit(X_aux_train, y_aux_train)
+print('A Logistic Regression trained with all the real labels ({} samples)'.format(y_aux_train.shape[0]))
+acc_upperbound = LR.score(X_wt_test, y_wt_test)
+print('Accuracy = {}'.format(acc_upperbound))
+
+fig = plt.figure(figsize=(8,3))
+clf_pred =  LR.predict(X_aux_train)
+cm = confusion_matrix(y_aux_train, clf_pred)
+acc = (y_aux_train == clf_pred).mean()
+ax = fig.add_subplot(1, 2, 1)
+_ = plot_confusion_matrix(cm, ax=ax, title='Training acc. {:.3}'.format(acc))
+
+clf_pred =  LR.predict(X_wt_test)
+cm = confusion_matrix(y_wt_test, clf_pred)
+acc = (y_wt_test == clf_pred).mean()
+ax = fig.add_subplot(1, 2, 2)
+_ = plot_confusion_matrix(cm, ax=ax, title='Test acc. {:.3}'.format(acc))
+
 
 # # 2.b. Train Keras baselines
 # 
 # **TODO: check what happens when there is a typo on the early_stop_loss**
 # 
 
-# In[6]:
+# In[8]:
 
 
 from keras.models import Sequential
@@ -446,10 +451,7 @@ def log_loss(y_true, y_pred):
 
 def make_model_lr(loss):
     model = Sequential() 
-    model.add(Dense(n_classes, input_dim=n_features, activation='softmax',
-                bias_initializer='zeros', 
-                kernel_regularizer=regularizers.l2(1.0),
-                kernel_initializer='glorot_normal'))
+    model.add(Dense(n_classes, input_dim=n_features, activation='softmax'))
     model.compile(optimizer='adam', loss=loss,
                   metrics=['accuracy', 'mean_squared_error',
                            'categorical_crossentropy'])
@@ -471,7 +473,7 @@ make_model = make_model_lr
 
 from keras.callbacks import EarlyStopping
 
-batch_size = 2048
+batch_size = None
 patience = int(max_epochs/6)
 early_stop_loss = 'val_categorical_crossentropy' # TODO Check what happens when there is a typo in this loss
 
@@ -519,7 +521,7 @@ def plot_results(model, X_test, y_test, history):
 
 # ## 2.b.2. Upperbound if multiple true labels are available
 
-# In[7]:
+# In[9]:
 
 
 if y_w is not None:
@@ -545,7 +547,7 @@ else:
 
 # ## 2.b.2. Lowerbound with a small amount of true labels
 
-# In[8]:
+# In[10]:
 
 
 numpy.random.seed(random_state)
@@ -568,17 +570,17 @@ print('Accuracy = {}'.format(acc_lowerbound))
 
 # ## 2.b.3. Training directly with different proportions of weak labels
 
-# In[9]:
+# In[11]:
 
 
-list_weak_proportions = numpy.array([0.0, 0.001, 0.005, 0.01, 0.02, 0.03, 0.05, 0.1, 0.3, 0.5, 0.7, 1.0])
-#list_weak_proportions = numpy.array([0.0, 0.1, 0.5])
+#list_weak_proportions = numpy.array([0.0, 0.001, 0.005, 0.01, 0.02, 0.03, 0.05, 0.1, 0.3, 0.5, 0.7, 1.0])
+list_weak_proportions = numpy.array([0.0, 0.1, 0.3, 0.5, 0.8, 1.0])
 acc = {}
 
 
 # ## 2.b.4. Training with different proportions of true labels if available
 
-# In[10]:
+# In[12]:
 
 
 if y_w is not None:
@@ -609,7 +611,7 @@ if y_w is not None:
         plot_results(model, X_wt_test, y_wt_test, history)
 
 
-# In[ ]:
+# In[13]:
 
 
 method = 'Weak'
@@ -643,7 +645,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 # 
 # ## 3.a. Learning mixing matrix M
 
-# In[ ]:
+# In[14]:
 
 
 categories = range(n_classes)
@@ -681,6 +683,7 @@ if M is not None:
     fig = plt.figure(figsize=(10, 5))
     for i, (title, m_aux) in enumerate(m_list):
         ax = fig.add_subplot(1,len(m_list),i+1)
+        ax.set_title(title)
         if n_classes < 5:
             from wlc.WLweakener import binarizeWeakLabels
             rows = binarizeWeakLabels(numpy.arange(m_aux.shape[0]), c=m_aux.shape[1])
@@ -692,7 +695,7 @@ if M is not None:
 
 # ## 3.b. Train with true mixing matrix M if available
 
-# In[ ]:
+# In[15]:
 
 
 m = {}
@@ -709,7 +712,7 @@ def EM_log_loss(y_true, y_pred):
 # 
 # - Be careful as the indices from the true matrix can be smaller than the estimated, as the estimated is always the long version while the original one can be square
 
-# In[ ]:
+# In[16]:
 
 
 Z_w_index = weak_to_index(Z_w, method=M_method)
@@ -750,7 +753,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 
 # ## 3.c. Train with estimated mixing matrix M_ME
 
-# In[ ]:
+# In[17]:
 
 
 Z_w_index = weak_to_index(Z_w, method='random_weak')
@@ -858,7 +861,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 # - uses the predictions for the weak labels
 # - **TODO** This function assumes there are no fully unsupervised samples!!! The current approach will assign 1/n_zeros as the weak label (this may not be bad, if we assume that it needs to belong to one of the classes).
 
-# In[ ]:
+# In[18]:
 
 
 def OSL_log_loss(y_true, y_pred):
@@ -904,7 +907,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 
 # # 5. Save results
 
-# In[ ]:
+# In[19]:
 
 
 import pandas
@@ -940,7 +943,7 @@ df_experiment.to_json(filename + '.json')
 
 # ## 5.b. Update saved results
 
-# In[ ]:
+# In[20]:
 
 
 df_experiment = pandas.read_json(filename + '.json')
@@ -949,7 +952,7 @@ locals().update(df_experiment)
 
 # # 6. Plot results
 
-# In[ ]:
+# In[21]:
 
 
 if acc_upperbound is not None:
