@@ -19,10 +19,10 @@ if is_interactive():
     get_ipython().magic(u'matplotlib inline')
     sys.path.append('../')
     random_state = 0
-    dataset_name = 'blobs'
+    dataset_name = 'digits'
     prop_test = 0.9
     prop_val = 0.5
-    M_method = 'quasi_IPL' # IPL, quasi_IPL, random_weak, random_noise, noisy, supervisedg
+    M_method = 'rando_weak' # IPL, quasi_IPL, random_weak, random_noise, noisy, supervisedg
     M_alpha = 0.6 # Alpha = 1.0 No unsupervised in IPL
     M_beta = 0.4 # Beta = 0.0 No noise
     data_folder = '../data/'
@@ -293,7 +293,7 @@ print('Class priors \n{}'.format(Y_wt.mean(axis=0)))
 # 
 # In the following plots we show only the 2 features with most variance on every set
 
-# In[4]:
+# In[ ]:
 
 
 from experiments.visualizations import plot_multilabel_scatter
@@ -314,7 +314,7 @@ _ = plot_multilabel_scatter(X_wt[:100], Z_wt[:100], fig=fig,
 # 
 # If there is a set with only true labels, it is ussed always as a test set only (not validation)
 
-# In[5]:
+# In[ ]:
 
 
 # prop_test is defined in the arguments
@@ -371,7 +371,7 @@ print('True labels for test partition size = {}'.format(n_wt_samples_test))
 #     - $S_{wt.train}$
 #     - $S_{wt.val}$
 
-# In[6]:
+# In[ ]:
 
 
 if y_w is not None:
@@ -404,7 +404,7 @@ if y_w is not None:
 #     - $S_{wt.train}$
 #     - $S_{wt.val}$
 
-# In[7]:
+# In[ ]:
 
 
 X_aux_train = numpy.concatenate((X_wt_train, X_wt_val))
@@ -434,7 +434,7 @@ _ = plot_confusion_matrix(cm, ax=ax, title='Test acc. {:.3}'.format(acc))
 # **TODO: check what happens when there is a typo on the early_stop_loss**
 # 
 
-# In[8]:
+# In[ ]:
 
 
 from keras.models import Sequential
@@ -521,7 +521,7 @@ def plot_results(model, X_test, y_test, history):
 
 # ## 2.b.2. Upperbound if multiple true labels are available
 
-# In[9]:
+# In[ ]:
 
 
 if y_w is not None:
@@ -547,7 +547,7 @@ else:
 
 # ## 2.b.2. Lowerbound with a small amount of true labels
 
-# In[10]:
+# In[ ]:
 
 
 numpy.random.seed(random_state)
@@ -570,17 +570,17 @@ print('Accuracy = {}'.format(acc_lowerbound))
 
 # ## 2.b.3. Training directly with different proportions of weak labels
 
-# In[11]:
+# In[ ]:
 
 
-#list_weak_proportions = numpy.array([0.0, 0.001, 0.005, 0.01, 0.02, 0.03, 0.05, 0.1, 0.3, 0.5, 0.7, 1.0])
-list_weak_proportions = numpy.array([0.0, 0.1, 0.3, 0.5, 0.8, 1.0])
+list_weak_proportions = numpy.array([0.0, 0.001, 0.005, 0.01, 0.02, 0.03, 0.05, 0.1, 0.3, 0.5, 0.7, 1.0])
+#list_weak_proportions = numpy.array([0.0, 0.1, 0.3, 0.5, 0.8, 1.0])
 acc = {}
 
 
 # ## 2.b.4. Training with different proportions of true labels if available
 
-# In[12]:
+# In[ ]:
 
 
 if y_w is not None:
@@ -611,7 +611,7 @@ if y_w is not None:
         plot_results(model, X_wt_test, y_wt_test, history)
 
 
-# In[13]:
+# In[ ]:
 
 
 method = 'Weak'
@@ -645,7 +645,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 # 
 # ## 3.a. Learning mixing matrix M
 
-# In[14]:
+# In[ ]:
 
 
 categories = range(n_classes)
@@ -695,7 +695,7 @@ if M is not None:
 
 # ## 3.b. Train with true mixing matrix M if available
 
-# In[15]:
+# In[ ]:
 
 
 m = {}
@@ -712,7 +712,7 @@ def EM_log_loss(y_true, y_pred):
 # 
 # - Be careful as the indices from the true matrix can be smaller than the estimated, as the estimated is always the long version while the original one can be square
 
-# In[16]:
+# In[ ]:
 
 
 Z_w_index = weak_to_index(Z_w, method=M_method)
@@ -753,7 +753,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 
 # ## 3.c. Train with estimated mixing matrix M_ME
 
-# In[17]:
+# In[ ]:
 
 
 Z_w_index = weak_to_index(Z_w, method='random_weak')
@@ -861,7 +861,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 # - uses the predictions for the weak labels
 # - **TODO** This function assumes there are no fully unsupervised samples!!! The current approach will assign 1/n_zeros as the weak label (this may not be bad, if we assume that it needs to belong to one of the classes).
 
-# In[18]:
+# In[ ]:
 
 
 def OSL_log_loss(y_true, y_pred):
@@ -907,7 +907,7 @@ for i, weak_proportion in enumerate(list_weak_proportions):
 
 # # 5. Save results
 
-# In[19]:
+# In[ ]:
 
 
 import pandas
@@ -943,7 +943,7 @@ df_experiment.to_json(filename + '.json')
 
 # ## 5.b. Update saved results
 
-# In[20]:
+# In[ ]:
 
 
 df_experiment = pandas.read_json(filename + '.json')
@@ -952,7 +952,7 @@ locals().update(df_experiment)
 
 # # 6. Plot results
 
-# In[21]:
+# In[ ]:
 
 
 if acc_upperbound is not None:
