@@ -20,14 +20,15 @@ if is_interactive():
     get_ipython().magic(u'matplotlib inline')
     sys.path.append('../')
     random_state = 0
-    dataset_name = 'Experiment_01'
+    dataset_name = 'Experiment_02'
     prop_test = 0.9
     prop_val = 0.5
     M_method = 'random_noise' # IPL, quasi_IPL, random_weak, random_noise, noisy, supervisedg
     M_alpha = 0.1 # Alpha = 1.0 No unsupervised in IPL
-    M_beta = 0.1 # Beta = 0.0 No noise
+    M_beta = 0.2 # Beta = 0.0 No noise
     data_folder = '../data/'
     max_epochs = 2000
+    model_name = 'mlp'
 else:
     matplotlib.use('Agg')
     random_state = int(sys.argv[1])
@@ -112,7 +113,7 @@ def print_performance(model, X, Y):
 # In[2]:
 
 
-from sklearn.datasets import make_classification, make_blobs, load_digits
+from sklearn.datasets import make_classification, make_blobs, load_digits, make_gaussian_quantiles
 from experiments.data import load_webs, load_labelme, load_mnist, load_cifar10
 from experiments.data import load_dataset_apply_model
 from sklearn.naive_bayes import GaussianNB
@@ -143,23 +144,19 @@ if dataset_name == 'Experiment_01':
     only_true = (X_t, y_t)
     n_features = X_t.shape[1]
 elif dataset_name == 'Experiment_02':
-    n_samples = 3000
+    n_samples = 1000
+    n_features = 2
     true_size = 0.1
     prop_test = 0.9
     prop_val = 0.5
-    means = [[1, 1],
-             [-1, 1],
-             [-1, -1],
-             [1, -1]]
-    n_classes = len(means)
-    classes = list(range(n_classes))
-    std = [1.0, 2.0, 3.0, 4.0]
-    priors = numpy.array([1/4, 1/4, 1/4, 1/4])
-    samples_per_class = (n_samples*priors).astype(int)
-    X_t, y_t = make_blobs(n_samples=samples_per_class, n_features=n_features, centers=means,
-                      cluster_std=std, random_state=random_state)
+    n_classes = 3
+    classes = list(range(n_classes))    
+    X_t, y_t = make_gaussian_quantiles(mean=None, cov=1, n_samples=n_samples,
+                            n_features=n_features, n_classes=n_classes,
+                            shuffle=True, random_state=random_state)
     only_true = (X_t, y_t)
     n_features = X_t.shape[1]
+    plt.scatter(X_t[:,0], X_t[:,1], c=y_t)
 elif dataset_name == 'digits':
     true_size = 0.1
     X_t, y_t = load_digits(return_X_y=True)
@@ -523,16 +520,17 @@ def make_model_lr(loss, random_state=None):
 def make_model_mlp(loss, random_state=None):
     numpy.random.seed(random_state)
     model = Sequential() 
-    model.add(Dense(20, input_dim=n_features))
-    model.add(Dense(20))
-    model.add(Dense(n_classes, activation='softmax'))
+    model.add(Dense(100, input_dim=n_features, activation='tanh',
+                    kernel_regularizer=regularizers.l2(0.0)))
+    model.add(Dense(n_classes,
+                    kernel_regularizer=regularizers.l2(0.0), activation='softmax'))
     model.compile(optimizer='adam', loss=loss,
                   metrics=['accuracy', 'mean_squared_error',
                            'categorical_crossentropy'])
     print('Sample of first weights = {}'.format(numpy.round(model.get_weights()[0][0], decimals=3)))
     return model
 
-make_model = make_model_lr
+make_model = {'lr': make_model_lr, 'mlp': make_model_mlp}[model_name]
 
 from keras.callbacks import EarlyStopping
 
