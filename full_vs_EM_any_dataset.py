@@ -20,7 +20,7 @@ if is_interactive():
     get_ipython().magic(u'matplotlib inline')
     sys.path.append('../')
     random_state = 0
-    dataset_name = 'Experiment_02'
+    dataset_name = 'Experiment_01'
     prop_test = 0.9
     prop_val = 0.5
     M_method = 'random_noise' # IPL, quasi_IPL, random_weak, random_noise, noisy, supervisedg
@@ -127,10 +127,10 @@ weak_and_true = ()
 only_true = ()
 
 if dataset_name == 'Experiment_01':
-    n_samples = 3000
-    true_size = 0.2
-    prop_test = 0.9
-    prop_val = 0.5
+    n_samples = 10000 # 10.000 samples
+    true_size = 0.1  #   1.000 true 9.000 weak
+    prop_test = 0.9   #    900 for test and 100 for traing+validation
+    prop_val = 0.5    #     50 for train and 50 for validation
     means = [[1, 1],
              [-1, 1],
              [0, -1]]
@@ -144,11 +144,11 @@ if dataset_name == 'Experiment_01':
     only_true = (X_t, y_t)
     n_features = X_t.shape[1]
 elif dataset_name == 'Experiment_02':
-    n_samples = 2000
+    n_samples = 10000
     n_features = 2
-    true_size = 0.2
+    true_size = 0.1
     prop_test = 0.9
-    prop_val = 0.2
+    prop_val = 0.5
     n_classes = 3
     classes = list(range(n_classes))    
     X_t, y_t = make_gaussian_quantiles(mean=None, cov=1, n_samples=n_samples,
@@ -305,6 +305,11 @@ print('Class names = {}'.format(classes))
 print('Samples with only weak labels = {}'.format(n_only_weak))
 print('Samples with weak and true labels = {}'.format(n_weak_and_true))
 print('Samples with only true labels = {}'.format(n_only_true))
+
+print('Total number of samples = {}'.format(n_samples))
+print('From wich {:.0f} with true labels and {:.0f} with weak labels'.format(n_samples*true_size, n_samples*(1-true_size)))
+print('From the true samples {:.0f} for train+validation and {:.0f} for test'.format(n_samples*true_size*(1-prop_test), n_samples*true_size*prop_test))
+print('From the true samples {:.0f} for train and {:.0f} for validation'.format(n_samples*true_size*prop_test*(1-prop_val), n_samples*true_size*prop_test*prop_val))
 
 
 # # 1.b. Create synthetic weak labels if required
