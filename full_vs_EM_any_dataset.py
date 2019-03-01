@@ -144,11 +144,11 @@ if dataset_name == 'Experiment_01':
     only_true = (X_t, y_t)
     n_features = X_t.shape[1]
 elif dataset_name == 'Experiment_02':
-    n_samples = 1000
+    n_samples = 2000
     n_features = 2
-    true_size = 0.1
+    true_size = 0.2
     prop_test = 0.9
-    prop_val = 0.5
+    prop_val = 0.2
     n_classes = 3
     classes = list(range(n_classes))    
     X_t, y_t = make_gaussian_quantiles(mean=None, cov=1, n_samples=n_samples,
