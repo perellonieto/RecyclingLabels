@@ -87,7 +87,7 @@ def generate_summary(dataset_name, output_folder):
     df_grouped = df.groupby(['beta', 'm_method'])
     for name, df_ in df_grouped:
         print(name)
-        df_ = df.drop(columns=['beta', 'm_method', 'random_state'])
+        df_ = df_.drop(columns=['beta', 'm_method', 'random_state'])
         df_ = df_.apply(pandas.to_numeric)
         df_.index = df_['last_train_index']
         del df_['last_train_index']
