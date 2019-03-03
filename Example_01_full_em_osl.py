@@ -1,3 +1,4 @@
+import glob
 import os
 import sys
 import errno
@@ -14,10 +15,24 @@ from wlc.WLweakener import computeM, generateWeak, weak_to_index, binarizeWeakLa
 from experiments.visualizations import plot_history
 from experiments.visualizations import plot_multilabel_scatter
 
+import pandas
+
 cmap = plt.cm.get_cmap('Accent')
 
+from cycler import cycler
+default_cycler = (cycler(color=['darkred', 'forestgreen', 'darkblue', 'violet', 'darkorange', 'saddlebrown']) +
+                  cycler(linestyle=['-', '--', '-.', '-', '--', '-.']) + 
+                  cycler(marker=['o', 'v', 'x', '*', '+', '.']) +
+                  cycler(lw=[2, 1.8, 1.6, 1.4, 1.2, 1]))
+
+plt.rcParams['figure.figsize'] = (5, 4)
+plt.rcParams["figure.dpi"] = 100
+plt.rc('lines', linewidth=1)
+plt.rc('axes', prop_cycle=default_cycler)
+
+
 def parse_arguments():
-    parser = argparse.ArgumentParser(description='''Example 01''',
+    parser = argparse.ArgumentParser(description='''Exampla 01''',
                                      formatter_class=argparse.ArgumentDefaultsHelpFormatter)
     parser.add_argument('-m', '--m-method', dest='m_method', type=str,
                         default='noisy',
@@ -57,9 +72,38 @@ def load_dataset(dataset_name):
     Y = label_binarize(y, range(n_classes))
     return X, Y, y
 
+def generate_summary(dataset_name, output_folder):
+    files_list = glob.glob(output_folder + "/" + dataset_name +  "*summary.csv")
+
+    list_ = []
+
+    for file_ in files_list:
+        df = pandas.read_csv(file_,index_col=0, header=None).T
+        list_.append(df)
+
+    df = pandas.concat(list_, axis = 0, ignore_index = True)
+    df = df[df['dataset_name'] == dataset_name]
+    del df['dataset_name']
+    df_grouped = df.groupby(['beta', 'm_method'])
+    for name, df_ in df_grouped:
+        print(name)
+        df_ = df.drop(columns=['beta', 'm_method', 'random_state'])
+        df_ = df_.apply(pandas.to_numeric)
+        df_.index = df_['last_train_index']
+        del df_['last_train_index']
+        df_.sort_index(inplace=True)
+        df_ = df_.groupby(df_.index).mean()
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        for column in df_.columns:
+            ax.plot(df_.index, df_[column], label=column)
+        fig.legend()
+        fig.savefig(os.path.join(output_folder, '_'.join([dataset_name,
+                                                          name[0], name[1]]) +
+                                                          '.svg'))
+
 def main(dataset_name, m_method, beta, random_state, train_proportion, output_folder,
          max_epochs, redirect_std):
-
     try:
         os.makedirs(output_folder)
     except OSError as exception:
@@ -290,6 +334,8 @@ def main(dataset_name, m_method, beta, random_state, train_proportion, output_fo
     #You can store this CSV string variable to file as below
     with open(unique_file + "_summary.csv", "w") as file:
         file.write(CSV)
+
+    generate_summary(dataset_name, output_folder)
 
 if __name__ == '__main__':
     args = parse_arguments()
