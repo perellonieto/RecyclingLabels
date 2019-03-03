@@ -9,6 +9,7 @@ from scipy import sparse
 import matplotlib.pyplot as plt
 from matplotlib import cm
 from matplotlib.patches import Wedge
+from sklearn.metrics import confusion_matrix
 
 from textwrap import wrap
 
@@ -219,6 +220,7 @@ def plot_multilabel_scatter(X, Y, cmap=cm.get_cmap('Accent'), edgecolor='k',
                     theta1 = theta2
         else:
             # Not belong to any class
+            print('Do not belong to any class')
             w = Wedge(x[:2], radius, 0, 360, ec='black', lw=linewidth,
                       fc='white', **kwargs)
             ax.add_patch(w)
@@ -322,3 +324,48 @@ def export_df(df, filename, path='', extension='pdf',
     fig = ax.figure
     fig.tight_layout()
     fig.savefig("{}.{}".format(filename, extension))
+
+
+def plot_history(history, model=None, X_test=None, y_test=None, best_measure='val_loss', fig=None):
+    selected_epoch = np.argmin(history.history[best_measure])
+
+    def show_best(ax, history, field, selected_epoch=None):
+        if 'acc' in field:
+            best_epoch = np.argmax(history.history[field])
+        else:
+            best_epoch = np.argmin(history.history[field])
+        _ = ax.scatter(best_epoch, history.history[field][best_epoch],
+                       color='white', edgecolor='red', marker='*',
+                       s=200, zorder=3, label='Best val.')
+        if selected_epoch is not None:
+            _ = ax.scatter(selected_epoch, history.history[field][selected_epoch],
+                           color='gold', edgecolor='black', marker='*',
+                           s=150, zorder=3, label='Selected')
+
+    metrics = [key for key in history.history.keys() if not key.startswith('val_')]
+
+    n_fig = len(metrics) + (model is not None)
+
+    if fig is None:
+        fig = plt.figure(figsize=(n_fig*3, 3))
+
+    for i, metric in enumerate(metrics):
+        ax = fig.add_subplot(1, n_fig, i + 1)
+        ax.set_title(metric)
+        _ = ax.plot(history.history[metric], label='Train.')
+        metric = 'val_' + metric
+        if metric in history.history.keys():
+            _ = ax.plot(history.history[metric], label='Val.')
+            show_best(ax, history, metric, selected_epoch=selected_epoch)
+        ax.legend()
+
+    if model is not None:
+        clf_proba_wt_test = model.predict_proba(X_test)
+        clf_pred_wt_test = np.argmax(clf_proba_wt_test, axis=1)
+        cm = confusion_matrix(y_test, clf_pred_wt_test)
+
+
+        ax = fig.add_subplot(1, n_fig, n_fig)
+        acc = (y_test == clf_pred_wt_test).mean()
+        _ = plot_confusion_matrix(cm, ax=ax, title='Test acc. {:.3}'.format(acc))
+    return fig
