@@ -105,7 +105,9 @@ def generate_summary(dataset_name, output_folder):
         fig = plt.figure()
         ax = fig.add_subplot(111)
         for column in df_.columns:
-            ax.plot(df_.index, df_[column], label=column)
+            # Ignore weak as it is really low
+            if column != 'Weak':
+                ax.plot(df_.index, df_[column], label=column)
         fig.legend()
         fig.savefig(os.path.join(output_folder,
                                  '{}_{}_b{:02.0f}.svg'.format(dataset_name,
