@@ -110,7 +110,7 @@ def generate_summary(dataset_name, output_folder):
         fig.savefig(os.path.join(output_folder,
                                  '{}_b{}_{:02.0f}.svg'.format(dataset_name,
                                                              name[1],
-                                                             float(name[0]))))
+                                                             float(name[0])*10)))
 
 def main(dataset_name, m_method, beta, random_state, train_proportion, output_folder,
          max_epochs, redirect_std):
