@@ -6,6 +6,7 @@ import argparse
 import numpy
 import keras
 from keras import backend as K
+from keras import regularizers
 
 import matplotlib
 matplotlib.use('Agg')
@@ -124,17 +125,16 @@ def main(dataset_name, m_method, beta, random_state, train_proportion, output_fo
     n_samples = X.shape[0]
     n_classes = Y.shape[1]
 
-    M = computeM(n_classes, alpha=(1-beta), beta=beta, method=m_method,
-                 seed=random_state)
-    if M.shape[0] == 2**M.shape[1]:
-        M[0,:] = 0
-        M /= M.sum(axis=0)
-    print(numpy.round(M, decimals=3))
-    z = generateWeak(y, M, seed=random_state)
+    M_weak = computeM(n_classes, alpha=0.7, beta=0.3, method=m_method, seed=0)
+    if M_weak.shape[0] == 2**M_weak.shape[1]:
+        M_weak[0,:] = 0
+        M_weak /= M_weak.sum(axis=0)
+    print(numpy.round(M_weak, decimals=3))
+    z = generateWeak(y, M_weak, seed=0)
     Z = binarizeWeakLabels(z, c=n_classes)
 
-    M_indices = weak_to_index(Z, method=m_method)
-    V = M[M_indices]
+    M_weak_indices = weak_to_index(Z, method=m_method)
+    V_weak = M_weak[M_weak_indices]
 
     fig = plt.figure(figsize=(15, 4))
     ax = fig.add_subplot(1, 3, 1)
@@ -144,25 +144,25 @@ def main(dataset_name, m_method, beta, random_state, train_proportion, output_fo
     _ = plot_multilabel_scatter(X[:100], Z[:100], fig=fig,
                                 ax=ax, title='Weak labels', cmap=cmap)
     ax = fig.add_subplot(1, 3, 3)
-    _ = plot_multilabel_scatter(X[:100], V[:100], fig=fig,
+    _ = plot_multilabel_scatter(X[:100], V_weak[:100], fig=fig,
                                 ax=ax, title='M rows', cmap=cmap)
     fig.savefig(unique_file + '_sample.svg')
     plt.close(fig)
 
     # # Divide into training, validation and test
-    X_train, X_val, X_test = numpy.array_split(X, 3)
-    Y_train, Y_val, Y_test = numpy.array_split(Y, 3)
-    Z_train, Z_val, Z_test = numpy.array_split(Z, 3)
-    V_train, V_val, V_test = numpy.array_split(V, 3)
-    y_train, y_val, y_test = numpy.array_split(y, 3)
+    X_weak_train, X_true_train, X_val, X_test = numpy.array_split(X, 4)
+    Y_weak_train, Y_true_train, Y_val, Y_test = numpy.array_split(Y, 4)
+    Z_weak_train, Z_true_train, Z_val, Z_test = numpy.array_split(Z, 4)
+    V_weak_train, V_true_train, V_val, V_test = numpy.array_split(V_weak, 4)
+    y_weak_train, y_true_train, y_val, y_test = numpy.array_split(y, 4)
 
-    last_train_index = int(numpy.ceil(train_proportion*X_train.shape[0]))
-
-    X_train = X_train[:last_train_index]
-    Y_train = Y_train[:last_train_index]
-    Z_train = Z_train[:last_train_index]
-    V_train = V_train[:last_train_index]
-    y_train = y_train[:last_train_index]
+    # Remove a portion of the weak data
+    last_train_index = int(numpy.ceil(train_proportion*X_weak_train.shape[0]))
+    X_weak_train = X_weak_train[:last_train_index]
+    Y_weak_train = Y_weak_train[:last_train_index]
+    Z_weak_train = Z_weak_train[:last_train_index]
+    V_weak_train = V_weak_train[:last_train_index]
+    y_weak_train = y_weak_train[:last_train_index]
 
     # Save the final model for each method
     final_models = {}
@@ -185,7 +185,9 @@ def main(dataset_name, m_method, beta, random_state, train_proportion, output_fo
         # Careful that it is ussing global variables for the input and output shapes
         numpy.random.seed(random_state)
         model = keras.models.Sequential()
-        model.add(keras.layers.Dense(Y.shape[1], input_dim=X.shape[1], activation='softmax'))
+        model.add(keras.layers.Dense(Y.shape[1], input_dim=X.shape[1],
+                                     kernel_regularizer=regularizers.l2(0.0),
+                                     activation='softmax'))
         model.compile(optimizer='adam', loss=loss, metrics=['acc', 'mse', 'ce'])
         return model
 
@@ -202,7 +204,9 @@ def main(dataset_name, m_method, beta, random_state, train_proportion, output_fo
 
     model = make_model('categorical_crossentropy')
 
-    history = model.fit(X_train, Y_train, **fit_kwargs)
+    history = model.fit(numpy.concatenate([X_weak_train, X_true_train]),
+                        numpy.concatenate([Y_weak_train, Y_true_train]),
+                        **fit_kwargs)
 
     fig = plot_history(history, model, X_test, y_test)
     fig.savefig(unique_file + '_' + train_method + '.svg')
@@ -229,7 +233,17 @@ def main(dataset_name, m_method, beta, random_state, train_proportion, output_fo
 
     model = make_model(EM_log_loss)
 
-    history = model.fit(X_train, V_train, **fit_kwargs)
+    M_true = computeM(n_classes, method='supervised')
+    q_weak = X_weak_train.shape[0] / (X_weak_train.shape[0] + X_true_train.shape[0])
+    q_true = X_true_train.shape[0] / (X_weak_train.shape[0] + X_true_train.shape[0])
+    M = numpy.concatenate((q_weak*M_weak, q_true*M_true))
+
+    M_true_indices = weak_to_index(Y_true_train, method='supervised') + M_weak.shape[0]
+    V_true_train = M[M_true_indices]
+
+    history = model.fit(numpy.concatenate([X_weak_train, X_true_train]),
+                        numpy.concatenate([V_weak_train, V_true_train]),
+                        **fit_kwargs)
 
     fig = plot_history(history, model, X_test, y_test)
     fig.savefig(unique_file + '_' + train_method + '.svg')
@@ -244,15 +258,25 @@ def main(dataset_name, m_method, beta, random_state, train_proportion, output_fo
     train_method = 'EMestM'
     print('Training ' + train_method)
 
-
     from wlc.WLweakener import estimate_M
 
-    M_estimated = estimate_M(Z_val, Y_val, range(n_classes), reg='Partial', Z_reg=Z_train)
-    M_indices = weak_to_index(Z_train, method='random_weak')
-    V_train = M_estimated[M_indices]
+    M_estimated = estimate_M(Z_true_train, Y_true_train, range(n_classes), reg='Partial', Z_reg=Z_weak_train)
+    M_true = computeM(n_classes, method='supervised')
+
+    q_estimated = X_weak_train.shape[0] / (X_weak_train.shape[0] + X_true_train.shape[0])
+    q_true = X_true_train.shape[0] / (X_weak_train.shape[0] + X_true_train.shape[0])
+    M = numpy.concatenate((q_estimated*M_estimated, q_true*M_true))
+
+    M_estimated_indices = weak_to_index(Z_weak_train, method='random_weak')
+    V_weak_train = M_estimated[M_estimated_indices]
+
+    M_true_indices = weak_to_index(Y_true_train, method='supervised') + M_estimated.shape[0]
+    V_true_train = M[M_true_indices]
 
     model = make_model(EM_log_loss)
-    history = model.fit(X_train, V_train, **fit_kwargs)
+    history = model.fit(numpy.concatenate([X_weak_train, X_true_train]),
+                        numpy.concatenate([V_weak_train, V_true_train]),
+                        **fit_kwargs)
 
     fig = plot_history(history, model, X_test, y_test)
     fig.savefig(unique_file + '_' + train_method + '.svg')
@@ -268,8 +292,9 @@ def main(dataset_name, m_method, beta, random_state, train_proportion, output_fo
 
 
     model = make_model('categorical_crossentropy')
-    history = model.fit(X_train, Z_train, **fit_kwargs)
-
+    history = model.fit(numpy.concatenate([X_weak_train, X_true_train]),
+                        numpy.concatenate([Z_weak_train, Z_true_train]),
+                        **fit_kwargs)
     fig = plot_history(history, model, X_test, y_test)
     fig.savefig(unique_file + '_' + train_method + '.svg')
     plt.close(fig)
@@ -296,8 +321,9 @@ def main(dataset_name, m_method, beta, random_state, train_proportion, output_fo
         return K.mean(out, axis=-1)
 
     model = make_model(OSL_log_loss)
-    history = model.fit(X_train, Z_train, **fit_kwargs)
-
+    history = model.fit(numpy.concatenate([X_weak_train, X_true_train]),
+                        numpy.concatenate([Z_weak_train, Y_true_train]),
+                        **fit_kwargs)
     fig = plot_history(history, model, X_test, y_test)
     fig.savefig(unique_file + '_' + train_method + '.svg')
     plt.close(fig)
