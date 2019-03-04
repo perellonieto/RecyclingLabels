@@ -27,7 +27,7 @@ default_cycler = (cycler(color=['darkred', 'forestgreen', 'darkblue', 'violet', 
                   cycler(marker=['o', 'v', 'x', '*', '+', '.']) +
                   cycler(lw=[2, 1.8, 1.6, 1.4, 1.2, 1]))
 
-plt.rcParams['figure.figsize'] = (5, 4)
+plt.rcParams['figure.figsize'] = (3, 2)
 plt.rcParams["figure.dpi"] = 100
 plt.rc('lines', linewidth=1)
 plt.rc('axes', prop_cycle=default_cycler)
@@ -108,7 +108,7 @@ def generate_summary(dataset_name, output_folder):
             ax.plot(df_.index, df_[column], label=column)
         fig.legend()
         fig.savefig(os.path.join(output_folder,
-                                 '{}_b{}_{:02.0f}.svg'.format(dataset_name,
+                                 '{}_{}_b{:02.0f}.svg'.format(dataset_name,
                                                              name[1],
                                                              float(name[0])*10)))
 
