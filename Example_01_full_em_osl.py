@@ -12,6 +12,7 @@ import matplotlib
 matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import label_binarize
+import sklearn.datasets as datasets
 from wlc.WLweakener import computeM, generateWeak, weak_to_index, binarizeWeakLabels
 from experiments.visualizations import plot_history
 from experiments.visualizations import plot_multilabel_scatter
@@ -44,7 +45,8 @@ def parse_arguments():
                         help='''Folder to save the results''')
     parser.add_argument('-d', '--dataset', dest='dataset_name', type=str,
                         default='diagonals',
-                        help='''Dataset to use for evaluation''')
+                        help='''Dataset to use for evaluation: diagonals,
+                        6blobs''')
     parser.add_argument('-b', '--beta', dest='beta', type=float,
                         default=0.0, help='Parameter beta for the mixing process')
     parser.add_argument('-r', '--random-state', dest='random_state', type=int,
@@ -61,13 +63,19 @@ def parse_arguments():
     return parser.parse_args()
 
 
-def load_dataset(dataset_name):
+def load_dataset(dataset_name, random_state):
     if dataset_name == 'diagonals':
         n_samples = 10000
         n_classes = 6
+        numpy.random.seed(random_state)
         X = numpy.random.randn(n_samples, 2)
         y = numpy.random.randint(0, n_classes, n_samples)
         X += y.reshape(-1,1)
+    elif dataset_name == '6blobs':
+        n_samples = 10000
+        n_classes = 6
+        X, y = datasets.make_blobs(n_samples=n_samples, centers=n_classes,
+                                   n_features=2, random_state=random_state)
     else:
         raise ValueError('Dataset name {} not available'.format(dataset_name))
     Y = label_binarize(y, range(n_classes))
@@ -121,11 +129,11 @@ def main(dataset_name, m_method, beta, random_state, train_proportion, output_fo
         sys.stdout = open(unique_file + '.out', 'w')
         sys.stderr = open(unique_file + '.err', 'w')
 
-    X, Y, y = load_dataset(dataset_name)
+    X, Y, y = load_dataset(dataset_name, random_state)
     n_samples = X.shape[0]
     n_classes = Y.shape[1]
 
-    M_weak = computeM(n_classes, alpha=0.7, beta=0.3, method=m_method, seed=0)
+    M_weak = computeM(n_classes, alpha=(1-beta), beta=beta, method=m_method, seed=0)
     if M_weak.shape[0] == 2**M_weak.shape[1]:
         M_weak[0,:] = 0
         M_weak /= M_weak.sum(axis=0)
