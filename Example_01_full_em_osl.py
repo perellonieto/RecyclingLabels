@@ -107,9 +107,10 @@ def generate_summary(dataset_name, output_folder):
         for column in df_.columns:
             ax.plot(df_.index, df_[column], label=column)
         fig.legend()
-        fig.savefig(os.path.join(output_folder, '_'.join([dataset_name,
-                                                          name[0], name[1]]) +
-                                                          '.svg'))
+        fig.savefig(os.path.join(output_folder,
+                                 '{}_b{}_{:02.0f}.svg'.format(dataset_name,
+                                                             name[1],
+                                                             float(name[0]))))
 
 def main(dataset_name, m_method, beta, random_state, train_proportion, output_folder,
          max_epochs, redirect_std):
