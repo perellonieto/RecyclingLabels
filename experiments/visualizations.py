@@ -186,7 +186,7 @@ def test_dual_half_circle_main():
     ax.axis('equal')
     plt.show()
 
-def plot_multilabel_scatter(X, Y, cmap=cm.get_cmap('Accent'), edgecolor='k',
+def plot_multilabel_scatter(X, Y, cmap=cm.get_cmap('tab20'), edgecolor='k',
                             linewidth=0.4, title=None, fig=None, ax=None,
                             radius_scaler=20.0, **kwargs):
     X_std = X.std(axis=0)
@@ -214,8 +214,7 @@ def plot_multilabel_scatter(X, Y, cmap=cm.get_cmap('Accent'), edgecolor='k',
             for i, theta2 in enumerate(theta2s):
                 if theta1 != theta2:
                     w = Wedge(x[:2], radius, theta1, theta2, ec=edgecolor, lw=linewidth,
-                              fc=cmap(i), **kwargs)
-                              #fc=cmap(np.true_divide(i, n_classes)), **kwargs)
+                              fc=cmap(np.true_divide(i, n_classes)), **kwargs)
                     ax.add_patch(w)
                     theta1 = theta2
         else:
