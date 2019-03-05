@@ -295,7 +295,7 @@ def main(dataset_name, m_method, beta, random_state, train_proportion, output_fo
 
     final_models[train_method] = model
 
-    # # Fully weak (lowerbound)
+    # # Weak (lowerbound)
 
     # In[9]:
     train_method = 'Weak'
@@ -304,7 +304,7 @@ def main(dataset_name, m_method, beta, random_state, train_proportion, output_fo
 
     model = make_model('categorical_crossentropy')
     history = model.fit(numpy.concatenate([X_weak_train, X_true_train]),
-                        numpy.concatenate([Z_weak_train, Z_true_train]),
+                        numpy.concatenate([Z_weak_train, Y_true_train]),
                         **fit_kwargs)
     fig = plot_history(history, model, X_test, y_test)
     fig.savefig(unique_file + '_' + train_method + '.svg')
