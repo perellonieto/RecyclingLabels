@@ -96,19 +96,22 @@ def generate_summary(dataset_name, output_folder):
     df_grouped = df.groupby(['beta', 'm_method'])
     for name, df_ in df_grouped:
         print(name)
+        n_iterations = len(df_['random_state'].unique())
         df_ = df_.drop(columns=['beta', 'm_method', 'random_state'])
         df_ = df_.apply(pandas.to_numeric)
         df_.index = df_['last_train_index']
         del df_['last_train_index']
         df_.sort_index(inplace=True)
         df_ = df_.groupby(df_.index).mean()
-        fig = plt.figure()
+        fig = plt.figure(figsize=(5, 4))
         ax = fig.add_subplot(111)
         for column in df_.columns:
-            # Ignore weak as it is really low
-            if column != 'Weak':
-                ax.plot(df_.index, df_[column], label=column)
-        fig.legend()
+            ax.plot(df_.index, df_[column], label=column)
+        ax.set_title('dataset {}\nM = {}, beta = {}'.format(dataset_name, name[1], name[0]))
+        ax.set_ylabel('Mean acc. (#it {})'.format(n_iterations))
+        ax.set_xlabel('Number of weak samples')
+        ax.legend()
+        fig.tight_layout()
         fig.savefig(os.path.join(output_folder,
                                  '{}_{}_b{:02.0f}.svg'.format(dataset_name,
                                                              name[1],
@@ -136,12 +139,13 @@ def main(dataset_name, m_method, beta, random_state, train_proportion, output_fo
     n_samples = X.shape[0]
     n_classes = Y.shape[1]
 
-    M_weak = computeM(n_classes, alpha=(1-beta), beta=beta, method=m_method, seed=0)
+    M_weak = computeM(n_classes, alpha=(1-beta), beta=beta, method=m_method,
+            seed=random_state)
     if M_weak.shape[0] == 2**M_weak.shape[1]:
         M_weak[0,:] = 0
         M_weak /= M_weak.sum(axis=0)
     print(numpy.round(M_weak, decimals=3))
-    z = generateWeak(y, M_weak, seed=0)
+    z = generateWeak(y, M_weak, seed=random_state)
     Z = binarizeWeakLabels(z, c=n_classes)
 
     M_weak_indices = weak_to_index(Z, method=m_method)
