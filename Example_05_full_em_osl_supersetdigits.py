@@ -4,12 +4,14 @@
 # In[1]:
 
 
+import glob
 import os
 import errno
 import sys
 import numpy
 import keras
 from keras import backend as K
+import pandas
 
 import matplotlib.pyplot as plt
 from sklearn.preprocessing import label_binarize
@@ -18,6 +20,17 @@ from experiments.visualizations import plot_history
 from experiments.visualizations import plot_multilabel_scatter
 
 cmap = plt.cm.get_cmap('tab20')
+
+from cycler import cycler
+default_cycler = (cycler(color=['darkred', 'forestgreen', 'darkblue', 'violet', 'darkorange', 'saddlebrown']) +
+                  cycler(linestyle=['-', '--', '-.', '-', '--', '-.']) + 
+                  cycler(marker=['o', 'v', 'x', '*', '+', '.']) +
+                  cycler(lw=[2, 1.8, 1.6, 1.4, 1.2, 1]))
+
+plt.rcParams['figure.figsize'] = (3, 2)
+plt.rcParams["figure.dpi"] = 100
+plt.rc('lines', linewidth=1)
+plt.rc('axes', prop_cycle=default_cycler)
 
 random_state = int(sys.argv[1])
 train_proportion = float(sys.argv[2])
@@ -71,7 +84,8 @@ M_weak = numpy.zeros((2**n_classes, n_classes))
 M_weak[weak_to_decimal(numpy.array([([0, 1]*n_classes)[:n_classes]]))] = ([0, 1]*n_classes)[:n_classes]
 M_weak[weak_to_decimal(numpy.array([([1, 0]*n_classes)[:n_classes]]))] = ([1, 0]*n_classes)[:n_classes]
 
-M_random_weak = computeM(n_classes, alpha=0.7, beta=0.2, method='random_weak', seed=0)
+M_random_weak = computeM(n_classes, alpha=(1-beta), beta=beta,
+                         method='random_weak', seed=random_state)
 M_weak += M_random_weak
 
 if M_weak.shape[0] == 2**M_weak.shape[1]:
@@ -80,7 +94,7 @@ if M_weak.shape[0] == 2**M_weak.shape[1]:
 
 print(numpy.round(M_weak, decimals=3))
 
-z = generateWeak(y, M_weak, seed=0)
+z = generateWeak(y, M_weak, seed=random_state)
 Z = binarizeWeakLabels(z, c=n_classes)
 
 M_weak_indices = weak_to_index(Z, method='random_weak')
@@ -156,7 +170,7 @@ early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=int(max
 
 def make_model(loss, l2=0.0):
     # Careful that it is ussing global variables for the input and output shapes
-    numpy.random.seed(0)
+    numpy.random.seed(random_state)
     model = keras.models.Sequential() 
     model.add(keras.layers.Dense(Y.shape[1], input_dim=X.shape[1],
                                  kernel_regularizer=regularizers.l2(l2),
@@ -342,10 +356,12 @@ export_dictionary = dict(dataset_name=dataset_name,
 export_dictionary = {**export_dictionary, **test_acc_dict}
 CSV ="\n".join([k+','+str(v) for k,v in export_dictionary.items()])
 #You can store this CSV string variable to file as below
-with open(unique_id + "_summary.csv", "w") as file:
+with open(unique_file + "_summary.csv", "w") as file:
     file.write(CSV)
 
 files_list = glob.glob(output_folder + "/" + dataset_name +  "*summary.csv")
+print('List of files to aggregate')
+print(files_list)
 
 list_ = []
 
@@ -359,19 +375,22 @@ del df['dataset_name']
 df_grouped = df.groupby(['beta', 'm_method'])
 for name, df_ in df_grouped:
     print(name)
+    n_iterations = len(df_['random_state'].unique())
     df_ = df_.drop(columns=['beta', 'm_method', 'random_state'])
     df_ = df_.apply(pandas.to_numeric)
     df_.index = df_['last_train_index']
     del df_['last_train_index']
     df_.sort_index(inplace=True)
     df_ = df_.groupby(df_.index).mean()
-    fig = plt.figure()
+    fig = plt.figure(figsize=(5, 4))
     ax = fig.add_subplot(111)
     for column in df_.columns:
-        # Ignore weak as it is really low
-        if column != 'Weak':
-            ax.plot(df_.index, df_[column], label=column)
-    fig.legend()
+        ax.plot(df_.index, df_[column], label=column)
+    ax.set_title('dataset {}\nM = {}, beta = {}'.format(dataset_name, name[1], name[0]))
+    ax.set_ylabel('Mean acc. (#it {})'.format(n_iterations))
+    ax.set_xlabel('Number of weak samples')
+    ax.legend()
+    fig.tight_layout()
     fig.savefig(os.path.join(output_folder,
                              '{}_{}_b{:02.0f}.svg'.format(dataset_name,
                                                          name[1],
