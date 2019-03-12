@@ -19,8 +19,9 @@ declare -a train_prop_list=(
 
 dataset_name='supersetdigits'
 output_path='results'`date +"_%Y_%m_%d"`
+#output_path='results_2019_03_05'
 
-for random_state in {1..10};
+for random_state in {1..50};
 do
     for prop in "${train_prop_list[@]}"
     do
