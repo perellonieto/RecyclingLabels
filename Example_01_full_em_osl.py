@@ -185,6 +185,11 @@ def main(dataset_name, m_method, beta, random_state, train_proportion, output_fo
     # # Define a common model
     from keras.callbacks import EarlyStopping, Callback
 
+    def log_loss(y_true, y_pred):
+        y_pred = K.clip(y_pred, K.epsilon(), 1.0-K.epsilon())
+        out = -y_true*K.log(y_pred)
+        return K.mean(out, axis=-1)
+
     # Callback to show performance per epoch in the same line
     class EpochCallback(Callback):
         def on_epoch_end(self, epoch, logs={}):
@@ -217,7 +222,7 @@ def main(dataset_name, m_method, beta, random_state, train_proportion, output_fo
     train_method = 'Supervised'
     print('Training ' + train_method)
 
-    model = make_model('categorical_crossentropy')
+    model = make_model(log_loss)
 
     history = model.fit(numpy.concatenate([X_weak_train, X_true_train]),
                         numpy.concatenate([Y_weak_train, Y_true_train]),
@@ -306,7 +311,7 @@ def main(dataset_name, m_method, beta, random_state, train_proportion, output_fo
     print('Training ' + train_method)
 
 
-    model = make_model('categorical_crossentropy')
+    model = make_model(log_loss)
     history = model.fit(numpy.concatenate([X_weak_train, X_true_train]),
                         numpy.concatenate([Z_weak_train, Y_true_train]),
                         **fit_kwargs)
