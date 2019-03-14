@@ -203,6 +203,11 @@ fig.tight_layout()
 from keras.callbacks import EarlyStopping, Callback
 from keras import regularizers
 
+def log_loss(y_true, y_pred):
+    y_pred = K.clip(y_pred, K.epsilon(), 1.0-K.epsilon())
+    out = -y_true*K.log(y_pred)
+    return K.mean(out, axis=-1)
+
 #max_epochs = 1000
 
 # Callback to show performance per epoch in the same line
@@ -250,7 +255,7 @@ l2_list = numpy.array([1e-4, 1e-3, 1e-2])
 model_supervised_list = []
 val_losses = numpy.zeros_like(l2_list)
 for i, l2 in enumerate(l2_list):
-    model = make_model('categorical_crossentropy', l2=l2)
+    model = make_model(log_loss, l2=l2)
     history = model.fit(numpy.concatenate((*X_w_train_list, *X_wt_train_list)),
                         numpy.concatenate((*Y_w_train_list, *Y_wt_train_list)),
                         **fit_kwargs)
@@ -401,7 +406,7 @@ for i, (m1, m2) in enumerate(zip(M_true_list, M_estimated_list)):
 # In[12]:
 
 
-model = make_model('categorical_crossentropy', l2=l2)
+model = make_model(log_loss, l2=l2)
 
 history = model.fit(numpy.concatenate((*X_w_train_list, *X_wt_train_list)),
                     numpy.concatenate((*Z_w_train_list, *Y_wt_train_list)),
@@ -447,8 +452,8 @@ lowest_acc = 1.0
 highest_acc = 0.0
 test_acc_dict = {}
 for i, (key, model) in enumerate(sorted(final_models.items())):
-    lw = (len(final_models)+5 - i)/5
-    p = plt.plot(model.history.history['val_acc'], lw=lw, label='Val. ' + key)
+    lw = (len(final_models) - i)
+    p = plt.plot(model.history.history['val_acc'], '-', lw=lw, label='Val. ' + key)
     test_acc = numpy.mean(model.predict_classes(X_test) == y_test)
     print('{} : {}'.format(key, test_acc))
     plt.axhline(y=test_acc, color=p[0].get_color(), lw=lw, linestyle='--')
@@ -459,7 +464,7 @@ plt.title('Validation accuracy (dashed for test set)')
 plt.xlabel('Epoch')
 plt.ylabel('Accuracy')
 range_acc = highest_acc - lowest_acc
-plt.ylim([lowest_acc-range_acc*0.2, highest_acc+range_acc*0.2])
+#plt.ylim([lowest_acc-range_acc*0.2, highest_acc+range_acc*0.2])
 plt.legend()
 
 
@@ -468,7 +473,7 @@ plt.legend()
 # - The following saves all the results of this experiment in a csv file
 # - And the next cell loads all the results with similar format and aggregates them in a final plot
 
-# In[17]:
+# In[31]:
 
 
 export_dictionary = dict(
@@ -500,7 +505,7 @@ with open(unique_file + "_summary.csv", "w") as file:
     file.write(csv_text)
 
 
-# In[19]:
+# In[32]:
 
 
 import os
@@ -547,7 +552,7 @@ for name, df_ in df_grouped:
     df_ = df_.groupby(df_.index).mean()
     fig = plt.figure(figsize=(5, 4))
     ax = fig.add_subplot(111)
-    for column in df_.columns:
+    for column in sorted(df_.columns):
         ax.plot(df_.index, df_[column], label=column)
     ax.set_title('dataset {}, alpha = {}'.format(dataset_name, name[0]))
     ax.set_ylabel('Mean acc. (#it {})'.format(n_iterations))
@@ -556,10 +561,4 @@ for name, df_ in df_grouped:
     fig.tight_layout()
     fig.savefig(os.path.join('Example_06_{}_a{:03.0f}.svg'.format(dataset_name,
                                                          float(name[0])*100)))
-
-
-# In[ ]:
-
-
-
 
