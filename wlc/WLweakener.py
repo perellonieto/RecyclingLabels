@@ -18,7 +18,8 @@ from scipy.sparse import csr_matrix
 from copy import deepcopy
 
 
-def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised', seed=None):
+def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised', seed=None,
+             unsupervised=True):
     """
     Generate a mixing matrix M, given the number of classes c.
 
@@ -48,6 +49,10 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised', seed=None):
                                 probability of a false label for each column.
                 'quasi_IPL':    This is the quasi independent partial label
                                 case discussed in the paper.
+                'odd_even':     This creates supersets of weak labels where any
+                                odd class is assigned to a weak label with all
+                                the odd classes, and same with the even
+                                classes.
 
     Returns
     -------
@@ -96,7 +101,6 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised', seed=None):
         M = (1-beta) * Ic + beta * M
 
     elif method == 'IPL':
-
         # Shape M
         d = 2**c
         M = np.zeros((d, c))
@@ -110,10 +114,6 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised', seed=None):
 
             M[z, :] = (alpha**(z_bin) * (1-alpha)**(1-z_bin) *
                        (beta**(modz-z_bin) * (1-beta)**(c-modz-1+z_bin)))
-
-        # This is likely not required: columns in M should already sum up to 1
-        M = M / np.sum(M, axis=0)
-
     elif method == 'IPL3':
 
         b0 = beta[0]
@@ -151,13 +151,21 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised', seed=None):
             modz = sum(z_bin)
 
             M[z, :] = z_bin*(beta**(modz-1) * (1-beta)**(c-modz))
-
-        # Columns in M should sum up to 1
-        M = M / np.sum(M, axis=0)
-
+    elif method == 'odd_even':
+        # Shape M
+        d = 2**c
+        M = np.zeros((d, c))
+        M[weak_to_decimal(np.array([([0, 1]*c)[:c]]))] = ([0, 1]*c)[:c]
+        M[weak_to_decimal(np.array([([1, 0]*c)[:c]]))] = ([1, 0]*c)[:c]
     else:
         raise ValueError("Unknown method to compute M: {}".format(method))
 
+    # Remove unsupervised option
+    if not unsupervised and (M.shape[0] == 2**M.shape[1]):
+        M[0,:] = 0
+
+    # Ensures that all columns in M sum up to 1
+    M = M / np.sum(M, axis=0)
     return M
 
 
