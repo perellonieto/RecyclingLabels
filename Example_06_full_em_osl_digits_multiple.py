@@ -547,7 +547,7 @@ for name, df_ in df_grouped:
     df_ = df_.groupby(df_.index).mean()
     fig = plt.figure(figsize=(5, 4))
     ax = fig.add_subplot(111)
-    for column in df_.columns:
+    for column in sorted(df_.columns):
         ax.plot(df_.index, df_[column], label=column)
     ax.set_title('dataset {}, alpha = {}'.format(dataset_name, name[0]))
     ax.set_ylabel('Mean acc. (#it {})'.format(n_iterations))
