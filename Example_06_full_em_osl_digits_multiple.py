@@ -537,7 +537,7 @@ df_grouped = df.groupby(['alpha', 'M_method_list'])
 for name, df_ in df_grouped:
     print(name)
     n_iterations = len(df_['random_state'].unique())
-    columns = df_['models'][0].split(',')
+    columns = df_['models'].iloc[0].split(',')
     columns.append('n_samples_train')
     df_ = df_[columns]
     df_ = df_.apply(pandas.to_numeric)
@@ -549,7 +549,7 @@ for name, df_ in df_grouped:
     ax = fig.add_subplot(111)
     for column in df_.columns:
         ax.plot(df_.index, df_[column], label=column)
-    ax.set_title('dataset {}, beta = {}'.format(dataset_name, name[0]))
+    ax.set_title('dataset {}, alpha = {}'.format(dataset_name, name[0]))
     ax.set_ylabel('Mean acc. (#it {})'.format(n_iterations))
     ax.set_xlabel('Number of weak samples')
     ax.legend()
