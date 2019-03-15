@@ -10,6 +10,7 @@ declare -a m_a_list=(
 )
 
 declare -a train_prop_list=(
+    0.0
     0.1
     0.2
     0.3
@@ -29,7 +30,7 @@ do
                  ${prop} ${a} 2>&1 > "Example_07_${random_state}_${prop}_${a}.out"
                  "
             python Example_07_full_em_osl_make_classification_multiple.py ${random_state} \
-                 ${prop} ${a} 2>&1 > "Example_07_${random_state}_${prop}_${a}.out"
+                 ${prop} ${a} &> "Example_07_${random_state}_${prop}_${a}.out"
         done
     done
 done
