@@ -101,6 +101,9 @@ def generate_summary(dataset_name, output_folder):
         df_ = df_.apply(pandas.to_numeric)
         df_.index = df_['last_train_index']
         del df_['last_train_index']
+        del df_['Weak']
+        if name[1] in ['noisy', 'random_noise']:
+            del df_['OSL']
         df_.sort_index(inplace=True)
         df_ = df_.groupby(df_.index).mean()
         fig = plt.figure(figsize=(5, 4))
@@ -165,19 +168,24 @@ def main(dataset_name, m_method, beta, random_state, train_proportion, output_fo
     plt.close(fig)
 
     # # Divide into training, validation and test
-    X_weak_train, X_true_train, X_val, X_test = numpy.array_split(X, 4)
-    Y_weak_train, Y_true_train, Y_val, Y_test = numpy.array_split(Y, 4)
-    Z_weak_train, Z_true_train, Z_val, Z_test = numpy.array_split(Z, 4)
-    V_weak_train, V_true_train, V_val, V_test = numpy.array_split(V_weak, 4)
-    y_weak_train, y_true_train, y_val, y_test = numpy.array_split(y, 4)
+    X_train, X_val, X_test = numpy.array_split(X, 3)
+    Y_train, Y_val, Y_test = numpy.array_split(Y, 3)
+    Z_train, Z_val, Z_test = numpy.array_split(Z, 3)
+    V_train, V_val, V_test = numpy.array_split(V_weak, 3)
+    y_train, y_val, y_test = numpy.array_split(y, 3)
 
-    # Remove a portion of the weak data
-    last_train_index = int(numpy.ceil(train_proportion*X_weak_train.shape[0]))
-    X_weak_train = X_weak_train[:last_train_index]
-    Y_weak_train = Y_weak_train[:last_train_index]
-    Z_weak_train = Z_weak_train[:last_train_index]
-    V_weak_train = V_weak_train[:last_train_index]
-    y_weak_train = y_weak_train[:last_train_index]
+    #w_wt_drop_proportions = numpy.array([0.1, 0.1]) # for weak, for true [the rest to drop]
+    w_wt_drop_proportions = numpy.array([train_proportion*0.9, 0.1])           # Train set: for weak, for true [the rest to drop]
+    cut_indices = (w_wt_drop_proportions.cumsum()*X_train.shape[0]).astype(int)
+    print('Indices for the cuts = {}'.format(cut_indices))
+
+    X_weak_train, X_true_train, _ = numpy.array_split(X_train, cut_indices)
+    y_weak_train, y_true_train, _ = numpy.array_split(y_train, cut_indices)
+    Y_weak_train, Y_true_train, _ = numpy.array_split(Y_train, cut_indices)
+    Z_weak_train, Z_true_train, _ = numpy.array_split(Z_train, cut_indices)
+
+    # Remove a portion of the weak data: This variable is legacy
+    last_train_index = cut_indices[0]
 
     # Save the final model for each method
     final_models = {}
