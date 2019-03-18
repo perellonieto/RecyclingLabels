@@ -35,7 +35,7 @@ else:
     alpha = float(sys.argv[3]) # alpha = 0 (all noise), alpha = 1 (no noise)
     dataset_name = 'digits'
     train_val_test_proportions = numpy.array([0.5, 0.2, 0.3]) # Train, validation and test proportions
-    w_wt_drop_proportions = numpy.array([weak_prop, 0.1])           # Train set: for weak, for true [the rest to drop]
+    w_wt_drop_proportions = numpy.array([weak_prop*0.9, 0.1])           # Train set: for weak, for true [the rest to drop]
     M_method_list = ['odd_even', 'random_weak', 'noisy', 'random_noise', 'IPL', 'quasi_IPL'] # Weak labels in training
     beta = 1 - alpha # beta = 1 (all noise), beta = 0 (no noise)
     max_epochs = 1000  # Upper limit on the number of epochs
