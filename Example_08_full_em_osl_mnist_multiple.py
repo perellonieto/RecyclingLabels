@@ -259,12 +259,13 @@ final_models = {}
 train_method = 'Supervised'
 
 # In this dataset the best l2 parameter is 0.0
-#l2_list = numpy.array([0.0, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1])
-l2_list = numpy.array([0.0, 1e-8, 1e-7])
+l2_list = numpy.array([0.0, 1e-10, 1e-8, 1e-6, 1e-4, 1e-2, 1e0, 1e1])
+#l2_list = numpy.array([0.0, 1e-8, 1e-7])
 
 model_supervised_list = []
 val_losses = numpy.zeros_like(l2_list)
 for i, l2 in enumerate(l2_list):
+    print('Evaluating l2 regularization = {}'.format(l2))
     model = make_model(log_loss, l2=l2)
     history = model.fit(numpy.concatenate((*X_w_train_list, *X_wt_train_list)),
                         numpy.concatenate((*Y_w_train_list, *Y_wt_train_list)),
