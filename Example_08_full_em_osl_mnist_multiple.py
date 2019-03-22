@@ -258,9 +258,9 @@ final_models = {}
 
 train_method = 'Supervised'
 
-# In this dataset the best l2 parameter is 0.0
-l2_list = numpy.array([0.0, 1e-10, 1e-8, 1e-6, 1e-4, 1e-2, 1e0, 1e1])
-#l2_list = numpy.array([0.0, 1e-8, 1e-7])
+# In this dataset the best l2 parameter is 1e-9
+l2_list = numpy.array([0.0, 1e-10, 1e-9, 1e-8, 1e-7, 1e-6, 1e-4, 1e-2, 1e0, 1e1])
+l2_list = numpy.array([1e-9])
 
 model_supervised_list = []
 val_losses = numpy.zeros_like(l2_list)
