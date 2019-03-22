@@ -22,7 +22,7 @@ if is_interactive():
     sys.path.append('../')
     # Define all the variables for this experiment
     random_state = 0
-    dataset_name = 'make_classification'
+    dataset_name = 'mnist'
     train_val_test_proportions = numpy.array([0.5, 0.2, 0.3]) # Train, validation and test proportions
     w_wt_drop_proportions = numpy.array([0.9, 0.1])           # Train set: for weak, for true [the rest to drop]
     M_method_list = ['odd_even', 'random_weak', 'noisy', 'random_noise', 'IPL', 'quasi_IPL'] # Weak labels in training
@@ -33,7 +33,7 @@ else:
     random_state = int(sys.argv[1])
     weak_prop = float(sys.argv[2])
     alpha = float(sys.argv[3]) # alpha = 0 (all noise), alpha = 1 (no noise)
-    dataset_name = 'make_classification'
+    dataset_name = 'mnist'
     train_val_test_proportions = numpy.array([0.5, 0.2, 0.3]) # Train, validation and test proportions
     w_wt_drop_proportions = numpy.array([weak_prop, 0.1])           # Train set: for weak, for true [the rest to drop]
     M_method_list = ['odd_even', 'random_weak', 'noisy', 'random_noise', 'IPL', 'quasi_IPL'] # Weak labels in training
@@ -67,13 +67,11 @@ from keras.datasets import cifar10, mnist
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
 X = numpy.concatenate((x_train, x_test))
 y = numpy.concatenate((y_train, y_test)).flatten()
-
-X, y = shuffle((X, y))
+X, y = shuffle(X, y)
 
 n_samples = X.shape[0]
 n_features = sum(X[0].shape)
 n_classes = 10
-
 Y = label_binarize(y, range(n_classes))
 
 
@@ -138,7 +136,7 @@ for i, key in enumerate(M_method_list):
 # - Currently every weak partition is of the same size
 # - We will assume that a proportion of each weak set has been annotated with the true labels
 
-# In[ ]:
+# In[5]:
 
 
 #w_wt_drop_proportions = numpy.array([0.1, 0.1]) # for weak, for true [the rest to drop]
@@ -184,7 +182,7 @@ for i, M in enumerate(M_list):
     print('Sample of Z labels\n{}'.format(Z_wt_train_list[-1][:3]))
 
 
-# In[ ]:
+# In[6]:
 
 
 from experiments.visualizations import plot_multilabel_scatter
@@ -206,7 +204,7 @@ fig.tight_layout()
 
 # # Define a common model
 
-# In[ ]:
+# In[7]:
 
 
 from keras.callbacks import EarlyStopping, Callback
@@ -253,18 +251,19 @@ final_models = {}
 # 
 # Train with all true labels
 
-# In[ ]:
+# In[19]:
 
 
 train_method = 'Supervised'
 
 # In this dataset the best l2 parameter is 0.0
-#l2_list = numpy.array([0.0, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1])
-l2_list = numpy.array([0.0, 1e-8, 1e-7])
+l2_list = numpy.array([0.0, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1])
+l2_list = numpy.array([1e-9])
 
 model_supervised_list = []
 val_losses = numpy.zeros_like(l2_list)
 for i, l2 in enumerate(l2_list):
+    print('Evaluating l2 regularization = {}'.format(l2))
     model = make_model(log_loss, l2=l2)
     history = model.fit(numpy.concatenate((*X_w_train_list, *X_wt_train_list)),
                         numpy.concatenate((*Y_w_train_list, *Y_wt_train_list)),
@@ -292,7 +291,7 @@ ax.scatter(l2, val_losses[best_supervised], color='gold',
 # 
 # Train EM with all weak labels
 
-# In[ ]:
+# In[9]:
 
 
 def EM_log_loss(y_true, y_pred):
@@ -344,7 +343,7 @@ final_models['EM original M'] = model
 
 # # Our method with EM and estimated M
 
-# In[ ]:
+# In[10]:
 
 
 from wlc.WLweakener import estimate_M
@@ -390,7 +389,7 @@ plot_history(history, model, X_test, y_test)
 final_models['EM estimated M'] = model
 
 
-# In[ ]:
+# In[11]:
 
 
 for i, (m1, m2) in enumerate(zip(M_true_list, M_estimated_list)):
@@ -413,7 +412,7 @@ for i, (m1, m2) in enumerate(zip(M_true_list, M_estimated_list)):
 
 # # Weak (lowerbound)
 
-# In[ ]:
+# In[12]:
 
 
 model = make_model(log_loss, l2=l2)
@@ -429,7 +428,7 @@ final_models['Weak'] = model
 
 # # Optimistic Superset Loss
 
-# In[ ]:
+# In[13]:
 
 
 def OSL_log_loss(y_true, y_pred):
@@ -472,7 +471,7 @@ final_models['OSL'] = model
 # 
 # final_models['OSL'] = model
 
-# In[ ]:
+# In[14]:
 
 
 plt.figure(figsize=(15, 4))
@@ -501,7 +500,7 @@ plt.legend()
 # - The following saves all the results of this experiment in a csv file
 # - And the next cell loads all the results with similar format and aggregates them in a final plot
 
-# In[ ]:
+# In[15]:
 
 
 export_dictionary = dict(
@@ -523,7 +522,7 @@ export_dictionary = dict(
 
 import datetime
 
-unique_file = 'Example_07_{}_a{}_r{:03.0f}_{}'.format(dataset_name, alpha*100, random_state,
+unique_file = 'Example_08_{}_a{}_r{:03.0f}_{}'.format(dataset_name, alpha*100, random_state,
                                               datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S'))
 
 export_dictionary = {**export_dictionary, **test_acc_dict}
@@ -533,7 +532,7 @@ with open(unique_file + "_summary.csv", "w") as file:
     file.write(csv_text)
 
 
-# In[ ]:
+# In[16]:
 
 
 import os
@@ -553,7 +552,7 @@ plt.rcParams["figure.dpi"] = 100
 plt.rc('lines', linewidth=1)
 plt.rc('axes', prop_cycle=default_cycler)
 
-files_list = glob.glob("./Example_07*summary.csv")
+files_list = glob.glob("./Example_08*summary.csv")
 print('List of files to aggregate')
 print(files_list)
 
@@ -587,6 +586,6 @@ for name, df_ in df_grouped:
     ax.set_xlabel('Number of weak samples')
     ax.legend()
     fig.tight_layout()
-    fig.savefig(os.path.join('Example_07_{}_a{:03.0f}.svg'.format(dataset_name,
+    fig.savefig(os.path.join('Example_08_{}_a{:03.0f}.svg'.format(dataset_name,
                                                          float(name[0])*100)))
 
