@@ -68,7 +68,7 @@ from keras.datasets import cifar10, mnist
 X = numpy.concatenate((x_train, x_test))
 y = numpy.concatenate((y_train, y_test)).flatten()
 
-X, y = shuffle((X, y))
+X, y = shuffle(X, y)
 
 n_samples = X.shape[0]
 n_features = sum(X[0].shape)
