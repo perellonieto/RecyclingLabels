@@ -19,7 +19,7 @@ declare -a train_prop_list=(
     1.0
 )
 
-for random_state in {10..19};
+for random_state in {0..09};
 do
     for prop in "${train_prop_list[@]}"
     do
