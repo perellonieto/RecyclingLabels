@@ -53,6 +53,9 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised', seed=None,
                                 odd class is assigned to a weak label with all
                                 the odd classes, and same with the even
                                 classes.
+                'complementary':This generates complete supersets of c-1
+                                classes which do not contain one of the false
+                                classes.
 
     Returns
     -------
@@ -62,23 +65,19 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised', seed=None,
         np.random.seed(seed)
 
     if method == 'supervised':
-
         M = np.eye(c)
 
     elif method == 'noisy':
-
         M = (np.eye(c) * (1 - beta - beta/(c-1)) +
              np.ones((c, c)) * beta/(c-1))
 
     elif method == 'random_noise':
-
         M = np.random.rand(c, c)
         M = M / np.sum(M, axis=0, keepdims=True)
 
         M = (1-beta) * np.eye(c) + beta * M
 
     elif method == 'random_weak':
-
         # Number or rows. Equal to 2**c to simulate a scenario where all
         # possible binary label vectors are possible.
         d = 2**c
@@ -157,6 +156,18 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised', seed=None,
         M = np.zeros((d, c))
         M[weak_to_decimal(np.array([([0, 1]*c)[:c]]))] = ([0, 1]*c)[:c]
         M[weak_to_decimal(np.array([([1, 0]*c)[:c]]))] = ([1, 0]*c)[:c]
+    elif method == 'complementary':
+        # Generate the complementary matrix first
+        M_aux = (np.eye(c) * (1 - beta - beta/(c-1)) +
+                 np.ones((c, c)) * beta/(c-1))
+
+        # Shape M
+        d = 2**c
+        M = np.zeros((d, c))
+        indices = weak_to_index((binarizeWeakLabels(2**np.arange(c), c) == 0).astype(int), method='IPL')
+        for i, j in enumerate(reversed(indices)):
+            M[j] = M_aux[i]
+
     else:
         raise ValueError("Unknown method to compute M: {}".format(method))
 
