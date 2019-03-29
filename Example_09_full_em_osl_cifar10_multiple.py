@@ -40,7 +40,7 @@ else:
     beta = 1 - alpha # beta = 1 (all noise), beta = 0 (no noise)
     max_epochs = 1000  # Upper limit on the number of epochs
     matplotlib.use('Agg')
-    
+
 import keras
 from keras import backend as K
 
@@ -79,11 +79,10 @@ Y = label_binarize(y, range(n_classes))
 print('X.shape = {}'.format(X.shape))
 print('y.shape = {}'.format(y.shape))
 
-
 # ## 1.b. Divide into training, validation and test
-# 
+#
 # - Validation and test will always have only true labels, while the training may have weak labels as well
-# 
+#
 # - $S_{train} = \{S_{wt-train}, S_{w-train}\} = [\{(x_i, b_i, y_i), i = 1,...,n\} X x Z x C, \{(x_i, b_i), i = 1,...,n\} \in X x Z\}]$
 # - $S_{val} = \{(x_i, y_i), i = 1,...,n\} \in X x C$
 # - $S_{test} = \{(x_i, y_i), i = 1,...,n\} \in X x C$
@@ -115,7 +114,7 @@ print('Test samples = {}'.format(X_test.shape[0]))
 
 
 # ## 1.c. Generate weakening processes
-# 
+#
 # - This will generate weak labels given the specified mixing process.
 # - It will also show 3 plots with the true labels, weak labels and the corresponding rows of the mixing matrix M.
 # - In all the mixing processes we remove the unlabeled option as this can be seen as the all labels (if we assume that every samples belongs to one class)
@@ -137,7 +136,7 @@ for i, key in enumerate(M_method_list):
 
 
 # ## 1.d. Divide training into weak portions
-# 
+#
 # - Currently every weak partition is of the same size
 # - We will assume that a proportion of each weak set has been annotated with the true labels
 
@@ -165,11 +164,11 @@ for i, M in enumerate(M_list):
     print('Generating weak labels for set {} with mixing process {}'.format(i, M_method_list[i]))
     z_w_train_list.append(generateWeak(y_w_train_list[i], M))
     Z_w_train_list.append(binarizeWeakLabels(z_w_train_list[i], n_classes))
-    
+
     print('Total shape = {}'.format(z_w_train_list[-1].shape))
     print('Sample of z labels\n{}'.format(z_w_train_list[-1][:3]))
     print('Sample of Z labels\n{}'.format(Z_w_train_list[-1][:3]))
-    
+
 X_wt_train_list = numpy.array_split(X_wt_train, len(M_method_list))
 y_wt_train_list = numpy.array_split(y_wt_train, len(M_method_list))
 Y_wt_train_list = numpy.array_split(Y_wt_train, len(M_method_list))
@@ -181,7 +180,7 @@ for i, M in enumerate(M_list):
     print('Generating weak labels for set {} with mixing process {}'.format(i, M_method_list[i]))
     z_wt_train_list.append(generateWeak(y_wt_train_list[i], M))
     Z_wt_train_list.append(binarizeWeakLabels(z_wt_train_list[i], n_classes))
-    
+
     print('Total shape = {}'.format(z_wt_train_list[-1].shape))
     print('Sample of z labels\n{}'.format(z_wt_train_list[-1][:3]))
     print('Sample of Z labels\n{}'.format(Z_wt_train_list[-1][:3]))
@@ -229,18 +228,20 @@ class EpochCallback(Callback):
 
 # Callback for early stopping
 epoch_callback = EpochCallback()
-early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=int(max_epochs/20), 
+early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=50,
                                verbose=2, mode='auto', baseline=None,
                                restore_best_weights=True)
 
 def make_model(loss, lr=0.0001):
+    from keras.models import Sequential
     from keras.layers import Dense, Dropout, Activation, Flatten
     from keras.layers import Conv2D, MaxPooling2D
+
     # Careful that it is ussing global variables for the input and output shapes
-    numpy.random.seed(0)  
-    model = keras.models.Sequential()
+    numpy.random.seed(random_state)
+    model = Sequential()
     model.add(Conv2D(32, (3, 3), padding='same',
-                     input_shape=X.shape[1:]))
+                                      input_shape=X.shape[1:]))
     model.add(Activation('relu'))
     model.add(Conv2D(32, (3, 3)))
     model.add(Activation('relu'))
@@ -260,10 +261,11 @@ def make_model(loss, lr=0.0001):
     model.add(Dropout(0.5))
     model.add(Dense(Y.shape[1]))
     model.add(Activation('softmax'))
-    
+
     optimizer = keras.optimizers.rmsprop(lr=lr, decay=1e-6)
 
-    model.compile(optimizer=optimizer, loss=loss, metrics=['ce', 'mse', 'acc'])
+    model.compile(optimizer=optimizer, loss=loss,
+                  metrics=['ce', 'mse', 'acc'])
     return model
 
 # Keyword arguments for the fit function
@@ -275,10 +277,8 @@ final_models = {}
 
 
 # # Fully supervised (upperbound)
-# 
+#
 # Train with all true labels
-
-# In[8]:
 
 
 train_method = 'Supervised'
@@ -315,11 +315,10 @@ ax.scatter(lr, val_losses[best_supervised], color='gold',
 
 
 # # Our method with EM and original M
-# 
+#
 # Train EM with all weak labels
 
-# In[ ]:
-
+# In[9]:
 
 def EM_log_loss(y_true, y_pred):
     y_pred = K.clip(y_pred, K.epsilon(), 1.0-K.epsilon())
@@ -343,7 +342,7 @@ for i, M in enumerate(M_list):
     q = (X_wt_train_list[i].shape[0]/n_samples_train)
     M_true_list.append(M_supervised * q)
     print('q_{} true = {:.3f}'.format(i, q))
-    
+
 M_true = numpy.concatenate(M_true_list)
 last_index = 0
 Z_train_index_list = []
@@ -362,7 +361,7 @@ for i in range(len(M_method_list)):
 history = model.fit(numpy.concatenate((*X_w_train_list, *X_wt_train_list)),
                     numpy.concatenate(V_train_list),
                     **fit_kwargs)
-    
+
 plot_history(history, model, X_test, y_test)
 
 final_models['EM original M'] = model
@@ -370,7 +369,7 @@ final_models['EM original M'] = model
 
 # # Our method with EM and estimated M
 
-# In[ ]:
+# In[10]:
 
 
 from wlc.WLweakener import estimate_M
@@ -391,7 +390,7 @@ for i in range(len(M_list)):
     q = (X_wt_train_list[i].shape[0]/n_samples_train)
     M_estimated_list.append(M_supervised * q)
     print('q_{} true = {:.3f}'.format(i, q))
-    
+
 M_estimated = numpy.concatenate(M_estimated_list)
 last_index = 0
 Z_train_index_list = []
@@ -410,17 +409,17 @@ for i in range(len(M_method_list)):
 history = model.fit(numpy.concatenate((*X_w_train_list, *X_wt_train_list)),
                     numpy.concatenate(V_train_list),
                     **fit_kwargs)
-    
+
 plot_history(history, model, X_test, y_test)
 
 final_models['EM estimated M'] = model
 
 
-# In[ ]:
+# In[11]:
 
 
 for i, (m1, m2) in enumerate(zip(M_true_list, M_estimated_list)):
-    fig = plt.figure(figsize=(10, 5)) 
+    fig = plt.figure(figsize=(10, 5))
     ax = fig.add_subplot(1,3,1)
     ax.set_title('True M')
     cax = ax.imshow(m1, interpolation='nearest', aspect='auto')
@@ -439,8 +438,7 @@ for i, (m1, m2) in enumerate(zip(M_true_list, M_estimated_list)):
 
 # # Weak (lowerbound)
 
-# In[ ]:
-
+# In[12]:
 
 model = make_model(log_loss, lr=lr)
 
@@ -455,8 +453,7 @@ final_models['Weak'] = model
 
 # # Optimistic Superset Loss
 
-# In[ ]:
-
+# In[13]:
 
 def OSL_log_loss(y_true, y_pred):
     # Careful, I had to use a global variable here for the number of classes
@@ -476,7 +473,7 @@ model = make_model(OSL_log_loss, lr=lr)
 history = model.fit(numpy.concatenate((*X_w_train_list, *X_wt_train_list)),
                     numpy.concatenate((*Z_w_train_list, *Y_wt_train_list)),
                     **fit_kwargs)
-    
+
 plot_history(history, model, X_test, y_test)
 
 final_models['OSL'] = model
@@ -487,19 +484,18 @@ final_models['OSL'] = model
 # def CLPL_log_loss(y_true, y_pred):
 #     # to implement
 #     return K.mean(out, axis=-1)
-# 
+#
 # model = make_model(CLPL_log_loss, lr=lr)
-# 
+#
 # history = model.fit(numpy.concatenate((*X_w_train_list, *X_wt_train_list)),
 #                     numpy.concatenate((*Z_w_train_list, *Y_wt_train_list)),
 #                     **fit_kwargs)
-#     
+#
 # plot_history(history, model, X_test, y_test)
-# 
+#
 # final_models['OSL'] = model
 
-# In[ ]:
-
+# In[14]:
 
 plt.figure(figsize=(15, 4))
 lowest_acc = 1.0
@@ -523,12 +519,11 @@ plt.legend()
 
 
 # # Save results and aggregate
-# 
+#
 # - The following saves all the results of this experiment in a csv file
 # - And the next cell loads all the results with similar format and aggregates them in a final plot
 
-# In[ ]:
-
+# In[15]:
 
 export_dictionary = dict(
     dataset_name=dataset_name,
@@ -559,8 +554,7 @@ with open(unique_file + "_summary.csv", "w") as file:
     file.write(csv_text)
 
 
-# In[ ]:
-
+# In[16]:
 
 import os
 import glob
@@ -570,7 +564,7 @@ cmap = plt.cm.get_cmap('tab20')
 
 from cycler import cycler
 default_cycler = (cycler(color=['darkred', 'forestgreen', 'darkblue', 'violet', 'darkorange', 'saddlebrown']) +
-                  cycler(linestyle=['-', '--', '-.', '-', '--', '-.']) + 
+                  cycler(linestyle=['-', '--', '-.', '-', '--', '-.']) +
                   cycler(marker=['o', 'v', 'x', '*', '+', '.']) +
                   cycler(lw=[2, 1.8, 1.6, 1.4, 1.2, 1]))
 
