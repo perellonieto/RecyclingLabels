@@ -17,12 +17,13 @@ import sys
 import numpy
 import matplotlib
 
+dataset_name = 'mnist'
+
 if is_interactive():
     get_ipython().magic(u'matplotlib inline')
     sys.path.append('../')
     # Define all the variables for this experiment
     random_state = 0
-    dataset_name = 'mnist'
     train_val_test_proportions = numpy.array([0.5, 0.2, 0.3]) # Train, validation and test proportions
     w_wt_drop_proportions = numpy.array([0.9, 0.1])           # Train set: for weak, for true [the rest to drop]
     M_method_list = ['complementary'] # Weak labels in training
@@ -32,9 +33,8 @@ if is_interactive():
 else:
     random_state = int(sys.argv[1])
     weak_prop = float(sys.argv[2])
-    dataset_name = 'mnist'
     train_val_test_proportions = numpy.array([0.5, 0.2, 0.3]) # Train, validation and test proportions
-    w_wt_drop_proportions = numpy.array([weak_prop, 0.1])           # Train set: for weak, for true [the rest to drop]
+    w_wt_drop_proportions = numpy.array([weak_prop*0.9, 0.1])           # Train set: for weak, for true [the rest to drop]
     M_method_list = ['complementary'] # Weak labels in training
     alpha = 0.0  # alpha = 0 (all noise), alpha = 1 (no noise)
     beta = 1 - alpha # beta = 1 (all noise), beta = 0 (no noise)
@@ -67,6 +67,8 @@ from keras.datasets import cifar10, mnist
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
 X = numpy.concatenate((x_train, x_test))
 y = numpy.concatenate((y_train, y_test)).flatten()
+X = X.astype('float32')
+X /= 255
 X, y = shuffle(X, y)
 
 n_samples = X.shape[0]
