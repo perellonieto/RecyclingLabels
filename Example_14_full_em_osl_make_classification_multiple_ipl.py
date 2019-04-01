@@ -400,6 +400,10 @@ n_samples_train = X_w_train.shape[0] + X_wt_train.shape[0]
 for i in range(len(M_list)):
     M = estimate_M(Z_wt_train_list[i], Y_wt_train_list[i],
                    range(n_classes), reg='Partial', Z_reg=Z_w_train_list[i], alpha=1)
+    s = M_supersets[i]
+    for j in range(n_classes):
+        if j not in s:
+            M[:,j] = 0
     q = (X_w_train_list[i].shape[0]/n_samples_train)
     M_estimated_list.append(M * q)
     print('q_{} weak = {:.3f}'.format(i, q))
