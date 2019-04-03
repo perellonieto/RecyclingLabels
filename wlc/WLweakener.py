@@ -158,6 +158,7 @@ def computeM(c, alpha=0.5, beta=0.5, gamma=0.5, method='supervised', seed=None,
         M[weak_to_decimal(np.array([([1, 0]*c)[:c]]))] = ([1, 0]*c)[:c]
     elif method == 'complementary':
         # Generate the complementary matrix first
+        beta = 1.0
         M_aux = (np.eye(c) * (1 - beta - beta/(c-1)) +
                  np.ones((c, c)) * beta/(c-1))
 
