@@ -293,8 +293,8 @@ val_losses = numpy.zeros_like(lr_list)
 for i, lr in enumerate(lr_list):
     print('Evaluating lr regularization = {}'.format(lr))
     model = make_model(log_loss, lr=lr)
-    history = model.fit(numpy.concatenate((*X_w_train_list, *X_wt_train_list)),
-                        numpy.concatenate((*Y_w_train_list, *Y_wt_train_list)),
+    history = model.fit(X_wt_train_list,
+                        Y_wt_train_list,
                         **fit_kwargs)
 
     plot_history(history, model, X_test, y_test)
