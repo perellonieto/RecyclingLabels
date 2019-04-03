@@ -214,7 +214,7 @@ def plot_multilabel_scatter(X, Y, cmap=cm.get_cmap('tab20'), edgecolor='k',
             for i, theta2 in enumerate(theta2s):
                 if theta1 != theta2:
                     w = Wedge(x[:2], radius, theta1, theta2, ec=edgecolor, lw=linewidth,
-                              fc=cmap(np.true_divide(i, n_classes)), **kwargs)
+                              fc=cmap(i), **kwargs)
                     ax.add_patch(w)
                     theta1 = theta2
         else:
