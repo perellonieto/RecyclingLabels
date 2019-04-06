@@ -391,6 +391,48 @@ final_models['EM original M'] = model
 
 # In[ ]:
 
+from wlc.WLweakener import estimate_M
+model = make_model(EM_log_loss, lr=lr)
+
+M_estimated_list = []
+n_samples_train = X_w_train.shape[0] + X_wt_train.shape[0]
+# Add weak samples
+for i in range(len(M_list)):
+    M = estimate_M(Z_wt_train_list[i], Y_wt_train_list[i],
+                   range(n_classes), reg='Partial', Z_reg=Z_w_train_list[i], alpha=1)
+    q = (X_w_train_list[i].shape[0]/n_samples_train)
+    M_estimated_list.append(M * q)
+    print('q_{} weak = {:.3f}'.format(i, q))
+# Add true samples
+M_supervised = computeM(n_classes, method='supervised')
+for i in range(len(M_list)):
+    q = (X_wt_train_list[i].shape[0]/n_samples_train)
+    M_estimated_list.append(M_supervised * q)
+    print('q_{} true = {:.3f}'.format(i, q))
+    
+M_estimated = numpy.concatenate(M_estimated_list)
+last_index = 0
+Z_train_index_list = []
+V_train_list = []
+# Add weak samples
+for i in range(len(M_method_list)):
+    Z_train_index_list.append(last_index + weak_to_index(Z_w_train_list[i], method='random_weak'))
+    last_index += 2**n_classes
+    V_train_list.append(M_estimated[Z_train_index_list[-1]])
+# Add true samples
+for i in range(len(M_method_list)):
+    Z_train_index_list.append(last_index + weak_to_index(Y_wt_train_list[i], method='supervised'))
+    last_index += n_classes
+    V_train_list.append(M_estimated[Z_train_index_list[-1]])
+
+history = model.fit(numpy.concatenate((*X_w_train_list, *X_wt_train_list)),
+                    numpy.concatenate(V_train_list),
+                    **fit_kwargs)
+    
+plot_history(history, model, X_test, y_test)
+
+final_models['EM estimated M'] = model
+
 
 from wlc.WLweakener import estimate_M
 model = make_model(EM_log_loss, lr=lr)
@@ -436,7 +478,7 @@ history = model.fit(numpy.concatenate((*X_w_train_list, *X_wt_train_list)),
     
 plot_history(history, model, X_test, y_test)
 
-final_models['EM estimated M'] = model
+final_models['z*EM estimated M'] = model
 
 
 # In[ ]:
@@ -615,7 +657,7 @@ for file_ in files_list:
 df = pandas.concat(list_, axis = 0, ignore_index = True)
 df = df[df['dataset_name'] == dataset_name]
 del df['dataset_name']
-df_grouped = df.groupby(['alpha', 'M_method_list'])
+df_grouped = df.groupby(['beta', 'M_method_list'])
 for name, df_ in df_grouped:
     print(name)
     n_iterations = len(df_['random_state'].unique())
@@ -627,15 +669,16 @@ for name, df_ in df_grouped:
     del df_['n_samples_train']
     df_.sort_index(inplace=True)
     df_ = df_.groupby(df_.index).mean()
-    fig = plt.figure(figsize=(5, 4))
+    fig = plt.figure(figsize=(5, 2.5))
     ax = fig.add_subplot(111)
     for column in sorted(df_.columns):
         ax.plot(df_.index, df_[column], label=column)
-    ax.set_title('dataset {}, alpha = {}'.format(dataset_name, name[0]))
+#    ax.set_title('dataset {}, beta = {}'.format(dataset_name, name[0]))
     ax.set_ylabel('Mean acc. (#it {})'.format(n_iterations))
-    ax.set_xlabel('Number of weak samples')
-    ax.legend()
+    ax.set_xlabel('Number of training samples')
+    ax.grid(color='lightgrey')
+    ax.legend(framealpha=0.7)
     fig.tight_layout()
-    fig.savefig(os.path.join('Example_10_{}_a{:03.0f}.svg'.format(dataset_name,
+    fig.savefig(os.path.join('Example_10_{}_b{:03.0f}.svg'.format(dataset_name,
                                                          float(name[0])*100)))
 
