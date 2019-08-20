@@ -28,12 +28,12 @@ if is_interactive():
     sys.path.append('../')
     # Define all the variables for this experiment
     random_state = 0
-    weak_prop = 0.05 # proportion of weak data to use [the rest is dropped]
+    weak_prop = 0.14 # proportion of weak data to use [the rest is dropped]
     data_folder = '../data/'
     # In this dataset the best l2 parameter is 0.0
     #l2_list = numpy.array([0.0, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1])
     max_epochs = 10  # Upper limit on the number of epochs
-    l2_list = numpy.array([0.0, 1e-6, 1e0])
+    l2_list = numpy.array([0.0, 1e-6, 1e-3, 1e0])
 else:
     # This is for the final run as a script
     random_state = int(sys.argv[1])
@@ -202,8 +202,10 @@ from keras import regularizers
 
 def log_loss(y_true, y_pred):
     y_pred = K.clip(y_pred, K.epsilon(), 1.0-K.epsilon())
-    out = -y_true*K.log(y_pred)
-    return K.mean(out, axis=-1)
+    out = y_true*K.log(y_pred)
+    #return -K.mean(out, axis=-1)
+    return -out
+
 
 #max_epochs = 1000
 
@@ -283,11 +285,14 @@ ax.scatter(l2, val_losses[best_l2], color='gold',
 train_method = 'EM best estimation M'
 
 def EM_log_loss(y_true, y_pred):
+    # y_true are the rows of the Mixing matrix corresponding to the sample weak label
     y_pred = K.clip(y_pred, K.epsilon(), 1.0-K.epsilon())
     Q = y_true * y_pred
     Z_em_train = Q / K.sum(Q, axis=-1, keepdims=True)
-    out = -K.stop_gradient(Z_em_train)*K.log(y_pred)
-    return K.mean(out, axis=-1)
+    out = K.stop_gradient(Z_em_train)*K.log(y_pred)
+    #return -K.mean(out, axis=-1)
+    return -out
+
 
 models_list[train_method] = []
 val_losses = numpy.zeros_like(l2_list)
@@ -484,8 +489,10 @@ def OSL_log_loss(y_true, y_pred):
     y_osl_max = K.reshape(y_osl_max, (-1, n_classes))
     y_osl = K.cast(K.equal(y_osl, y_osl_max), y_pred.dtype)
     y_osl = y_osl / K.sum(y_osl, axis=-1, keepdims=True)
-    out = -K.stop_gradient(y_osl) * K.log(y_pred)
-    return K.mean(out, axis=-1)
+    out = K.stop_gradient(y_osl) * K.log(y_pred)
+    #return -K.mean(out, axis=-1)
+    return -out
+
 
 models_list[train_method] = []
 val_losses = numpy.zeros_like(l2_list)
@@ -600,7 +607,7 @@ with open(unique_file + "_summary.csv", "w") as file:
     file.write(csv_text)
 
 
-# In[24]:
+# In[17]:
 
 
 import os
