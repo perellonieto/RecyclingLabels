@@ -41,7 +41,7 @@ else:
     matplotlib.use('Agg')
     data_folder = './data/'
     max_epochs = 100  # Upper limit on the number of epochs
-    l2_list = numpy.array([0.0, 1e-7, 1e-5, 1e-3, 1e-1, 1e0, 1e1])
+    l2_list = numpy.array([0.0, 1e-7, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1])
     
 import keras
 from keras import backend as K
@@ -273,6 +273,9 @@ ax = fig.add_subplot(111)
 ax.semilogx(l2_list, val_losses, 'o-')
 ax.scatter(l2, val_losses[best_l2], color='gold',
            edgecolor='black', marker='*', s=150, zorder=3)
+fig.savefig('{}_{}_r{:d}_w{:03.0f}_{}.svg'.format(experiment_name,
+                                                    dataset_name, random_state,
+                                                    weak_prop, train_method))
 
 
 # # Our method with EM best estimation M
