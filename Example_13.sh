@@ -12,6 +12,8 @@ declare -a train_prop_list=(
     1.0
 )
 
+weak_true_prop=0.07
+
 for random_state in {0..09};
 do
     for prop in "${train_prop_list[@]}"
@@ -20,10 +22,10 @@ do
         do
             echo "
             python Example_13_full_em_osl_mnist_complementary.py ${random_state} \
-                 ${prop} 2>&1 > "Example_08_${random_state}_${prop}_${a}.out"
+                 ${prop} ${weak_true_prop} 2>&1 > "Example_08_${random_state}_${prop}_${a}.out"
                  "
             python Example_13_full_em_osl_mnist_complementary.py ${random_state} \
-                 ${prop} &> "Example_13_${random_state}_${prop}_${a}.out"
+                 ${prop} ${weak_true_prop} &> "Example_13_${random_state}_${prop}_${a}.out"
         done
     done
 done
