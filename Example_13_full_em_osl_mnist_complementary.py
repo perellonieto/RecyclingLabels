@@ -72,7 +72,7 @@ def statistical_tests(table, filename):
                                       column_format='c'*(1 +
                                                          df_rankings.shape[1])))
 
-def generate_summary(errorbar=False):
+def generate_summary(errorbar=True):
     cmap = plt.cm.get_cmap('tab20')
 
     from cycler import cycler
@@ -138,9 +138,6 @@ def generate_summary(errorbar=False):
                   mode="expand", borderaxespad=0., fontsize=8)
         fig.tight_layout()
         fig.savefig(filename + '.svg')
-
-generate_summary(errorbar=True)
-exit()
 
 # # 1. Generation of a dataset
 # ## 1.a. Obtain dataset with true labels
