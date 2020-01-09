@@ -40,8 +40,9 @@ if is_interactive():
 else:
     random_state = int(sys.argv[1])
     weak_prop = float(sys.argv[2])
+    weak_true_prop = float(sys.argv[3])
     train_val_test_proportions = numpy.array([0.5, 0.2, 0.3]) # Train, validation and test proportions
-    w_wt_drop_proportions = numpy.array([weak_prop*0.9, 0.1])           # Train set: for weak, for true [the rest to drop]
+    w_wt_drop_proportions = numpy.array([weak_prop*( 1 - weak_true_prop), weak_true_prop])           # Train set: for weak, for true [the rest to drop]
     M_method_list = ['complementary'] # Weak labels in training
     alpha = 0.0  # alpha = 0 (all noise), alpha = 1 (no noise)
     beta = 1 - alpha # beta = 1 (all noise), beta = 0 (no noise)
@@ -138,9 +139,6 @@ def generate_summary(errorbar=False):
                   mode="expand", borderaxespad=0., fontsize=8)
         fig.tight_layout()
         fig.savefig(filename + '.svg')
-
-generate_summary(errorbar=True)
-exit()
 
 # # 1. Generation of a dataset
 # ## 1.a. Obtain dataset with true labels
