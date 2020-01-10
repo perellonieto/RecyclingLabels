@@ -121,7 +121,7 @@ def generate_summary(errorbar=False):
         df_.sort_index(inplace=True)
         df_mean = df_.groupby(df_.index).mean()
         df_std = df_.groupby(df_.index).std()
-        fig = plt.figure(figsize=(4, 2.5))
+        fig = plt.figure(figsize=(4, 4))
         ax = fig.add_subplot(111)
         for column in sorted(df_mean.columns):
             if errorbar:
@@ -134,12 +134,14 @@ def generate_summary(errorbar=False):
         ax.grid(color='lightgrey')
         ax.set_ylabel('Mean acc. (#it {})'.format(n_iterations))
         ax.set_xlabel('Number of training samples')
-        ax.set_ylim([0.75, 0.93])
+        ax.set_ylim([0.4, 0.93])
         ax.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=3,
                   mode="expand", borderaxespad=0., fontsize=8)
         fig.tight_layout()
         fig.savefig(filename + '.svg')
 
+generate_summary(errorbar=True)
+exit()
 # # 1. Generation of a dataset
 # ## 1.a. Obtain dataset with true labels
 
