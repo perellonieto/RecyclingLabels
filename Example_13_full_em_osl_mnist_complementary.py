@@ -73,7 +73,7 @@ def statistical_tests(table, filename):
                                       column_format='c'*(1 +
                                                          df_rankings.shape[1])))
 
-def generate_summary(errorbar=False):
+def generate_summary(errorbar=True):
     cmap = plt.cm.get_cmap('tab20')
 
     from cycler import cycler
