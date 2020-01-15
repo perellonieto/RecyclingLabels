@@ -28,16 +28,16 @@ if is_interactive():
     w_wt_drop_proportions = numpy.array([0.9, 0.1])           # Train set: for weak, for true [the rest to drop]
     M_method_list = ['complementary'] # Weak labels in training
     alpha = 0.0  # alpha = 0 (all noise), alpha = 1 (no noise)
-    beta = 1 - alpha # beta = 1 (all noise), beta = 0 (no noise)
+    beta = 1.0 # beta = 1 (all noise), beta = 0 (no noise)
     max_epochs = 1000  # Upper limit on the number of epochs
 else:
     random_state = int(sys.argv[1])
     weak_prop = float(sys.argv[2])
     train_val_test_proportions = numpy.array([0.5, 0.2, 0.3]) # Train, validation and test proportions
-    w_wt_drop_proportions = numpy.array([weak_prop*0.9, 0.1])           # Train set: for weak, for true [the rest to drop]
+    w_wt_drop_proportions = numpy.array([weak_prop*0.99, 0.01])           # Train set: for weak, for true [the rest to drop]
     M_method_list = ['complementary'] # Weak labels in training
     alpha = 0.0  # alpha = 0 (all noise), alpha = 1 (no noise)
-    beta = 1 - alpha # beta = 1 (all noise), beta = 0 (no noise)
+    beta = 1.0 # beta = 1 (all noise), beta = 0 (no noise)
     max_epochs = 1000  # Upper limit on the number of epochs
     matplotlib.use('Agg')
     
@@ -585,9 +585,9 @@ for name, df_ in df_grouped:
     ax = fig.add_subplot(111)
     for column in sorted(df_.columns):
         ax.plot(df_.index, df_[column], label=column)
-    ax.set_title('dataset {}, alpha = {}'.format(dataset_name, name[0]))
+    #ax.set_title('dataset {}, alpha = {}'.format(dataset_name, name[0]))
     ax.set_ylabel('Mean acc. (#it {})'.format(n_iterations))
-    ax.set_xlabel('Number of weak samples')
+    ax.set_xlabel('Number of training samples')
     ax.legend()
     fig.tight_layout()
     fig.savefig(os.path.join('Example_13_{}_a{:03.0f}.svg'.format(dataset_name,
