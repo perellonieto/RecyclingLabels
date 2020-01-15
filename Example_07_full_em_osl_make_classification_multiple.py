@@ -52,7 +52,75 @@ from experiments.visualizations import plot_multilabel_scatter
 
 cmap = plt.cm.get_cmap('tab20')
 
+def generate_summary(errorbar=False):
+    import os
+    import glob
+    import pandas
 
+    cmap = plt.cm.get_cmap('tab20')
+
+    from cycler import cycler
+    default_cycler = (cycler(color=['darkred', 'forestgreen', 'darkblue', 'violet', 'darkorange', 'saddlebrown']) +
+                      cycler(linestyle=['-', '--', '-.', '-', '--', '-.']) + 
+                      cycler(marker=['o', 'v', 'x', '*', '+', '.']) +
+                      cycler(lw=[2, 1.8, 1.6, 1.4, 1.2, 1]))
+
+    plt.rcParams['figure.figsize'] = (3, 2)
+    plt.rcParams["figure.dpi"] = 100
+    plt.rc('lines', linewidth=1)
+    plt.rc('axes', prop_cycle=default_cycler)
+
+    files_list = glob.glob("./Example_07*summary.csv")
+    print('List of files to aggregate')
+    print(files_list)
+
+    list_ = []
+
+    for file_ in files_list:
+        df = pandas.read_csv(file_,index_col=0, header=None, quotechar='"').T
+        list_.append(df)
+
+    df = pandas.concat(list_, axis = 0, ignore_index = True)
+    df = df[df['dataset_name'] == dataset_name]
+    del df['dataset_name']
+    df_grouped = df.groupby(['alpha', 'M_method_list'])
+    for name, df_ in df_grouped:
+        print(name)
+        n_iterations = len(df_['random_state'].unique())
+        columns = df_['models'].iloc[0].split(',')
+        columns.append('n_samples_train')
+        df_ = df_[columns]
+        df_ = df_.apply(pandas.to_numeric)
+        df_.index = df_['n_samples_train']
+        del df_['n_samples_train']
+        df_.sort_index(inplace=True)
+        df_mean = df_.groupby(df_.index).mean()
+        df_std = df_.groupby(df_.index).std()
+        fig = plt.figure(figsize=(4, 4))
+        ax = fig.add_subplot(111)
+        for column in sorted(df_mean.columns):
+            if errorbar:
+                markers, caps, bars = ax.errorbar(df_mean.index, df_mean[column],
+                            yerr=df_std[column], label=column, elinewidth=0.5,
+                            capsize=2.0)
+                # loop through bars and caps and set the alpha value
+                [bar.set_alpha(0.5) for bar in bars]
+                [cap.set_alpha(0.7) for cap in caps]
+            else:
+                ax.plot(df_mean.index, df_mean[column], label=column)
+#        ax.set_title('dataset {}, alpha = {}'.format(dataset_name, name[0]))
+        ax.set_ylabel('Mean acc. (#rep. {})'.format(n_iterations))
+        ax.set_xlabel('Number of training samples')
+        ax.grid(color='lightgrey')
+        ax.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=3,
+                  mode="expand", borderaxespad=0., fontsize=8)
+        ax.set_ylim([0.44, 0.54])
+        fig.tight_layout()
+        fig.savefig(os.path.join('Example_07_{}_a{:03.0f}.svg'.format(dataset_name,
+                                                             float(name[0])*100)))
+
+generate_summary(errorbar=True)
+exit()
 # # 1. Generation of a dataset
 # ## 1.a. Obtain dataset with true labels
 
@@ -536,57 +604,4 @@ with open(unique_file + "_summary.csv", "w") as file:
 # In[16]:
 
 
-import os
-import glob
-import pandas
-
-cmap = plt.cm.get_cmap('tab20')
-
-from cycler import cycler
-default_cycler = (cycler(color=['darkred', 'forestgreen', 'darkblue', 'violet', 'darkorange', 'saddlebrown']) +
-                  cycler(linestyle=['-', '--', '-.', '-', '--', '-.']) + 
-                  cycler(marker=['o', 'v', 'x', '*', '+', '.']) +
-                  cycler(lw=[2, 1.8, 1.6, 1.4, 1.2, 1]))
-
-plt.rcParams['figure.figsize'] = (3, 2)
-plt.rcParams["figure.dpi"] = 100
-plt.rc('lines', linewidth=1)
-plt.rc('axes', prop_cycle=default_cycler)
-
-files_list = glob.glob("./Example_07*summary.csv")
-print('List of files to aggregate')
-print(files_list)
-
-list_ = []
-
-for file_ in files_list:
-    df = pandas.read_csv(file_,index_col=0, header=None, quotechar='"').T
-    list_.append(df)
-
-df = pandas.concat(list_, axis = 0, ignore_index = True)
-df = df[df['dataset_name'] == dataset_name]
-del df['dataset_name']
-df_grouped = df.groupby(['alpha', 'M_method_list'])
-for name, df_ in df_grouped:
-    print(name)
-    n_iterations = len(df_['random_state'].unique())
-    columns = df_['models'].iloc[0].split(',')
-    columns.append('n_samples_train')
-    df_ = df_[columns]
-    df_ = df_.apply(pandas.to_numeric)
-    df_.index = df_['n_samples_train']
-    del df_['n_samples_train']
-    df_.sort_index(inplace=True)
-    df_ = df_.groupby(df_.index).mean()
-    fig = plt.figure(figsize=(5, 4))
-    ax = fig.add_subplot(111)
-    for column in sorted(df_.columns):
-        ax.plot(df_.index, df_[column], label=column)
-    ax.set_title('dataset {}, alpha = {}'.format(dataset_name, name[0]))
-    ax.set_ylabel('Mean acc. (#it {})'.format(n_iterations))
-    ax.set_xlabel('Number of weak samples')
-    ax.legend()
-    fig.tight_layout()
-    fig.savefig(os.path.join('Example_07_{}_a{:03.0f}.svg'.format(dataset_name,
-                                                         float(name[0])*100)))
-
+generate_summary()

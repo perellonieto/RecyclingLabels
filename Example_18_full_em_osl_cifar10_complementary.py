@@ -16,15 +16,8 @@ def is_interactive():
 import sys
 import numpy
 import matplotlib
-import os
-import glob
-import pandas
-
-
-from experiments.utils import compute_friedmanchisquare
-from experiments.utils import rankings_to_latex
-
-dataset_name = 'mnist'
+example_number = '13'
+dataset_name = 'cifar10'
 
 if is_interactive():
     get_ipython().magic(u'matplotlib inline')
@@ -32,20 +25,19 @@ if is_interactive():
     # Define all the variables for this experiment
     random_state = 0
     train_val_test_proportions = numpy.array([0.5, 0.2, 0.3]) # Train, validation and test proportions
-    w_wt_drop_proportions = numpy.array([0.9, 0.1])           # Train set: for weak, for true [the rest to drop]
+    w_wt_drop_proportions = numpy.array([0.01, 0.1])           # Train set: for weak, for true [the rest to drop]
     M_method_list = ['complementary'] # Weak labels in training
     alpha = 0.0  # alpha = 0 (all noise), alpha = 1 (no noise)
-    beta = 1.0 # beta = 1 (all noise), beta = 0 (no noise)
-    max_epochs = 1000  # Upper limit on the number of epochs
+    beta = 1 - alpha # beta = 1 (all noise), beta = 0 (no noise)
+    max_epochs = 10  # Upper limit on the number of epochs
 else:
     random_state = int(sys.argv[1])
     weak_prop = float(sys.argv[2])
-    weak_true_prop = float(sys.argv[3])
     train_val_test_proportions = numpy.array([0.5, 0.2, 0.3]) # Train, validation and test proportions
-    w_wt_drop_proportions = numpy.array([weak_prop*( 1 - weak_true_prop), weak_true_prop])           # Train set: for weak, for true [the rest to drop]
+    w_wt_drop_proportions = numpy.array([weak_prop, 0.1])           # Train set: for weak, for true [the rest to drop]
     M_method_list = ['complementary'] # Weak labels in training
     alpha = 0.0  # alpha = 0 (all noise), alpha = 1 (no noise)
-    beta = 1.0 # beta = 1 (all noise), beta = 0 (no noise)
+    beta = 1 - alpha # beta = 1 (all noise), beta = 0 (no noise)
     max_epochs = 1000  # Upper limit on the number of epochs
     matplotlib.use('Agg')
     
@@ -61,84 +53,6 @@ from experiments.visualizations import plot_multilabel_scatter
 
 cmap = plt.cm.get_cmap('tab20')
 
-def statistical_tests(table, filename):
-    # Friedman test
-    ftest = compute_friedmanchisquare(table)
-    df_rankings = pandas.DataFrame(table.rank(axis=1).mean(axis=0).sort_index()).T
-    with open(filename + '.tex', 'w') as tf:
-        tf.write('''\\centering\n\\caption{{Average rankings. Friedman test {:.2f}, p-value
-                            {:.2e}}}\n'''.format(ftest.statistic,
-                            ftest.pvalue) +
-                 df_rankings.to_latex(float_format='%.2f',
-                                      column_format='c'*(1 +
-                                                         df_rankings.shape[1])))
-
-def generate_summary(errorbar=True):
-    cmap = plt.cm.get_cmap('tab20')
-
-    from cycler import cycler
-    default_cycler = (cycler(color=['darkred', 'forestgreen', 'darkblue', 'violet', 'darkorange', 'saddlebrown']) +
-                      cycler(linestyle=['-', '--', '-.', '-', '--', '-.']) + 
-                      cycler(marker=['o', 'v', 'x', '*', '+', '.']) +
-                      cycler(lw=[2, 1.8, 1.6, 1.4, 1.2, 1]))
-
-    plt.rcParams['figure.figsize'] = (5, 2.5)
-    plt.rcParams["figure.dpi"] = 100
-    plt.rc('lines', linewidth=1)
-    plt.rc('axes', prop_cycle=default_cycler)
-
-    files_list = glob.glob("./Example_13*summary.csv")
-    print('List of files to aggregate')
-    print(files_list)
-
-    list_ = []
-
-    for file_ in files_list:
-        df = pandas.read_csv(file_,index_col=0, header=None, quotechar='"').T
-        list_.append(df)
-
-    df = pandas.concat(list_, axis = 0, ignore_index = True)
-    df = df[df['dataset_name'] == dataset_name]
-    # TODO: need to sort this number out
-    df.weak_true_prop = df.weak_true_prop.astype(float)
-    df.n_samples_train = df.n_samples_train.astype(float)
-    true_labels = round(min(df.n_samples_train))
-    del df['dataset_name']
-    df_grouped = df.groupby(['alpha', 'M_method_list'])
-    for name, df_ in df_grouped:
-        print(name)
-        filename = 'Example_13_{}_a{:03.0f}_{}true'.format(dataset_name,
-                                                    float(name[0])*100,
-                                                      true_labels)
-        n_iterations = len(df_['random_state'].unique())
-        columns = df_['models'].iloc[0].split(',')
-        statistical_tests(df_[columns], filename)
-        columns.append('n_samples_train')
-        df_ = df_[columns]
-        df_ = df_.apply(pandas.to_numeric)
-        df_.index = df_['n_samples_train']
-        del df_['n_samples_train']
-        df_.sort_index(inplace=True)
-        df_mean = df_.groupby(df_.index).mean()
-        df_std = df_.groupby(df_.index).std()
-        fig = plt.figure(figsize=(4, 2.5))
-        ax = fig.add_subplot(111)
-        for column in sorted(df_mean.columns):
-            if errorbar:
-                ax.errorbar(df_mean.index, df_mean[column],
-                            yerr=df_std[column], label=column, elinewidth=0.5,
-                            capsize=2.0)
-            else:
-                ax.plot(df_mean.index, df_mean[column], label=column)
-        #ax.set_title('dataset {}, alpha = {}'.format(dataset_name, name[0]))
-        ax.grid(color='lightgrey')
-        ax.set_ylabel('Mean acc. (#it {})'.format(n_iterations))
-        ax.set_xlabel('Number of training samples')
-        ax.set_ylim([0.75, 0.93])
-        ax.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=3,
-                  mode="expand", borderaxespad=0., fontsize=8)
-        fig.tight_layout()
-        fig.savefig(filename + '.svg')
 
 # # 1. Generation of a dataset
 # ## 1.a. Obtain dataset with true labels
@@ -150,9 +64,9 @@ from keras.datasets import cifar10, mnist
 
 # cifar100.load_data(label_mode='fine')
 
-(x_train, y_train), (x_test, y_test) = mnist.load_data()
-X = numpy.concatenate((x_train, x_test))
-y = numpy.concatenate((y_train, y_test)).flatten()
+(_x_train, _y_train), (_x_test, _y_test) = cifar10.load_data()
+X = numpy.concatenate((_x_train, _x_test))
+y = numpy.concatenate((_y_train, _y_test)).flatten()
 X = X.astype('float32')
 X /= 255
 X, y = shuffle(X, y)
@@ -161,8 +75,9 @@ n_samples = X.shape[0]
 n_features = sum(X[0].shape)
 n_classes = 10
 Y = label_binarize(y, range(n_classes))
-print('n_samples = {}'.format(n_samples))
-print('n_features = {}'.format(n_features))
+
+print('X.shape = {}'.format(X.shape))
+print('y.shape = {}'.format(y.shape))
 
 
 # ## 1.b. Divide into training, validation and test
@@ -211,7 +126,6 @@ print('Test samples = {}'.format(X_test.shape[0]))
 #M_method_list = ['odd_even', 'random_weak', 'noisy', 'random_noise', 'IPL', 'quasi_IPL']
 #alpha = 0.1
 #beta = 1 - alpha
-
 M_list = []
 for i, key in enumerate(M_method_list):
     M_list.append(computeM(n_classes, alpha=alpha, beta=beta, method=key, seed=random_state,
@@ -318,15 +232,37 @@ early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=int(max
                                verbose=2, mode='auto', baseline=None,
                                restore_best_weights=True)
 
-def make_model(loss, l2=0.0):
+def make_model(loss, lr=0.0001):
+    from keras.layers import Dense, Dropout, Activation, Flatten
+    from keras.layers import Conv2D, MaxPooling2D
     # Careful that it is ussing global variables for the input and output shapes
-    numpy.random.seed(random_state)
+    numpy.random.seed(0)  
     model = keras.models.Sequential()
-    model.add(keras.layers.Flatten())
-    model.add(keras.layers.Dense(Y.shape[1], input_shape=X[0].shape,
-                                 kernel_regularizer=regularizers.l2(l2),
-                                 activation='softmax'))
-    model.compile(optimizer='adam', loss=loss, metrics=['ce', 'mse', 'acc'])
+    model.add(Conv2D(32, (3, 3), padding='same',
+                     input_shape=X.shape[1:]))
+    model.add(Activation('relu'))
+    model.add(Conv2D(32, (3, 3)))
+    model.add(Activation('relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(Dropout(0.25))
+
+    model.add(Conv2D(64, (3, 3), padding='same'))
+    model.add(Activation('relu'))
+    model.add(Conv2D(64, (3, 3)))
+    model.add(Activation('relu'))
+    model.add(MaxPooling2D(pool_size=(2, 2)))
+    model.add(Dropout(0.25))
+
+    model.add(Flatten())
+    model.add(Dense(512))
+    model.add(Activation('relu'))
+    model.add(Dropout(0.5))
+    model.add(Dense(Y.shape[1]))
+    model.add(Activation('softmax'))
+    
+    optimizer = keras.optimizers.rmsprop(lr=lr, decay=1e-6)
+
+    model.compile(optimizer=optimizer, loss=loss, metrics=['ce', 'mse', 'acc'])
     return model
 
 # Keyword arguments for the fit function
@@ -346,15 +282,15 @@ final_models = {}
 
 train_method = 'Supervised'
 
-# In this dataset the best l2 parameter is 0.0
-l2_list = numpy.array([0.0, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1])
-l2_list = numpy.array([1e-9])
+# In this dataset the best lr parameter is 0.0001
+#lr_list = numpy.array([0.0, 1e-6, 1e-5, 1e-4, 1e-3, 1e-2, 1e-1, 1e0, 1e1])
+lr_list = numpy.array([0.0001])
 
 model_supervised_list = []
-val_losses = numpy.zeros_like(l2_list)
-for i, l2 in enumerate(l2_list):
-    print('Evaluating l2 regularization = {}'.format(l2))
-    model = make_model(log_loss, l2=l2)
+val_losses = numpy.zeros_like(lr_list)
+for i, lr in enumerate(lr_list):
+    print('Evaluating lr regularization = {}'.format(lr))
+    model = make_model(log_loss, lr=lr)
     history = model.fit(numpy.concatenate((*X_w_train_list, *X_wt_train_list)),
                         numpy.concatenate((*Y_w_train_list, *Y_wt_train_list)),
                         **fit_kwargs)
@@ -367,13 +303,13 @@ for i, l2 in enumerate(l2_list):
 
 best_supervised = numpy.argmin(val_losses)
 final_models[train_method] = model_supervised_list[best_supervised]
-l2 = l2_list[best_supervised]
-print('Best l2 = {}'.format(l2))
+lr = lr_list[best_supervised]
+print('Best lr = {}'.format(lr))
 
 fig = plt.figure()
 ax = fig.add_subplot(111)
-ax.semilogx(l2_list, val_losses, 'o-')
-ax.scatter(l2, val_losses[best_supervised], color='gold',
+ax.semilogx(lr_list, val_losses, 'o-')
+ax.scatter(lr, val_losses[best_supervised], color='gold',
            edgecolor='black', marker='*', s=150, zorder=3)
 
 
@@ -381,7 +317,7 @@ ax.scatter(l2, val_losses[best_supervised], color='gold',
 # 
 # Train EM with all weak labels
 
-# In[ ]:
+# In[9]:
 
 
 def EM_log_loss(y_true, y_pred):
@@ -391,7 +327,7 @@ def EM_log_loss(y_true, y_pred):
     out = -K.stop_gradient(Z_em_train)*K.log(y_pred)
     return K.mean(out, axis=-1)
 
-model = make_model(EM_log_loss, l2=l2)
+model = make_model(EM_log_loss, lr=lr)
 
 M_true_list = []
 n_samples_train = X_w_train.shape[0] + X_wt_train.shape[0]
@@ -433,11 +369,11 @@ final_models['EM original M'] = model
 
 # # Our method with EM and estimated M
 
-# In[ ]:
+# In[10]:
 
 
 from wlc.WLweakener import estimate_M
-model = make_model(EM_log_loss, l2=l2)
+model = make_model(EM_log_loss, lr=lr)
 
 M_estimated_list = []
 n_samples_train = X_w_train.shape[0] + X_wt_train.shape[0]
@@ -505,7 +441,7 @@ for i, (m1, m2) in enumerate(zip(M_true_list, M_estimated_list)):
 # In[ ]:
 
 
-model = make_model(log_loss, l2=l2)
+model = make_model(log_loss, lr=lr)
 
 history = model.fit(numpy.concatenate((*X_w_train_list, *X_wt_train_list)),
                     numpy.concatenate((*Z_w_train_list, *Y_wt_train_list)),
@@ -534,7 +470,7 @@ def OSL_log_loss(y_true, y_pred):
     out = -K.stop_gradient(y_osl) * K.log(y_pred)
     return K.mean(out, axis=-1)
 
-model = make_model(OSL_log_loss, l2=l2)
+model = make_model(OSL_log_loss, lr=lr)
 
 history = model.fit(numpy.concatenate((*X_w_train_list, *X_wt_train_list)),
                     numpy.concatenate((*Z_w_train_list, *Y_wt_train_list)),
@@ -612,7 +548,8 @@ export_dictionary = dict(
 
 import datetime
 
-unique_file = 'Example_13_{}_a{}_r{:03.0f}_{}'.format(dataset_name, alpha*100, random_state,
+unique_file = 'Example_{}_{}_a{}_r{:03.0f}_{}'.format(example_number,
+                                                      dataset_name, alpha*100, random_state,
                                               datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S'))
 
 export_dictionary = {**export_dictionary, **test_acc_dict}
@@ -623,6 +560,7 @@ with open(unique_file + "_summary.csv", "w") as file:
 
 
 # In[ ]:
+
 
 import os
 import glob
@@ -641,7 +579,7 @@ plt.rcParams["figure.dpi"] = 100
 plt.rc('lines', linewidth=1)
 plt.rc('axes', prop_cycle=default_cycler)
 
-files_list = glob.glob("./Example_13*summary.csv")
+files_list = glob.glob("./Example_{}*summary.csv".format(example_number))
 print('List of files to aggregate')
 print(files_list)
 
@@ -670,11 +608,12 @@ for name, df_ in df_grouped:
     ax = fig.add_subplot(111)
     for column in sorted(df_.columns):
         ax.plot(df_.index, df_[column], label=column)
-    #ax.set_title('dataset {}, alpha = {}'.format(dataset_name, name[0]))
+    ax.set_title('dataset {}, alpha = {}'.format(dataset_name, name[0]))
     ax.set_ylabel('Mean acc. (#it {})'.format(n_iterations))
-    ax.set_xlabel('Number of training samples')
+    ax.set_xlabel('Number of weak samples')
     ax.legend()
     fig.tight_layout()
-    fig.savefig(os.path.join('Example_13_{}_a{:03.0f}.svg'.format(dataset_name,
+    fig.savefig(os.path.join('Example_{}_{}_a{:03.0f}.svg'.format(example_number,
+                                                                  dataset_name,
                                                          float(name[0])*100)))
-generate_summary()
+

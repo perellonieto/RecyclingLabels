@@ -166,7 +166,7 @@ def load_webs(random_state=None, standardize=True, tfidf=False,
         print("Oops!, there are unexpected weak labels in the new dataset."
               "This may cause some errors below")
 
-    X = np.load(folder + 'X_full.npy', encoding='latin1')
+    X = np.load(folder + 'X_full.npy', encoding='latin1', allow_pickle=True)
     X = X.item()
 
     # Label dataframe
