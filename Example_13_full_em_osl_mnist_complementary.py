@@ -14,41 +14,13 @@ def is_interactive():
     return not hasattr(main, '__file__')
 
 import sys
+import argparse
 import numpy
 import matplotlib
 import os
 import glob
 import pandas
 
-
-from experiments.utils import compute_friedmanchisquare
-from experiments.utils import rankings_to_latex
-
-dataset_name = 'mnist'
-
-if is_interactive():
-    get_ipython().magic(u'matplotlib inline')
-    sys.path.append('../')
-    # Define all the variables for this experiment
-    random_state = 0
-    train_val_test_proportions = numpy.array([0.5, 0.2, 0.3]) # Train, validation and test proportions
-    w_wt_drop_proportions = numpy.array([0.9, 0.1])           # Train set: for weak, for true [the rest to drop]
-    M_method_list = ['complementary'] # Weak labels in training
-    alpha = 0.0  # alpha = 0 (all noise), alpha = 1 (no noise)
-    beta = 1 - alpha # beta = 1 (all noise), beta = 0 (no noise)
-    max_epochs = 1000  # Upper limit on the number of epochs
-else:
-    random_state = int(sys.argv[1])
-    weak_prop = float(sys.argv[2])
-    weak_true_prop = float(sys.argv[3])
-    train_val_test_proportions = numpy.array([0.5, 0.2, 0.3]) # Train, validation and test proportions
-    w_wt_drop_proportions = numpy.array([weak_prop*( 1 - weak_true_prop), weak_true_prop])           # Train set: for weak, for true [the rest to drop]
-    M_method_list = ['complementary'] # Weak labels in training
-    alpha = 0.0  # alpha = 0 (all noise), alpha = 1 (no noise)
-    beta = 1 - alpha # beta = 1 (all noise), beta = 0 (no noise)
-    max_epochs = 1000  # Upper limit on the number of epochs
-    matplotlib.use('Agg')
-    
 import keras
 from keras import backend as K
 
@@ -60,6 +32,12 @@ from experiments.visualizations import plot_history
 from experiments.visualizations import plot_multilabel_scatter
 
 cmap = plt.cm.get_cmap('tab20')
+
+from experiments.utils import compute_friedmanchisquare
+from experiments.utils import rankings_to_latex
+
+dataset_name = 'mnist'
+
 
 def statistical_tests(table, filename):
     # Friedman test
@@ -73,7 +51,8 @@ def statistical_tests(table, filename):
                                       column_format='c'*(1 +
                                                          df_rankings.shape[1])))
 
-def generate_summary(errorbar=True):
+
+def generate_summary(errorbar=True, zoom=False):
     cmap = plt.cm.get_cmap('tab20')
 
     from cycler import cycler
@@ -102,11 +81,11 @@ def generate_summary(errorbar=True):
     # TODO: need to sort this number out
     df.weak_true_prop = df.weak_true_prop.astype(float)
     df.n_samples_train = df.n_samples_train.astype(float)
-    true_labels = round(min(df.n_samples_train))
     del df['dataset_name']
-    df_grouped = df.groupby(['alpha', 'M_method_list'])
+    df_grouped = df.groupby(['alpha', 'M_method_list', 'weak_true_prop'])
     for name, df_ in df_grouped:
         print(name)
+        true_labels = round(min(df_.n_samples_train))
         filename = 'Example_13_{}_a{:03.0f}_{}true'.format(dataset_name,
                                                     float(name[0])*100,
                                                       true_labels)
@@ -121,27 +100,92 @@ def generate_summary(errorbar=True):
         df_.sort_index(inplace=True)
         df_mean = df_.groupby(df_.index).mean()
         df_std = df_.groupby(df_.index).std()
+        df_count = df_.groupby(df_.index).count()
+        min_repetitions = df_count.min().min()
+        max_repetitions = df_count.max().max()
         fig = plt.figure(figsize=(4, 4))
         ax = fig.add_subplot(111)
         for column in sorted(df_mean.columns):
             if errorbar:
-                ax.errorbar(df_mean.index, df_mean[column],
+                markers, caps, bars = ax.errorbar(df_mean.index, df_mean[column],
                             yerr=df_std[column], label=column, elinewidth=0.5,
                             capsize=2.0)
+                # loop through bars and caps and set the alpha value
+                [bar.set_alpha(0.5) for bar in bars]
+                [cap.set_alpha(0.7) for cap in caps]
             else:
                 ax.plot(df_mean.index, df_mean[column], label=column)
         #ax.set_title('dataset {}, alpha = {}'.format(dataset_name, name[0]))
         ax.grid(color='lightgrey')
-        ax.set_ylabel('Mean acc. (#it {})'.format(n_iterations))
+        ax.set_ylabel('Mean acc. (#rep [{}-{}])'.format(min_repetitions,
+                                                        max_repetitions))
         ax.set_xlabel('Number of training samples')
-        ax.set_ylim([0.4, 0.93])
         ax.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=3,
                   mode="expand", borderaxespad=0., fontsize=8)
+
+        ax.set_ylim([0.0, 0.925])
+        ax.set_xlim([0, 36000])
         fig.tight_layout()
         fig.savefig(filename + '.svg')
 
-generate_summary(errorbar=True)
-exit()
+        ax.spines['bottom'].set_visible(False)
+        d = .015  # how big to make the diagonal lines in axes coordinates
+        # arguments to pass to plot, just so we don't keep repeating them
+        kwargs = dict(transform=ax.transAxes, color='k', clip_on=False,
+                      linestyle='-', marker=',', lw=1.2 )
+        ax.plot((-d, +d), (-d, +d), **kwargs)        # top-left diagonal
+        ax.plot((-d, +d), (-d-d, +d-d), **kwargs)        # top-left diagonal
+        ax.plot((1 - d, 1 + d), (-d, +d), **kwargs)  # top-right diagonal
+        ax.plot((1 - d, 1 + d), (-d-d, +d-d), **kwargs)  # top-right diagonal
+        ax.set_ylim([0.886, 0.925])
+        fig.tight_layout()
+        fig.savefig(filename + '_zoom.svg')
+
+
+if is_interactive():
+    get_ipython().magic(u'matplotlib inline')
+    sys.path.append('../')
+    # Define all the variables for this experiment
+    random_state = 0
+    train_val_test_proportions = numpy.array([0.5, 0.2, 0.3]) # Train, validation and test proportions
+    w_wt_drop_proportions = numpy.array([0.9, 0.1])           # Train set: for weak, for true [the rest to drop]
+    M_method_list = ['complementary'] # Weak labels in training
+    alpha = 0.0  # alpha = 0 (all noise), alpha = 1 (no noise)
+    beta = 1 - alpha # beta = 1 (all noise), beta = 0 (no noise)
+    max_epochs = 1000  # Upper limit on the number of epochs
+else:
+    parser = argparse.ArgumentParser(description='''Example 13''',
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('-r', '--random-state', type=int,
+                        default=42,
+                        help='''Random seed.''')
+    parser.add_argument('-w', '--weak-prop', type=float, default=0.5,
+                        help='Proportion of weak labels')
+    parser.add_argument('-t', '--weak-true-prop', type=float,
+                        default=0.5,
+                        help='''Proportion of true labels in the weak label set''')
+    parser.add_argument('-p', '--plot-only',
+                        default=False, action='store_true',
+                        help='''Generate the summary plots and exit''')
+    args = parser.parse_args()
+
+    random_state = args.random_state
+    weak_prop = args.weak_prop
+    weak_true_prop = args.weak_true_prop
+
+    train_val_test_proportions = numpy.array([0.5, 0.2, 0.3]) # Train, validation and test proportions
+    w_wt_drop_proportions = numpy.array([weak_prop*( 1 - weak_true_prop), weak_true_prop])           # Train set: for weak, for true [the rest to drop]
+    M_method_list = ['complementary'] # Weak labels in training
+    alpha = 0.0  # alpha = 0 (all noise), alpha = 1 (no noise)
+    beta = 1 - alpha # beta = 1 (all noise), beta = 0 (no noise)
+    max_epochs = 1000  # Upper limit on the number of epochs
+    matplotlib.use('Agg')
+
+    if args.plot_only:
+        generate_summary()
+        exit()
+    
+
 # # 1. Generation of a dataset
 # ## 1.a. Obtain dataset with true labels
 
