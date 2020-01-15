@@ -5,6 +5,12 @@ data/*
 build/
 *.egg-info
 
+# Output files from experiments
+*.csv
+*.out
+*.pdf
+*.tar.gz
+
 .DS_Store
 venv/
 

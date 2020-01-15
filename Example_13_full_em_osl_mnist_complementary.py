@@ -21,8 +21,9 @@ import glob
 import pandas
 
 
-from experiments.utils import compute_friedmanchisquare
-from experiments.utils import rankings_to_latex
+# TODO: To be added
+#from experiments.utils import compute_friedmanchisquare
+#from experiments.utils import rankings_to_latex
 
 dataset_name = 'mnist'
 
@@ -61,6 +62,8 @@ from experiments.visualizations import plot_multilabel_scatter
 
 cmap = plt.cm.get_cmap('tab20')
 
+
+# TODO: To be added
 def statistical_tests(table, filename):
     # Friedman test
     ftest = compute_friedmanchisquare(table)
@@ -107,12 +110,11 @@ def generate_summary(errorbar=True):
     df_grouped = df.groupby(['alpha', 'M_method_list'])
     for name, df_ in df_grouped:
         print(name)
-        filename = 'Example_13_{}_a{:03.0f}_{}true'.format(dataset_name,
-                                                    float(name[0])*100,
-                                                      true_labels)
+        filename = 'Example_13_{}_{}true'.format(dataset_name, true_labels)
         n_iterations = len(df_['random_state'].unique())
         columns = df_['models'].iloc[0].split(',')
-        statistical_tests(df_[columns], filename)
+        # TODO: To be added
+        #statistical_tests(df_[columns], filename)
         columns.append('n_samples_train')
         df_ = df_[columns]
         df_ = df_.apply(pandas.to_numeric)
@@ -134,7 +136,7 @@ def generate_summary(errorbar=True):
         ax.grid(color='lightgrey')
         ax.set_ylabel('Mean acc. (#it {})'.format(n_iterations))
         ax.set_xlabel('Number of training samples')
-        ax.set_ylim([0.75, 0.93])
+        ax.set_ylim([0.80, 0.93])
         ax.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=3,
                   mode="expand", borderaxespad=0., fontsize=8)
         fig.tight_layout()
@@ -612,7 +614,7 @@ export_dictionary = dict(
 
 import datetime
 
-unique_file = 'Example_13_{}_a{}_r{:03.0f}_{}'.format(dataset_name, alpha*100, random_state,
+unique_file = 'Example_13_{}_a{}_true{:03.0f}_r{:03.0f}_{}'.format(dataset_name, alpha*100, w_wt_drop_proportions[1]*100, random_state,
                                               datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S'))
 
 export_dictionary = {**export_dictionary, **test_acc_dict}
@@ -624,5 +626,5 @@ with open(unique_file + "_summary.csv", "w") as file:
 
 # In[ ]:
 
-generate_summar()
+generate_summary()
 
