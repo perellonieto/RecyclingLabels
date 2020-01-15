@@ -12,4 +12,10 @@ backups
 
 log*
 *.svg
+*.png
 *.json
+*.csv
+*.out
+*.err
+*.txt
+*.pdf
