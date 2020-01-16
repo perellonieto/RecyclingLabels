@@ -38,7 +38,6 @@ from experiments.utils import rankings_to_latex
 
 dataset_name = 'mnist'
 
-
 def statistical_tests(table, filename):
     # Friedman test
     ftest = compute_friedmanchisquare(table)
@@ -86,12 +85,11 @@ def generate_summary(errorbar=True, zoom=False):
     for name, df_ in df_grouped:
         print(name)
         true_labels = round(min(df_.n_samples_train))
-        filename = 'Example_13_{}_a{:03.0f}_{}true'.format(dataset_name,
-                                                    float(name[0])*100,
-                                                      true_labels)
+        filename = 'Example_13_{}_{}true'.format(dataset_name, true_labels)
         n_iterations = len(df_['random_state'].unique())
         columns = df_['models'].iloc[0].split(',')
-        statistical_tests(df_[columns], filename)
+        # TODO: To be added
+        #statistical_tests(df_[columns], filename)
         columns.append('n_samples_train')
         df_ = df_[columns]
         df_ = df_.apply(pandas.to_numeric)
@@ -658,7 +656,7 @@ export_dictionary = dict(
 
 import datetime
 
-unique_file = 'Example_13_{}_a{}_r{:03.0f}_{}'.format(dataset_name, alpha*100, random_state,
+unique_file = 'Example_13_{}_a{}_true{:03.0f}_r{:03.0f}_{}'.format(dataset_name, alpha*100, w_wt_drop_proportions[1]*100, random_state,
                                               datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S'))
 
 export_dictionary = {**export_dictionary, **test_acc_dict}
@@ -670,5 +668,53 @@ with open(unique_file + "_summary.csv", "w") as file:
 
 # In[ ]:
 
-generate_summar()
+cmap = plt.cm.get_cmap('tab20')
 
+from cycler import cycler
+default_cycler = (cycler(color=['darkred', 'forestgreen', 'darkblue', 'violet', 'darkorange', 'saddlebrown']) +
+                  cycler(linestyle=['-', '--', '-.', '-', '--', '-.']) + 
+                  cycler(marker=['o', 'v', 'x', '*', '+', '.']) +
+                  cycler(lw=[2, 1.8, 1.6, 1.4, 1.2, 1]))
+
+plt.rcParams['figure.figsize'] = (3, 2)
+plt.rcParams["figure.dpi"] = 100
+plt.rc('lines', linewidth=1)
+plt.rc('axes', prop_cycle=default_cycler)
+
+files_list = glob.glob("./Example_13*summary.csv")
+print('List of files to aggregate')
+print(files_list)
+
+list_ = []
+
+for file_ in files_list:
+    df = pandas.read_csv(file_,index_col=0, header=None, quotechar='"').T
+    list_.append(df)
+
+df = pandas.concat(list_, axis = 0, ignore_index = True)
+df = df[df['dataset_name'] == dataset_name]
+del df['dataset_name']
+df_grouped = df.groupby(['alpha', 'M_method_list'])
+for name, df_ in df_grouped:
+    print(name)
+    n_iterations = len(df_['random_state'].unique())
+    columns = df_['models'].iloc[0].split(',')
+    columns.append('n_samples_train')
+    df_ = df_[columns]
+    df_ = df_.apply(pandas.to_numeric)
+    df_.index = df_['n_samples_train']
+    del df_['n_samples_train']
+    df_.sort_index(inplace=True)
+    df_ = df_.groupby(df_.index).mean()
+    fig = plt.figure(figsize=(5, 4))
+    ax = fig.add_subplot(111)
+    for column in sorted(df_.columns):
+        ax.plot(df_.index, df_[column], label=column)
+    #ax.set_title('dataset {}, alpha = {}'.format(dataset_name, name[0]))
+    ax.set_ylabel('Mean acc. (#it {})'.format(n_iterations))
+    ax.set_xlabel('Number of training samples')
+    ax.legend()
+    fig.tight_layout()
+    fig.savefig(os.path.join('Example_13_{}_a{:03.0f}.svg'.format(dataset_name,
+                                                         float(name[0])*100)))
+generate_summary()
