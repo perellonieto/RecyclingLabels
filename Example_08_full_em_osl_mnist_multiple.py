@@ -67,7 +67,8 @@ from keras.datasets import cifar10, mnist
 (x_train, y_train), (x_test, y_test) = mnist.load_data()
 X = numpy.concatenate((x_train, x_test))
 y = numpy.concatenate((y_train, y_test)).flatten()
-
+X = X.astype('float32')
+X /= 255
 X, y = shuffle(X, y)
 
 n_samples = X.shape[0]
@@ -75,6 +76,8 @@ n_features = sum(X[0].shape)
 n_classes = 10
 Y = label_binarize(y, range(n_classes))
 
+print('X.shape = {}'.format(X.shape))
+print('y.shape = {}'.format(y.shape))
 
 # ## 1.b. Divide into training, validation and test
 # 
@@ -231,7 +234,7 @@ early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=int(max
 
 def make_model(loss, l2=0.0):
     # Careful that it is ussing global variables for the input and output shapes
-    numpy.random.seed(0)
+    numpy.random.seed(random_state)
     model = keras.models.Sequential()
     model.add(keras.layers.Flatten())
     model.add(keras.layers.Dense(Y.shape[1], input_shape=X[0].shape,
@@ -257,7 +260,6 @@ final_models = {}
 
 train_method = 'Supervised'
 
-<<<<<<< HEAD
 # In this dataset the best l2 parameter is 1e-9
 #l2_list = numpy.array([0.0, 1e-10, 1e-9, 1e-8, 1e-7, 1e-6, 1e-4, 1e-2, 1e0, 1e1])
 l2_list = numpy.array([1e-9])
