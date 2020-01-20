@@ -26,11 +26,11 @@ do
         for a in "${m_a_list[@]}"
         do
             echo "
-            python Example_08_full_em_osl_mnist_multiple.py ${random_state} \
-                 ${prop} ${a} 2>&1 > "Example_08_${random_state}_${prop}_${a}.out"
+            python Example_08_full_em_osl_mnist_multiple.py -r ${random_state} \
+                 -w ${prop} -a ${a} &> "Example_08_${random_state}_${prop}_${a}.out"
                  "
-            python Example_08_full_em_osl_mnist_multiple.py ${random_state} \
-                 ${prop} ${a} &> "Example_08_${random_state}_${prop}_${a}.out"
+            python Example_08_full_em_osl_mnist_multiple.py -r ${random_state} \
+                 -w ${prop} -a ${a} &> "Example_08_${random_state}_${prop}_${a}.out"
         done
     done
 done

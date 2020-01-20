@@ -14,8 +14,94 @@ def is_interactive():
     return not hasattr(main, '__file__')
 
 import sys
+import argparse
 import numpy
 import matplotlib
+import os
+import glob
+import pandas
+
+import matplotlib.pyplot as plt
+
+cmap = plt.cm.get_cmap('tab20')
+
+import keras
+from keras import backend as K
+
+import matplotlib.pyplot as plt
+from sklearn.preprocessing import label_binarize
+from sklearn.utils import shuffle
+from wlc.WLweakener import computeM, generateWeak, weak_to_index, binarizeWeakLabels
+from experiments.visualizations import plot_history
+from experiments.visualizations import plot_multilabel_scatter
+
+def generate_summary(errorbar=True):
+    from cycler import cycler
+    default_cycler = (cycler(color=['darkred', 'forestgreen', 'darkblue', 'violet', 'darkorange', 'saddlebrown']) +
+                      cycler(linestyle=['-', '--', '-.', '-', '--', '-.']) + 
+                      cycler(marker=['o', 'v', 'x', '*', '+', '.']) +
+                      cycler(lw=[2, 1.8, 1.6, 1.4, 1.2, 1]))
+
+    plt.rcParams['figure.figsize'] = (4, 4)
+    plt.rcParams["figure.dpi"] = 100
+    plt.rc('lines', linewidth=1)
+    plt.rc('axes', prop_cycle=default_cycler)
+
+    files_list = glob.glob("./Example_08*summary.csv")
+    print('List of files to aggregate')
+    print(files_list)
+
+    list_ = []
+
+    for file_ in files_list:
+        df = pandas.read_csv(file_,index_col=0, header=None, quotechar='"').T
+        list_.append(df)
+
+    df = pandas.concat(list_, axis = 0, ignore_index = True)
+    df = df[df['dataset_name'] == dataset_name]
+    del df['dataset_name']
+    df_grouped = df.groupby(['alpha', 'M_method_list'])
+    for name, df_ in df_grouped:
+        print(name)
+        n_iterations = len(df_['random_state'].unique())
+        columns = df_['models'].iloc[0].split(',')
+        columns.append('n_samples_train')
+        df_ = df_[columns]
+        df_ = df_.apply(pandas.to_numeric)
+        df_.index = df_['n_samples_train']
+        del df_['n_samples_train']
+        df_.sort_index(inplace=True)
+        df_ = df_.groupby(df_.index).mean()
+        df_mean = df_.groupby(df_.index).mean()
+        df_std = df_.groupby(df_.index).std()
+        df_count = df_.groupby(df_.index).count()
+        min_repetitions = df_count.min().min()
+        max_repetitions = df_count.max().max()
+        fig = plt.figure()
+        ax = fig.add_subplot(111)
+        for column in sorted(df_.columns):
+            if errorbar:
+                markers, caps, bars = ax.errorbar(df_mean.index, df_mean[column],
+                            yerr=df_std[column], label=column, elinewidth=0.5,
+                            capsize=2.0)
+                # loop through bars and caps and set the alpha value
+                [bar.set_alpha(0.5) for bar in bars]
+                [cap.set_alpha(0.7) for cap in caps]
+            else:
+                ax.plot(df_mean.index, df_mean[column], label=column)
+#        ax.set_title('dataset {}, alpha = {}'.format(dataset_name, name[0]))
+        if min_repetitions != max_repetitions:
+            ax.set_ylabel('Mean acc. (#rep [{}-{}])'.format(min_repetitions,
+                                                            max_repetitions))
+        else:
+            ax.set_ylabel('Mean acc. (#rep {})'.format(min_repetitions))
+        ax.set_xlabel('Number of training samples')
+        ax.grid(color='lightgrey')
+        ax.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=3,
+                  mode="expand", borderaxespad=0., fontsize=8)
+        fig.tight_layout()
+        fig.savefig(os.path.join('Example_08_{}_a{:03.0f}.svg'.format(dataset_name,
+                                                             float(name[0])*100)))
 
 if is_interactive():
     get_ipython().magic(u'matplotlib inline')
@@ -30,9 +116,26 @@ if is_interactive():
     beta = 1 - alpha # beta = 1 (all noise), beta = 0 (no noise)
     max_epochs = 1000  # Upper limit on the number of epochs
 else:
-    random_state = int(sys.argv[1])
-    weak_prop = float(sys.argv[2])
-    alpha = float(sys.argv[3]) # alpha = 0 (all noise), alpha = 1 (no noise)
+    parser = argparse.ArgumentParser(description='''Example 09''',
+                                     formatter_class=argparse.ArgumentDefaultsHelpFormatter)
+    parser.add_argument('-r', '--random-state', type=int,
+                        default=42,
+                        help='''Random seed.''')
+    parser.add_argument('-w', '--weak-prop', type=float, default=0.5,
+                        help='Proportion of weak labels')
+    parser.add_argument('-a', '--alpha', type=float,
+                        default=1.0,
+                        help='''Parameter alpha for amount of weakness level''')
+    parser.add_argument('-p', '--plot-only',
+                        default=False, action='store_true',
+                        help='''Generate the summary plots and exit''')
+    args = parser.parse_args()
+
+
+    random_state = args.random_state
+    weak_prop = args.weak_prop
+    alpha = args.alpha
+
     dataset_name = 'mnist'
     train_val_test_proportions = numpy.array([0.5, 0.2, 0.3]) # Train, validation and test proportions
     w_wt_drop_proportions = numpy.array([weak_prop, 0.1])           # Train set: for weak, for true [the rest to drop]
@@ -40,19 +143,10 @@ else:
     beta = 1 - alpha # beta = 1 (all noise), beta = 0 (no noise)
     max_epochs = 1000  # Upper limit on the number of epochs
     matplotlib.use('Agg')
-    
-import keras
-from keras import backend as K
 
-import matplotlib.pyplot as plt
-from sklearn.preprocessing import label_binarize
-from sklearn.utils import shuffle
-from wlc.WLweakener import computeM, generateWeak, weak_to_index, binarizeWeakLabels
-from experiments.visualizations import plot_history
-from experiments.visualizations import plot_multilabel_scatter
-
-cmap = plt.cm.get_cmap('tab20')
-
+    if args.plot_only:
+        generate_summary()
+        exit()
 
 # # 1. Generation of a dataset
 # ## 1.a. Obtain dataset with true labels
@@ -539,57 +633,4 @@ with open(unique_file + "_summary.csv", "w") as file:
 # In[16]:
 
 
-import os
-import glob
-import pandas
-
-cmap = plt.cm.get_cmap('tab20')
-
-from cycler import cycler
-default_cycler = (cycler(color=['darkred', 'forestgreen', 'darkblue', 'violet', 'darkorange', 'saddlebrown']) +
-                  cycler(linestyle=['-', '--', '-.', '-', '--', '-.']) + 
-                  cycler(marker=['o', 'v', 'x', '*', '+', '.']) +
-                  cycler(lw=[2, 1.8, 1.6, 1.4, 1.2, 1]))
-
-plt.rcParams['figure.figsize'] = (3, 2)
-plt.rcParams["figure.dpi"] = 100
-plt.rc('lines', linewidth=1)
-plt.rc('axes', prop_cycle=default_cycler)
-
-files_list = glob.glob("./Example_08*summary.csv")
-print('List of files to aggregate')
-print(files_list)
-
-list_ = []
-
-for file_ in files_list:
-    df = pandas.read_csv(file_,index_col=0, header=None, quotechar='"').T
-    list_.append(df)
-
-df = pandas.concat(list_, axis = 0, ignore_index = True)
-df = df[df['dataset_name'] == dataset_name]
-del df['dataset_name']
-df_grouped = df.groupby(['alpha', 'M_method_list'])
-for name, df_ in df_grouped:
-    print(name)
-    n_iterations = len(df_['random_state'].unique())
-    columns = df_['models'].iloc[0].split(',')
-    columns.append('n_samples_train')
-    df_ = df_[columns]
-    df_ = df_.apply(pandas.to_numeric)
-    df_.index = df_['n_samples_train']
-    del df_['n_samples_train']
-    df_.sort_index(inplace=True)
-    df_ = df_.groupby(df_.index).mean()
-    fig = plt.figure(figsize=(5, 4))
-    ax = fig.add_subplot(111)
-    for column in sorted(df_.columns):
-        ax.plot(df_.index, df_[column], label=column)
-    ax.set_title('dataset {}, alpha = {}'.format(dataset_name, name[0]))
-    ax.set_ylabel('Mean acc. (#it {})'.format(n_iterations))
-    ax.set_xlabel('Number of weak samples')
-    ax.legend()
-    fig.tight_layout()
-    fig.savefig(os.path.join('Example_08_{}_a{:03.0f}.svg'.format(dataset_name,
-                                                         float(name[0])*100)))
-
+generate_summary()
