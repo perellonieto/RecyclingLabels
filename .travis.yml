@@ -1,6 +1,6 @@
 language: python
 python:
-  - "2.7"
+  - "3.8"
 env:
   - KERAS_BACKEND=theano
 cache: apt
@@ -22,7 +22,7 @@ install:
   - conda install --yes python=$TRAVIS_PYTHON_VERSION pip numpy scipy nose
   - pip install pep8 python-coveralls
   # Build/test dependencies
-  - pip install -r requirements.txt
+  - pip install -r requirements3.txt
   # Get fab to test fab
   - pip install -e .
 # Command to run tests
