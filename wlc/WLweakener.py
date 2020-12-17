@@ -450,7 +450,7 @@ def weakCount(dfZ, dfY, categories, reg=None):
 
     # Convert weak label dataframe into matrix
     if type(dfZ) == pd.DataFrame:
-        Z = dfZ[categories].as_matrix()
+        Z = dfZ[categories].values
     else:
         Z = dfZ
 
@@ -466,7 +466,7 @@ def weakCount(dfZ, dfY, categories, reg=None):
 
     # Convert weak label dataframe into matrix
     if type(dfY) == pd.DataFrame:
-        Y = dfY[categories].as_matrix()
+        Y = dfY[categories].values
     else:
         Y = dfY
 
@@ -474,12 +474,12 @@ def weakCount(dfZ, dfY, categories, reg=None):
     for idx in dfY.index:
 
         # True label
-        y = dfY.loc[idx].as_matrix()
+        y = dfY.loc[idx].values
         c = y.dot(ind)
 
         # Weak label
         if idx in dfZ.index:
-            z = dfZ.loc[idx, categories].as_matrix()
+            z = dfZ.loc[idx, categories].values
             w = int(z.dot(p2))
 
             S[w, c] += 1
@@ -499,7 +499,7 @@ def newWeakCount(Z, Y, categories, reg=None, Z_reg=None, alpha=1.0):
 
     if type(Z) == pd.DataFrame:
         # Convert weak label dataframe into matrix
-        Z = Z.as_matrix()
+        Z = Z.values
 
     # Initialize (and maybe regularize) the counting matrix
     if reg is None:
@@ -517,7 +517,7 @@ def newWeakCount(Z, Y, categories, reg=None, Z_reg=None, alpha=1.0):
 
     if type(Y) == pd.DataFrame:
         # Convert weak label dataframe into matrix
-        Y = Y[categories].as_matrix()
+        Y = Y[categories].values
 
     # Start the weak label count
     y_class = np.argmax(Y, axis=1)
