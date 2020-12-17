@@ -57,35 +57,36 @@ def test_data_consistency(X_t, Z_t, z_t, X_v, Z_v, z_v, Y_v, y_v):
 
 class TestData(unittest.TestCase):
     def test_load_toy_example(self):
-        training, validation, classes = load_toy_example()
-        X_t, Z_t, z_t = training
+        training, validation, test, classes = load_toy_example()
+        X_t, Z_t, z_t, Y_t, y_t = training
         X_v, Z_v, z_v, Y_v, y_v = validation
         test_data_consistency(X_t, Z_t, z_t, X_v, Z_v, z_v, Y_v, y_v)
 
     def test_load_blobs(self):
-        training, validation, classes = load_blobs()
-        X_t, Z_t, z_t = training
+        training, validation, test, classes = load_blobs()
+        X_t, Z_t, z_t, Y_t, y_t = training
         X_v, Z_v, z_v, Y_v, y_v = validation
         test_data_consistency(X_t, Z_t, z_t, X_v, Z_v, z_v, Y_v, y_v)
 
     def test_load_weak_iris(self):
-        training, validation, classes = load_weak_iris()
-        X_t, Z_t, z_t = training
+        training, validation, test, classes = load_weak_iris()
+        X_t, Z_t, z_t, Y_t, y_t = training
         X_v, Z_v, z_v, Y_v, y_v = validation
         test_data_consistency(X_t, Z_t, z_t, X_v, Z_v, z_v, Y_v, y_v)
 
     def test_load_weak_blobs(self):
-        training, validation, classes = load_weak_blobs()
-        X_t, Z_t, z_t = training
+        training, validation, test, classes = load_weak_blobs()
+        X_t, Z_t, z_t, Y_t, y_t = training
         X_v, Z_v, z_v, Y_v, y_v = validation
         test_data_consistency(X_t, Z_t, z_t, X_v, Z_v, z_v, Y_v, y_v)
 
-    @unittest.skipIf("TRAVIS" in os.environ and os.environ["TRAVIS"]== "true", "Skipping this test on Travis CI.")
-    def test_load_webs(self):
-        training, validation, classes = load_webs()
-        X_t, Z_t, z_t = training
-        X_v, Z_v, z_v, Y_v, y_v = validation
-        test_data_consistency(X_t, Z_t, z_t, X_v, Z_v, z_v, Y_v, y_v)
+    # TODO Consider if we need the webs example
+    #@unittest.skipIf("TRAVIS" in os.environ and os.environ["TRAVIS"]== "true", "Skipping this test on Travis CI.")
+    #def test_load_webs(self):
+    #    training, validation, test, classes = load_webs()
+    #    X_t, Z_t, z_t, Y_t, y_t = training
+    #    X_v, Z_v, z_v, Y_v, y_v = validation
+    #    test_data_consistency(X_t, Z_t, z_t, X_v, Z_v, z_v, Y_v, y_v)
 
 
 def main():
