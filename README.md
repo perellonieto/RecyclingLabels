@@ -138,3 +138,38 @@ The markdown for iris, blobs and webs is already computed and available here:
 - **iris:** [tutorial_iris.markdown](tutorial_iris.markdown)
 - **blobs:** [tutorial_blobs.markdown](tutorial_blobs.markdown)
 - **webs:** [tutorial_webs.markdown](tutorial_webs.markdown)
+
+## Neurocomputing 2020: Recycling weak labels for multiclass classification
+
+The experiments presented in Perello-Nieto 2020 correspond to the following
+scripts:
+
+- 5.1 Combining multiple types of weak labels
+  - 5.1.1 Fixed number of true labels, increasing weak labels
+    - **Example\_07.sh**: Synthetic examplewith $\alpha={0.6, 0.9}$ (See
+      Figure 3)
+    - **Example\_08.sh**: MNIST dataset with $\alpha=0.6$ (See Figure 4.a)
+    - **Example\_09.sh**: CIFAR10 dataset with $\alpha=0.6$ (See Figure 4.b)
+  - 5.1.2 Increasing weak labels and decreasing true labels
+    - **Example\_17.sh**: CIFAR10 with $\alpha=0.6$ (See Figure 5)
+- 5.2 Combining multiple supersets
+  - **Example\_10.sh**: CIFAR10 with $\beta={0.4, 0.2}$ (See Figure 6)
+- 5.3 Complementary labels
+  - **Example\_13.sh**: MNIST with number of true labels $\in {350, 2450}$ (See
+    Figure 7)
+
+```
+@article{perellonieto2020,
+title = "Recycling weak labels for multiclass classification",
+journal = "Neurocomputing",
+volume = "400",
+pages = "206 - 215",
+year = "2020",
+issn = "0925-2312",
+doi = "https://doi.org/10.1016/j.neucom.2020.03.002",
+url = "http://www.sciencedirect.com/science/article/pii/S0925231220303179",
+author = "Miquel Perello-Nieto and Raul Santos-Rodriguez and Dario Garcia-Garcia and Jesus Cid-Sueiro",
+keywords = "Classification, Weak label, Loss function, Cost-sensitive learning",
+abstract = "This paper explores the mechanisms to efficiently combine annotations of different quality for multiclass classification datasets, as we argue that it is easier to obtain large collections of weak labels as opposed to true labels. Since labels come from different sources, their annotations may have different degrees of reliability (e.g., noisy labels, supersets of labels, complementary labels or annotations performed by domain experts), and we must make sure that the addition of potentially inaccurate labels does not degrade the performance achieved when using only true labels. For this reason, we consider each group of annotations as being weakly supervised and pose the problem as finding the optimal combination of such collections. We propose an efficient algorithm based on expectation-maximization and show its performance in both synthetic and real-world classification tasks in a variety of weak label scenarios."
+}
+```
