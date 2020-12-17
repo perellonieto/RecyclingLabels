@@ -119,8 +119,8 @@ def generate_summary(errorbar=False):
         fig.savefig(os.path.join('Example_07_{}_a{:03.0f}.svg'.format(dataset_name,
                                                              float(name[0])*100)))
 
-generate_summary(errorbar=True)
-exit()
+#generate_summary(errorbar=True)
+#exit()
 # # 1. Generation of a dataset
 # ## 1.a. Obtain dataset with true labels
 
@@ -283,7 +283,7 @@ from keras import regularizers
 
 def log_loss(y_true, y_pred):
     y_pred = K.clip(y_pred, K.epsilon(), 1.0-K.epsilon())
-    out = -y_true*K.log(y_pred)
+    out = -K.cast(y_true, K.floatx())*K.log(y_pred)
     return K.mean(out, axis=-1)
 
 #max_epochs = 1000
@@ -334,11 +334,11 @@ model_supervised_list = []
 val_losses = numpy.zeros_like(l2_list)
 for i, l2 in enumerate(l2_list):
     model = make_model(log_loss, l2=l2)
-    history = model.fit(numpy.concatenate((*X_w_train_list, *X_wt_train_list)),
-                        numpy.concatenate((*Y_w_train_list, *Y_wt_train_list)),
-                        **fit_kwargs)
+    model.fit(numpy.concatenate((*X_w_train_list, *X_wt_train_list)),
+              numpy.concatenate((*Y_w_train_list, *Y_wt_train_list)),
+              **fit_kwargs)
 
-    plot_history(history, model, X_test, y_test)
+    plot_history(model.history, model, X_test, y_test)
     model_supervised_list.append(model)
     best_epoch = numpy.argmin(model.history.history['val_loss'])
     val_losses[i] = model.history.history['val_loss'][best_epoch]
@@ -365,7 +365,7 @@ ax.scatter(l2, val_losses[best_supervised], color='gold',
 
 def EM_log_loss(y_true, y_pred):
     y_pred = K.clip(y_pred, K.epsilon(), 1.0-K.epsilon())
-    Q = y_true * y_pred
+    Q = K.cast(y_true, K.floatx()) * y_pred
     Z_em_train = Q / K.sum(Q, axis=-1, keepdims=True)
     out = -K.stop_gradient(Z_em_train)*K.log(y_pred)
     return K.mean(out, axis=-1)
@@ -504,7 +504,7 @@ def OSL_log_loss(y_true, y_pred):
     # Careful, I had to use a global variable here for the number of classes
     # for some reason I can not use y_osl.shape[-1] in the reshape function
     y_pred = K.clip(y_pred, K.epsilon(), 1.0-K.epsilon())
-    y_osl = y_true * y_pred
+    y_osl = K.cast(y_true, K.floatx()) * y_pred
     y_osl_max = K.max(y_osl, axis=-1)
     y_osl_max = K.repeat_elements(y_osl_max, n_classes, 0)
     y_osl_max = K.reshape(y_osl_max, (-1, n_classes))

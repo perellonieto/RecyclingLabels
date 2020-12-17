@@ -359,7 +359,10 @@ def plot_history(history, model=None, X_test=None, y_test=None, best_measure='va
         ax.legend()
 
     if model is not None:
-        clf_proba_wt_test = model.predict_proba(X_test)
+        # FIXME predict destroys the history
+        clf_proba_wt_test = model.predict(X_test)
+        # FIXME I am currently restoring it from history
+        model.history = history
         clf_pred_wt_test = np.argmax(clf_proba_wt_test, axis=1)
         cm = confusion_matrix(y_test, clf_pred_wt_test)
 
