@@ -507,6 +507,8 @@ history = model.fit(numpy.concatenate((*X_w_train_list, *X_wt_train_list)),
 
 plot_history(history, model, X_test, y_test)
 
+final_models['Weak'] = model
+
 ## Methods with computed Virtual labels
 
 for virtual_method in virtual_methods_list:
