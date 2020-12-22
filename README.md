@@ -19,8 +19,8 @@ over time by the acquisition of new true labels
 ```bash
 $ git clone git@github.com:perellonieto/RecyclingLabels.git
 $ cd RecyclingLabels
-$ sudo apt-get install python3.6-dev
-$ python3.6 -m venv projectname
+$ sudo apt-get install python3.8-dev
+$ python3.8 -m venv projectname
 $ source projectname/bin/activate
 (venv) $ pip install --upgrade pip
 (venv) $ pip install -r requirements3.txt

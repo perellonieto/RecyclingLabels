@@ -6,3 +6,4 @@ theano
 matplotlib
 ipython
 pandas
+cvxpy
