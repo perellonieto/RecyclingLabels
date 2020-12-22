@@ -115,17 +115,17 @@ def generate_summary(errorbar=False):
                 ax.plot(df_mean.index, df_mean[column], label=column)
 #        ax.set_title('dataset {}, alpha = {}'.format(dataset_name, name[0]))
         ax.set_ylabel('Mean acc. (#rep. {})'.format(n_iterations))
-        ax.set_xlabel('Number of training samples')
+        n_true_labels = df[['n_samples', 'train_prop',
+                            'weak_true_prop']].astype(float).product(axis=1).mean().astype(int)
+        ax.set_xlabel('#Training samples ({} with true labels)'.format(n_true_labels))
         ax.grid(color='lightgrey')
         ax.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=2,
                   mode="expand", borderaxespad=0., fontsize=8)
-        ax.set_ylim([0.44, 0.54])
+        #ax.set_ylim([0.44, 0.54])
         fig.tight_layout()
         fig.savefig(os.path.join('Example_07_{}_a{:03.0f}.svg'.format(dataset_name,
                                                              float(name[0])*100)))
 
-#generate_summary(errorbar=True)
-#exit()
 # # 1. Generation of a dataset
 # ## 1.a. Obtain dataset with true labels
 
@@ -170,10 +170,10 @@ print(train_val_test_proportions)
 # Ensure that all proportions sum to 1
 train_val_test_proportions /= train_val_test_proportions.sum()
 print('Proportions where to split')
-train_val_test_proportions = numpy.cumsum(train_val_test_proportions)
-print(train_val_test_proportions)
+train_val_test_split_prop = numpy.cumsum(train_val_test_proportions)
+print(train_val_test_split_prop)
 print('Indices where to split (from a total of {} samples)'.format(X.shape[0]))
-indices = (train_val_test_proportions*X.shape[0]).astype(int)[:-1]
+indices = (train_val_test_split_prop*X.shape[0]).astype(int)[:-1]
 print(indices)
 
 # # Divide into training, validation and test
@@ -600,12 +600,20 @@ plt.legend()
 export_dictionary = dict(
     dataset_name=dataset_name,
     random_state=random_state,
+    # Proportion of training samples (from total)
     train_prop=train_val_test_proportions[0],
+    # Proportion of validation samples (from total)
     val_prop=train_val_test_proportions[1],
+    # Proportion of test samples (from total)
     test_prop=train_val_test_proportions[2],
+    # Proportion of weak labels in training
     weak_prop=w_wt_drop_proportions[0],
+    # Proportion of weak plus true labels in training
     weak_true_prop=w_wt_drop_proportions[1],
+    # The weak + weak and true do not sum to one, as some samples are droped
+    # Total number of samples from dataset
     n_samples=n_samples,
+    # Number of samples for training
     n_samples_train=n_samples_train,
     M_method_list='"' + ",".join(M_method_list) + '"',
     models='"' + ",".join(final_models.keys()) + '"',
