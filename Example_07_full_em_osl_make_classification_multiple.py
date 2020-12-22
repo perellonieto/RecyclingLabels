@@ -64,11 +64,12 @@ def generate_summary(errorbar=False):
 
     from cycler import cycler
     default_cycler = (cycler(color=['darkred', 'forestgreen', 'darkblue',
-                                    'violet', 'darkorange', 'saddlebrown',
-                                    'blue']) +
-                      cycler(linestyle=['-', '--', '-.', '-', '--', '-.', '-']) + 
-                      cycler(marker=['o', 'v', 'x', '*', '+', '.', '^']) +
-                      cycler(lw=[2.2, 2, 1.8, 1.6, 1.4, 1.2, 1]))
+                                    'violet', 'darkorange', 'darkviolet',
+                                    'indianred', 'dodgerblue']) +
+                      cycler(linestyle=['-', '--', '-.', '-', '--', '-.', '-',
+                                       '-.']) + 
+                      cycler(marker=['o', 'v', 'x', '*', '+', '.', '^', 's']) +
+                      cycler(lw=[2.4, 2.2, 2, 1.8, 1.6, 1.4, 1.2, 1]))
 
     plt.rcParams['figure.figsize'] = (3, 2)
     plt.rcParams["figure.dpi"] = 100
@@ -125,6 +126,9 @@ def generate_summary(errorbar=False):
         fig.tight_layout()
         fig.savefig(os.path.join('Example_07_{}_a{:03.0f}.svg'.format(dataset_name,
                                                              float(name[0])*100)))
+
+#generate_summary()
+#exit()
 
 # # 1. Generation of a dataset
 # ## 1.a. Obtain dataset with true labels
