@@ -17,6 +17,8 @@ import sys
 import numpy
 import matplotlib
 
+from wlc.WLweakener import computeVirtual
+
 if is_interactive():
     get_ipython().run_line_magic('matplotlib', 'inline')
     sys.path.append('../')
@@ -25,7 +27,8 @@ if is_interactive():
     dataset_name = 'make_classification'
     train_val_test_proportions = numpy.array([0.5, 0.2, 0.3]) # Train, validation and test proportions
     w_wt_drop_proportions = numpy.array([0.9, 0.1])           # Train set: for weak, for true [the rest to drop]
-    M_method_list = ['odd_even', 'random_weak', 'noisy', 'random_noise', 'IPL', 'quasi_IPL'] # Weak labels in training
+    # TODO We removed odd_even as it breaks computeVirtualMatrixOptimized
+    M_method_list = ['random_weak', 'noisy', 'random_noise', 'IPL', 'quasi_IPL'] # ['odd_even'] Weak labels in training
     alpha = 0.9  # alpha = 0 (all noise), alpha = 1 (no noise)
     beta = 1 - alpha # beta = 1 (all noise), beta = 0 (no noise)
     max_epochs = 1000  # Upper limit on the number of epochs
@@ -36,7 +39,7 @@ else:
     dataset_name = 'make_classification'
     train_val_test_proportions = numpy.array([0.5, 0.2, 0.3]) # Train, validation and test proportions
     w_wt_drop_proportions = numpy.array([weak_prop*0.9, 0.1])           # Train set: for weak, for true [the rest to drop]
-    M_method_list = ['odd_even', 'random_weak', 'noisy', 'random_noise', 'IPL', 'quasi_IPL'] # Weak labels in training
+    M_method_list = ['random_weak', 'noisy', 'random_noise', 'IPL', 'quasi_IPL'] # ['odd_even'] Weak labels in training
     beta = 1 - alpha # beta = 1 (all noise), beta = 0 (no noise)
     max_epochs = 1000  # Upper limit on the number of epochs
     matplotlib.use('Agg')
@@ -60,10 +63,12 @@ def generate_summary(errorbar=False):
     cmap = plt.cm.get_cmap('tab20')
 
     from cycler import cycler
-    default_cycler = (cycler(color=['darkred', 'forestgreen', 'darkblue', 'violet', 'darkorange', 'saddlebrown']) +
-                      cycler(linestyle=['-', '--', '-.', '-', '--', '-.']) + 
-                      cycler(marker=['o', 'v', 'x', '*', '+', '.']) +
-                      cycler(lw=[2, 1.8, 1.6, 1.4, 1.2, 1]))
+    default_cycler = (cycler(color=['darkred', 'forestgreen', 'darkblue',
+                                    'violet', 'darkorange', 'saddlebrown',
+                                    'blue']) +
+                      cycler(linestyle=['-', '--', '-.', '-', '--', '-.', '-']) + 
+                      cycler(marker=['o', 'v', 'x', '*', '+', '.', '^']) +
+                      cycler(lw=[2.2, 2, 1.8, 1.6, 1.4, 1.2, 1]))
 
     plt.rcParams['figure.figsize'] = (3, 2)
     plt.rcParams["figure.dpi"] = 100
@@ -112,7 +117,7 @@ def generate_summary(errorbar=False):
         ax.set_ylabel('Mean acc. (#rep. {})'.format(n_iterations))
         ax.set_xlabel('Number of training samples')
         ax.grid(color='lightgrey')
-        ax.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=3,
+        ax.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=2,
                   mode="expand", borderaxespad=0., fontsize=8)
         ax.set_ylim([0.44, 0.54])
         fig.tight_layout()
@@ -227,12 +232,19 @@ Y_w_train_list = numpy.array_split(Y_w_train, len(M_method_list))
 Z_w_train_list = []
 z_w_train_list = []
 
+virtual_methods_list = ['known-M-pseudo', 'known-M-opt', 'known-M-opt-conv']
+V_w_train_dict = {key: [] for key in virtual_methods_list}
+
 print('## Portion with only weak labels ##')
 for i, M in enumerate(M_list):
     print('Generating weak labels for set {} with mixing process {}'.format(i, M_method_list[i]))
     z_w_train_list.append(generateWeak(y_w_train_list[i], M))
     Z_w_train_list.append(binarizeWeakLabels(z_w_train_list[i], n_classes))
-    
+
+    for virtual_method in virtual_methods_list:
+        V_w_train_dict[virtual_method].append(
+            computeVirtual(z_w_train_list[i], c=n_classes,
+                           method=virtual_method, M=M))
     print('Total shape = {}'.format(z_w_train_list[-1].shape))
     print('Sample of z labels\n{}'.format(z_w_train_list[-1][:3]))
     print('Sample of Z labels\n{}'.format(Z_w_train_list[-1][:3]))
@@ -310,8 +322,11 @@ def make_model(loss, l2=0.0):
     return model
 
 # Keyword arguments for the fit function
-fit_kwargs = dict(validation_data=(X_val, Y_val), epochs=max_epochs, verbose=0,
-                  callbacks=[early_stopping, epoch_callback], shuffle=True)
+fit_kwargs = dict(validation_data=(X_val, Y_val),
+                  epochs=max_epochs,
+                  verbose=0,
+                  callbacks=[early_stopping, epoch_callback],
+                  shuffle=True)
 
 # Save the final model for each method
 final_models = {}
@@ -422,8 +437,8 @@ M_estimated_list = []
 n_samples_train = X_w_train.shape[0] + X_wt_train.shape[0]
 # Add weak samples
 for i in range(len(M_list)):
-    M = estimate_M(Z_wt_train_list[i], Y_wt_train_list[i],
-                   range(n_classes), reg='Partial', Z_reg=Z_w_train_list[i], alpha=1)
+    M = estimate_M(Z_wt_train_list[i], Y_wt_train_list[i], range(n_classes),
+                   reg='Partial', Z_reg=Z_w_train_list[i], alpha=1)
     q = (X_w_train_list[i].shape[0]/n_samples_train)
     M_estimated_list.append(M * q)
     print('q_{} weak = {:.3f}'.format(i, q))
@@ -492,8 +507,18 @@ history = model.fit(numpy.concatenate((*X_w_train_list, *X_wt_train_list)),
 
 plot_history(history, model, X_test, y_test)
 
-final_models['Weak'] = model
+## Methods with computed Virtual labels
 
+for virtual_method in virtual_methods_list:
+    model = make_model(log_loss, l2=l2)
+
+    history = model.fit(numpy.concatenate((*X_w_train_list, *X_wt_train_list)),
+                        numpy.concatenate((*V_w_train_dict[virtual_method], *Y_wt_train_list)),
+                        **fit_kwargs)
+
+    plot_history(history, model, X_test, y_test)
+
+    final_models[virtual_method] = model
 
 # # Optimistic Superset Loss
 
