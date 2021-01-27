@@ -1,3 +1,3 @@
 [submodule "lib/weaklabels"]
 	path = lib/weaklabels
-	url = git@github.com:Orieus/WeakLabelModel.git
+	url = https://github.com/Orieus/WeakLabelModel.git
