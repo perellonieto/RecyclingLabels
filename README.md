@@ -19,12 +19,17 @@ over time by the acquisition of new true labels
 ```bash
 $ git clone git@github.com:perellonieto/RecyclingLabels.git
 $ cd RecyclingLabels
-$ sudo apt-get install python3.8-dev
+$ git submodule update --init --recursive
+# Only if necessary install Python3.8 development packages
+# $ sudo apt-get install python3.8-dev
 $ python3.8 -m venv projectname
 $ source projectname/bin/activate
 (venv) $ pip install --upgrade pip
 (venv) $ pip install -r requirements3.txt
 (venv) $ pip install ipykernel
+# Install submodule in editable mode
+(venv) $ pip install -e lib/weaklabels
+# Create a kernel that can be loaded from Jupyter Notebook
 (venv) $ ipython kernel install --user --name=projectname
 ```
 
