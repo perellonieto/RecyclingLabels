@@ -9,15 +9,29 @@
 #     test_proportion: The test proportion is from all the available true labels
 #     val_proportion: The validation proportion is from the remaining training proportion with the true labels
 
+import sys
+import datetime
+import numpy
+import matplotlib
+import matplotlib.pyplot as plt
+
+import keras
+from keras import backend as K
+from keras import regularizers
+from keras.callbacks import EarlyStopping, Callback
+
+import sklearn.datasets as datasets
+from sklearn.preprocessing import label_binarize
+
+from wlc.WLweakener import (computeM, generateWeak, weak_to_index,
+                            binarizeWeakLabels, computeVirtual)
+from experiments.visualizations import (plot_history, plot_multilabel_scatter)
+
+
 def is_interactive():
     import __main__ as main
     return not hasattr(main, '__file__')
 
-import sys
-import numpy
-import matplotlib
-
-from wlc.WLweakener import computeVirtual
 
 if is_interactive():
     get_ipython().run_line_magic('matplotlib', 'inline')
@@ -25,49 +39,46 @@ if is_interactive():
     # Define all the variables for this experiment
     random_state = 0
     dataset_name = 'make_classification'
-    train_val_test_proportions = numpy.array([0.5, 0.2, 0.3]) # Train, validation and test proportions
-    w_wt_drop_proportions = numpy.array([0.9, 0.1])           # Train set: for weak, for true [the rest to drop]
+    # Train, validation and test proportions
+    train_val_test_proportions = numpy.array([0.5, 0.2, 0.3])
+    # Train set: for weak, for true [the rest to drop]
+    w_wt_drop_proportions = numpy.array([0.9, 0.1])
     # TODO We removed odd_even as it breaks computeVirtualMatrixOptimized
-    M_method_list = ['random_weak', 'noisy', 'random_noise', 'IPL', 'quasi_IPL'] # ['odd_even'] Weak labels in training
+    # Weak labels in training: ['odd_even']
+    M_method_list = ['random_weak', 'noisy', 'random_noise', 'IPL',
+                     'quasi_IPL']
     alpha = 0.9  # alpha = 0 (all noise), alpha = 1 (no noise)
-    beta = 1 - alpha # beta = 1 (all noise), beta = 0 (no noise)
-    max_epochs = 1000  # Upper limit on the number of epochs
+    beta = 1 - alpha  # beta = 1 (all noise), beta = 0 (no noise)
+    max_epochs = 1000   # Upper limit on the number of epochs
 else:
     random_state = int(sys.argv[1])
     weak_prop = float(sys.argv[2])
-    alpha = float(sys.argv[3]) # alpha = 0 (all noise), alpha = 1 (no noise)
+    alpha = float(sys.argv[3])  # alpha = 0 (all noise), alpha = 1 (no noise)
     dataset_name = 'make_classification'
-    train_val_test_proportions = numpy.array([0.5, 0.2, 0.3]) # Train, validation and test proportions
-    w_wt_drop_proportions = numpy.array([weak_prop*0.9, 0.1])           # Train set: for weak, for true [the rest to drop]
-    M_method_list = ['random_weak', 'noisy', 'random_noise', 'IPL', 'quasi_IPL'] # ['odd_even'] Weak labels in training
-    beta = 1 - alpha # beta = 1 (all noise), beta = 0 (no noise)
+    # Train, validation and test proportions
+    train_val_test_proportions = numpy.array([0.5, 0.2, 0.3])
+    # Train set: for weak, for true [the rest to drop]
+    w_wt_drop_proportions = numpy.array([weak_prop*0.9, 0.1])
+    # Weak labels in training: ['odd_even']
+    M_method_list = ['random_weak', 'noisy', 'random_noise', 'IPL',
+                     'quasi_IPL']
+    beta = 1 - alpha  # beta = 1 (all noise), beta = 0 (no noise)
     max_epochs = 1000  # Upper limit on the number of epochs
     matplotlib.use('Agg')
-    
-import keras
-from keras import backend as K
-
-import matplotlib.pyplot as plt
-from sklearn.preprocessing import label_binarize
-from wlc.WLweakener import computeM, generateWeak, weak_to_index, binarizeWeakLabels
-from experiments.visualizations import plot_history
-from experiments.visualizations import plot_multilabel_scatter
 
 cmap = plt.cm.get_cmap('tab20')
 
+
 def generate_summary(errorbar=False):
-    import os
     import glob
     import pandas
-
-    cmap = plt.cm.get_cmap('tab20')
 
     from cycler import cycler
     default_cycler = (cycler(color=['darkred', 'forestgreen', 'darkblue',
                                     'violet', 'darkorange', 'darkviolet',
                                     'indianred', 'dodgerblue']) +
-                      cycler(linestyle=['-', '--', '-.', '-', '--', '-.', '-',
-                                       '-.']) + 
+                      cycler(linestyle=['-', '--', '-.', '-',
+                                        '--', '-.', '-', '-.']) +
                       cycler(marker=['o', 'v', 'x', '*', '+', '.', '^', 's']) +
                       cycler(lw=[2.4, 2.2, 2, 1.8, 1.6, 1.4, 1.2, 1]))
 
@@ -83,10 +94,10 @@ def generate_summary(errorbar=False):
     list_ = []
 
     for file_ in files_list:
-        df = pandas.read_csv(file_,index_col=0, header=None, quotechar='"').T
+        df = pandas.read_csv(file_, index_col=0, header=None, quotechar='"').T
         list_.append(df)
 
-    df = pandas.concat(list_, axis = 0, ignore_index = True)
+    df = pandas.concat(list_, axis=0, ignore_index=True)
     df = df[df['dataset_name'] == dataset_name]
     del df['dataset_name']
     df_grouped = df.groupby(['alpha', 'M_method_list'])
@@ -106,15 +117,17 @@ def generate_summary(errorbar=False):
         ax = fig.add_subplot(111)
         for column in sorted(df_mean.columns):
             if errorbar:
-                markers, caps, bars = ax.errorbar(df_mean.index, df_mean[column],
-                            yerr=df_std[column], label=column, elinewidth=0.5,
-                            capsize=2.0)
+                markers, caps, bars = ax.errorbar(df_mean.index,
+                                                  df_mean[column],
+                                                  yerr=df_std[column],
+                                                  label=column, elinewidth=0.5,
+                                                  capsize=2.0)
                 # loop through bars and caps and set the alpha value
                 [bar.set_alpha(0.5) for bar in bars]
                 [cap.set_alpha(0.7) for cap in caps]
             else:
                 ax.plot(df_mean.index, df_mean[column], label=column)
-#        ax.set_title('dataset {}, alpha = {}'.format(dataset_name, name[0]))
+        # ax.set_title('dataset {}, alpha = {}'.format(dataset_name, name[0]))
         ax.set_ylabel('Mean acc. (#rep. {})'.format(n_iterations))
         n_true_labels = df[['n_samples', 'train_prop',
                             'weak_true_prop']].astype(float).product(axis=1).mean().astype(int)
@@ -122,21 +135,19 @@ def generate_summary(errorbar=False):
         ax.grid(color='lightgrey')
         ax.legend(bbox_to_anchor=(0., 1.02, 1., .102), loc=3, ncol=2,
                   mode="expand", borderaxespad=0., fontsize=8)
-        #ax.set_ylim([0.44, 0.54])
+        # ax.set_ylim([0.44, 0.54])
         fig.tight_layout()
-        fig.savefig(os.path.join('Example_07_{}_a{:03.0f}.svg'.format(dataset_name,
-                                                             float(name[0])*100)))
+        fig.savefig('Example_07_{}_a{:03.0f}.svg'.format(dataset_name,
+                                                         float(name[0])*100))
 
-#generate_summary()
-#exit()
+# generate_summary()
+# exit()
 
 # # 1. Generation of a dataset
 # ## 1.a. Obtain dataset with true labels
 
 # In[2]:
 
-
-import sklearn.datasets as datasets
 
 n_classes = 6
 classes = list(range(n_classes))
@@ -145,22 +156,24 @@ n_features = 60
 n_redundant = 0
 n_clusters_per_class = 2
 n_informative = n_features
-X, y = datasets.make_classification(n_samples=n_samples, n_features=n_features,
-                           n_classes=n_classes, random_state=random_state,
-                           n_redundant=n_redundant,
-                           n_informative=n_informative,
-                           n_clusters_per_class=n_clusters_per_class)
+X, y = datasets.make_classification(n_samples=n_samples,
+                                    n_features=n_features,
+                                    n_classes=n_classes,
+                                    random_state=random_state,
+                                    n_redundant=n_redundant,
+                                    n_informative=n_informative,
+                                    n_clusters_per_class=n_clusters_per_class)
 n_samples = X.shape[0]
 n_features = X.shape[1]
 
 Y = label_binarize(y, range(n_classes))
-plt.scatter(X[:500,0], X[:500,1], c=y[:500], cmap=cmap)
+plt.scatter(X[:500, 0], X[:500, 1], c=y[:500], cmap=cmap)
 
 
 # ## 1.b. Divide into training, validation and test
-# 
+#
 # - Validation and test will always have only true labels, while the training may have weak labels as well
-# 
+#
 # - $S_{train} = \{S_{wt-train}, S_{w-train}\} = [\{(x_i, b_i, y_i), i = 1,...,n\} X x Z x C, \{(x_i, b_i), i = 1,...,n\} \in X x Z\}]$
 # - $S_{val} = \{(x_i, y_i), i = 1,...,n\} \in X x C$
 # - $S_{test} = \{(x_i, y_i), i = 1,...,n\} \in X x C$
@@ -168,7 +181,7 @@ plt.scatter(X[:500,0], X[:500,1], c=y[:500], cmap=cmap)
 # In[3]:
 
 
-#train_val_test_proportions = numpy.array([0.5, 0.2, 0.3])
+# train_val_test_proportions = numpy.array([0.5, 0.2, 0.3])
 print('Original proportions for the 3 partitions (train, validation and test)')
 print(train_val_test_proportions)
 # Ensure that all proportions sum to 1
@@ -180,7 +193,7 @@ print('Indices where to split (from a total of {} samples)'.format(X.shape[0]))
 indices = (train_val_test_split_prop*X.shape[0]).astype(int)[:-1]
 print(indices)
 
-# # Divide into training, validation and test
+# Divide into training, validation and test
 X_train, X_val, X_test = numpy.array_split(X, indices)
 Y_train, Y_val, Y_test = numpy.array_split(Y, indices)
 y_train, y_val, y_test = numpy.array_split(y, indices)
@@ -192,7 +205,7 @@ print('Test samples = {}'.format(X_test.shape[0]))
 
 
 # ## 1.c. Generate weakening processes
-# 
+#
 # - This will generate weak labels given the specified mixing process.
 # - It will also show 3 plots with the true labels, weak labels and the corresponding rows of the mixing matrix M.
 # - In all the mixing processes we remove the unlabeled option as this can be seen as the all labels (if we assume that every samples belongs to one class)
@@ -213,14 +226,14 @@ for i, key in enumerate(M_method_list):
 
 
 # ## 1.d. Divide training into weak portions
-# 
+#
 # - Currently every weak partition is of the same size
 # - We will assume that a proportion of each weak set has been annotated with the true labels
 
 # In[5]:
 
 
-#w_wt_drop_proportions = numpy.array([0.1, 0.1]) # for weak, for true [the rest to drop]
+# w_wt_drop_proportions = numpy.array([0.1, 0.1]) # for weak, for true [the rest to drop]
 cut_indices = (w_wt_drop_proportions.cumsum()*X_train.shape[0]).astype(int)
 print('Indices for the cuts = {}'.format(cut_indices))
 
@@ -252,7 +265,7 @@ for i, M in enumerate(M_list):
     print('Total shape = {}'.format(z_w_train_list[-1].shape))
     print('Sample of z labels\n{}'.format(z_w_train_list[-1][:3]))
     print('Sample of Z labels\n{}'.format(Z_w_train_list[-1][:3]))
-    
+
 X_wt_train_list = numpy.array_split(X_wt_train, len(M_method_list))
 y_wt_train_list = numpy.array_split(y_wt_train, len(M_method_list))
 Y_wt_train_list = numpy.array_split(Y_wt_train, len(M_method_list))
@@ -264,7 +277,7 @@ for i, M in enumerate(M_list):
     print('Generating weak labels for set {} with mixing process {}'.format(i, M_method_list[i]))
     z_wt_train_list.append(generateWeak(y_wt_train_list[i], M))
     Z_wt_train_list.append(binarizeWeakLabels(z_wt_train_list[i], n_classes))
-    
+
     print('Total shape = {}'.format(z_wt_train_list[-1].shape))
     print('Sample of z labels\n{}'.format(z_wt_train_list[-1][:3]))
     print('Sample of Z labels\n{}'.format(Z_wt_train_list[-1][:3]))
@@ -272,8 +285,6 @@ for i, M in enumerate(M_list):
 
 # In[6]:
 
-
-from experiments.visualizations import plot_multilabel_scatter
 
 fig = plt.figure(figsize=(6, len(z_wt_train_list)*3))
 j = 1
@@ -294,9 +305,6 @@ fig.tight_layout()
 # In[7]:
 
 
-from keras.callbacks import EarlyStopping, Callback
-from keras import regularizers
-
 def log_loss(y_true, y_pred):
     y_pred = K.clip(y_pred, K.epsilon(), 1.0-K.epsilon())
     out = -K.cast(y_true, K.floatx())*K.log(y_pred)
@@ -311,14 +319,14 @@ class EpochCallback(Callback):
 
 # Callback for early stopping
 epoch_callback = EpochCallback()
-early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=int(max_epochs/20), 
+early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=int(max_epochs/20),
                                verbose=2, mode='auto', baseline=None,
                                restore_best_weights=True)
 
 def make_model(loss, l2=0.0):
     # Careful that it is ussing global variables for the input and output shapes
     numpy.random.seed(0)
-    model = keras.models.Sequential() 
+    model = keras.models.Sequential()
     model.add(keras.layers.Dense(Y.shape[1], input_dim=X.shape[1],
                                  kernel_regularizer=regularizers.l2(l2),
                                  activation='softmax'))
@@ -337,7 +345,7 @@ final_models = {}
 
 
 # # Fully supervised (upperbound)
-# 
+#
 # Train with all true labels
 
 # In[8]:
@@ -376,7 +384,7 @@ ax.scatter(l2, val_losses[best_supervised], color='gold',
 
 
 # # Our method with EM and original M
-# 
+#
 # Train EM with all weak labels
 
 # In[9]:
@@ -404,7 +412,7 @@ for i, M in enumerate(M_list):
     q = (X_wt_train_list[i].shape[0]/n_samples_train)
     M_true_list.append(M_supervised * q)
     print('q_{} true = {:.3f}'.format(i, q))
-    
+
 M_true = numpy.concatenate(M_true_list)
 last_index = 0
 Z_train_index_list = []
@@ -423,7 +431,7 @@ for i in range(len(M_method_list)):
 history = model.fit(numpy.concatenate((*X_w_train_list, *X_wt_train_list)),
                     numpy.concatenate(V_train_list),
                     **fit_kwargs)
-    
+
 plot_history(history, model, X_test, y_test)
 
 final_models['EM original M'] = model
@@ -452,7 +460,7 @@ for i in range(len(M_list)):
     q = (X_wt_train_list[i].shape[0]/n_samples_train)
     M_estimated_list.append(M_supervised * q)
     print('q_{} true = {:.3f}'.format(i, q))
-    
+
 M_estimated = numpy.concatenate(M_estimated_list)
 last_index = 0
 Z_train_index_list = []
@@ -471,7 +479,7 @@ for i in range(len(M_method_list)):
 history = model.fit(numpy.concatenate((*X_w_train_list, *X_wt_train_list)),
                     numpy.concatenate(V_train_list),
                     **fit_kwargs)
-    
+
 plot_history(history, model, X_test, y_test)
 
 final_models['EM estimated M'] = model
@@ -481,18 +489,18 @@ final_models['EM estimated M'] = model
 
 
 for i, (m1, m2) in enumerate(zip(M_true_list, M_estimated_list)):
-    fig = plt.figure(figsize=(10, 5)) 
-    ax = fig.add_subplot(1,3,1)
+    fig = plt.figure(figsize=(10, 5))
+    ax = fig.add_subplot(1, 3, 1)
     ax.set_title('True M')
     cax = ax.imshow(m1, interpolation='nearest', aspect='auto')
     fig.colorbar(cax, orientation="horizontal")
-    ax = fig.add_subplot(1,3,2)
+    ax = fig.add_subplot(1, 3, 2)
     ax.set_title('Estimated M')
     cax = ax.imshow(m2, interpolation='nearest', aspect='auto')
     fig.colorbar(cax, orientation="horizontal")
     if m1.shape == m2.shape:
         mse = numpy.power(m1 - m2, 2).sum()
-        ax = fig.add_subplot(1,3,3)
+        ax = fig.add_subplot(1, 3, 3)
         ax.set_title('MSE = {:.2f}'.format(mse))
         cax = ax.imshow(numpy.power(m1 - m2, 2), interpolation='nearest', aspect='auto')
         fig.colorbar(cax, orientation="horizontal")
@@ -544,12 +552,13 @@ def OSL_log_loss(y_true, y_pred):
     out = -K.stop_gradient(y_osl) * K.log(y_pred)
     return K.mean(out, axis=-1)
 
+
 model = make_model(OSL_log_loss, l2=l2)
 
 history = model.fit(numpy.concatenate((*X_w_train_list, *X_wt_train_list)),
                     numpy.concatenate((*Z_w_train_list, *Y_wt_train_list)),
                     **fit_kwargs)
-    
+
 plot_history(history, model, X_test, y_test)
 
 final_models['OSL'] = model
@@ -560,15 +569,15 @@ final_models['OSL'] = model
 # def CLPL_log_loss(y_true, y_pred):
 #     # to implement
 #     return K.mean(out, axis=-1)
-# 
+#
 # model = make_model(CLPL_log_loss, l2=l2)
-# 
+#
 # history = model.fit(numpy.concatenate((*X_w_train_list, *X_wt_train_list)),
 #                     numpy.concatenate((*Z_w_train_list, *Y_wt_train_list)),
 #                     **fit_kwargs)
-#     
+#
 # plot_history(history, model, X_test, y_test)
-# 
+#
 # final_models['OSL'] = model
 
 # In[19]:
@@ -596,7 +605,7 @@ plt.legend()
 
 
 # # Save results and aggregate
-# 
+#
 # - The following saves all the results of this experiment in a csv file
 # - And the next cell loads all the results with similar format and aggregates them in a final plot
 
@@ -628,14 +637,13 @@ export_dictionary = dict(
     max_epochs=max_epochs,
 )
 
-import datetime
-
-unique_file = 'Example_07_{}_a{}_r{:03.0f}_{}'.format(dataset_name, alpha*100, random_state,
-                                              datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S'))
+unique_file = 'Example_07_{}_a{}_r{:03.0f}_{}'.format(
+    dataset_name, alpha*100, random_state,
+    datetime.datetime.now().strftime('%Y_%m_%d_%H_%M_%S'))
 
 export_dictionary = {**export_dictionary, **test_acc_dict}
-csv_text ="\n".join([k+','+str(v) for k,v in export_dictionary.items()])
-#You can store this CSV string variable to file as below
+csv_text = "\n".join([k + ',' + str(v) for k, v in export_dictionary.items()])
+# You can store this CSV string variable to file as below
 with open(unique_file + "_summary.csv", "w") as file:
     file.write(csv_text)
 
