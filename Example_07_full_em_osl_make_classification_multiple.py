@@ -23,8 +23,11 @@ from keras.callbacks import EarlyStopping, Callback
 import sklearn.datasets as datasets
 from sklearn.preprocessing import label_binarize
 
-from wlc.WLweakener import (computeM, generateWeak, weak_to_index,
-                            binarizeWeakLabels, computeVirtual)
+#from wlc.WLweakener import (computeM, generateWeak, weak_to_index,
+#                            binarizeWeakLabels, computeVirtual)
+
+from weaklabels.WLweakener import WLmodel, binarizeWeakLabels
+
 from experiments.visualizations import (plot_history, plot_multilabel_scatter)
 
 
@@ -46,7 +49,7 @@ if is_interactive():
     # TODO We removed odd_even as it breaks computeVirtualMatrixOptimized
     # Weak labels in training: ['odd_even']
     M_method_list = ['random_weak', 'noisy', 'random_noise', 'IPL',
-                     'quasi_IPL']
+                     'quasi-IPL']
     alpha = 0.9  # alpha = 0 (all noise), alpha = 1 (no noise)
     beta = 1 - alpha  # beta = 1 (all noise), beta = 0 (no noise)
     max_epochs = 1000   # Upper limit on the number of epochs
@@ -61,7 +64,7 @@ else:
     w_wt_drop_proportions = numpy.array([weak_prop*0.9, 0.1])
     # Weak labels in training: ['odd_even']
     M_method_list = ['random_weak', 'noisy', 'random_noise', 'IPL',
-                     'quasi_IPL']
+                     'quasi-IPL']
     beta = 1 - alpha  # beta = 1 (all noise), beta = 0 (no noise)
     max_epochs = 1000  # Upper limit on the number of epochs
     matplotlib.use('Agg')
@@ -213,14 +216,15 @@ print('Test samples = {}'.format(X_test.shape[0]))
 # In[4]:
 
 
-#M_method_list = ['odd_even', 'random_weak', 'noisy', 'random_noise', 'IPL', 'quasi_IPL']
+#M_method_list = ['odd_even', 'random_weak', 'noisy', 'random_noise', 'IPL', 'quasi-IPL']
 #alpha = 0.1
 #beta = 1 - alpha
 
 M_list = []
+weakener_dict = {}
 for i, key in enumerate(M_method_list):
-    M_list.append(computeM(n_classes, alpha=alpha, beta=beta, method=key, seed=random_state,
-                           unsupervised=False))
+    weakener_dict[key] = WLmodel(c=n_classes, model_class=key)
+    M_list.append(weakener_dict[key].generateM(alpha=alpha, beta=beta))
 
     print('\nMixing matrix for set {} of type {}\n{}'.format(i, key, numpy.round(M_list[-1], decimals=2)))
 
@@ -249,19 +253,22 @@ Y_w_train_list = numpy.array_split(Y_w_train, len(M_method_list))
 Z_w_train_list = []
 z_w_train_list = []
 
-virtual_methods_list = ['known-M-pseudo', 'known-M-opt', 'known-M-opt-conv']
+
+virtual_methods_list = ['binary', 'quasi-IPL', 'M-pinv', 'M-conv', 'M-opt',
+                        'M-opt-conv']
 V_w_train_dict = {key: [] for key in virtual_methods_list}
 
 print('## Portion with only weak labels ##')
-for i, M in enumerate(M_list):
-    print('Generating weak labels for set {} with mixing process {}'.format(i, M_method_list[i]))
-    z_w_train_list.append(generateWeak(y_w_train_list[i], M))
+for i, (model_class, weakener) in enumerate(weakener_dict.items()):
+    print('Generating weak labels for set {} with mixing process {}'.format(
+        i, model_class))
+
+    z_w_train_list.append(weakener.generateWeak(y_w_train_list[i]))
     Z_w_train_list.append(binarizeWeakLabels(z_w_train_list[i], n_classes))
 
     for virtual_method in virtual_methods_list:
         V_w_train_dict[virtual_method].append(
-            computeVirtual(z_w_train_list[i], c=n_classes,
-                           method=virtual_method, M=M))
+            weakener.virtual_labels(z_w_train_list[i], method=virtual_method))
     print('Total shape = {}'.format(z_w_train_list[-1].shape))
     print('Sample of z labels\n{}'.format(z_w_train_list[-1][:3]))
     print('Sample of Z labels\n{}'.format(Z_w_train_list[-1][:3]))
@@ -273,9 +280,10 @@ Z_wt_train_list = []
 z_wt_train_list = []
 
 print('## Portion with both weak and true labels ##')
-for i, M in enumerate(M_list):
-    print('Generating weak labels for set {} with mixing process {}'.format(i, M_method_list[i]))
-    z_wt_train_list.append(generateWeak(y_wt_train_list[i], M))
+for i, (model_class, weakener) in enumerate(weakener_dict.items()):
+    print('Generating weak labels for set {} with mixing process {}'.format(
+        i, M_method_list[i]))
+    z_wt_train_list.append(weakener.generateWeak(y_wt_train_list[i]))
     Z_wt_train_list.append(binarizeWeakLabels(z_wt_train_list[i], n_classes))
 
     print('Total shape = {}'.format(z_wt_train_list[-1].shape))
