@@ -224,10 +224,7 @@ M_list = []
 weakener_dict = {}
 for i, key in enumerate(M_method_list):
     weakener_dict[key] = WLmodel(c=n_classes, model_class=key)
-    weakener_dict[key].generateM(alpha=alpha, beta=beta)
-    weakener_dict[key].remove_zero_rows()
-    M_list.append(weakener_dict[key].M)
-    #M_list.append(weakener_dict[key].generateM(alpha=alpha, beta=beta))
+    M_list.append(weakener_dict[key].generateM(alpha=alpha, beta=beta))
 
     print('\nMixing matrix for set {} of type {}\n{}'.format(i, key, numpy.round(M_list[-1], decimals=2)))
 
