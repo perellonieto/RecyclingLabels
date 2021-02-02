@@ -26,7 +26,8 @@ from sklearn.preprocessing import label_binarize
 #from wlc.WLweakener import (computeM, generateWeak, weak_to_index,
 #                            binarizeWeakLabels, computeVirtual)
 
-from weaklabels.WLweakener import WLmodel, binarizeWeakLabels
+from weaklabels.WLweakener import (WLmodel, binarizeWeakLabels, generateM,
+                                   weak_to_index)
 
 from experiments.visualizations import (plot_history, plot_multilabel_scatter)
 
@@ -50,7 +51,7 @@ if is_interactive():
     # Weak labels in training: ['odd_even']
     M_method_list = ['random_weak', 'noisy', 'random_noise', 'IPL',
                      'quasi-IPL']
-    alpha = 0.9  # alpha = 0 (all noise), alpha = 1 (no noise)
+    alpha = 0.2  # alpha = 0 (all noise), alpha = 1 (no noise)
     beta = 1 - alpha  # beta = 1 (all noise), beta = 0 (no noise)
     max_epochs = 1000   # Upper limit on the number of epochs
 else:
@@ -63,7 +64,8 @@ else:
     # Train set: for weak, for true [the rest to drop]
     w_wt_drop_proportions = numpy.array([weak_prop*0.9, 0.1])
     # Weak labels in training: ['odd_even']
-    M_method_list = ['random_weak', 'noisy', 'random_noise', 'IPL',
+    # FIXME fix IPL as the solver can not solve this case
+    M_method_list = ['random_weak', 'noisy', 'random_noise', # 'IPL',
                      'quasi-IPL']
     beta = 1 - alpha  # beta = 1 (all noise), beta = 0 (no noise)
     max_epochs = 1000  # Upper limit on the number of epochs
@@ -79,11 +81,18 @@ def generate_summary(errorbar=False):
     from cycler import cycler
     default_cycler = (cycler(color=['darkred', 'forestgreen', 'darkblue',
                                     'violet', 'darkorange', 'darkviolet',
-                                    'indianred', 'dodgerblue']) +
-                      cycler(linestyle=['-', '--', '-.', '-',
-                                        '--', '-.', '-', '-.']) +
-                      cycler(marker=['o', 'v', 'x', '*', '+', '.', '^', 's']) +
-                      cycler(lw=[2.4, 2.2, 2, 1.8, 1.6, 1.4, 1.2, 1]))
+                                    'indianred', 'dodgerblue', 'plum',
+                                    'lime', 'salmon', 'lightskyblue',
+                                    'gold', 'teal', 'indigo']) +
+                      cycler(linestyle=['-', '--', '-.', ':',
+                                        '-', '--', '-.', ':',
+                                        '-', '--', '-.', ':',
+                                        '-', '--', '-.',
+                                       ]) +
+                      cycler(marker=['o', 'v', 'x', '*', '+',
+                                     '.', '^', 's', '<', 'p',
+                                     'X', 'D', '1', 'd', 'h']) +
+                      cycler(lw=numpy.linspace(3, 1, 15)))
 
     plt.rcParams['figure.figsize'] = (3, 2)
     plt.rcParams["figure.dpi"] = 100
@@ -143,8 +152,8 @@ def generate_summary(errorbar=False):
         fig.savefig('Example_07_{}_a{:03.0f}.svg'.format(dataset_name,
                                                          float(name[0])*100))
 
-# generate_summary()
-# exit()
+#generate_summary()
+#exit()
 
 # # 1. Generation of a dataset
 # ## 1.a. Obtain dataset with true labels
@@ -254,8 +263,8 @@ Z_w_train_list = []
 z_w_train_list = []
 
 
-virtual_methods_list = ['binary', 'quasi-IPL', 'M-pinv', 'M-conv', 'M-opt',
-                        'M-opt-conv']
+# MPN: I have removed quasi-IPL virtual labels
+virtual_methods_list = ['binary', 'M-pinv', 'M-conv', 'M-opt', 'M-opt-conv']
 V_w_train_dict = {key: [] for key in virtual_methods_list}
 
 print('## Portion with only weak labels ##')
@@ -267,8 +276,12 @@ for i, (model_class, weakener) in enumerate(weakener_dict.items()):
     Z_w_train_list.append(binarizeWeakLabels(z_w_train_list[i], n_classes))
 
     for virtual_method in virtual_methods_list:
-        V_w_train_dict[virtual_method].append(
+        try:
+            V_w_train_dict[virtual_method].append(
             weakener.virtual_labels(z_w_train_list[i], method=virtual_method))
+        except TypeError as e:
+            print(e)
+            from IPython import embed; embed()
     print('Total shape = {}'.format(z_w_train_list[-1].shape))
     print('Sample of z labels\n{}'.format(z_w_train_list[-1][:3]))
     print('Sample of Z labels\n{}'.format(Z_w_train_list[-1][:3]))
@@ -327,8 +340,9 @@ class EpochCallback(Callback):
 
 # Callback for early stopping
 epoch_callback = EpochCallback()
-early_stopping = EarlyStopping(monitor='val_loss', min_delta=0, patience=int(max_epochs/20),
-                               verbose=2, mode='auto', baseline=None,
+early_stopping = EarlyStopping(monitor='val_loss', min_delta=0,
+                               patience=int(max_epochs/20), verbose=2,
+                               mode='auto', baseline=None,
                                restore_best_weights=True)
 
 def make_model(loss, l2=0.0):
@@ -415,7 +429,7 @@ for i, M in enumerate(M_list):
     M_true_list.append(M * q)
     print('q_{} weak = {:.3f}'.format(i, q))
 # Add true samples
-M_supervised = computeM(n_classes, method='supervised')
+M_supervised = generateM(n_classes, model_class='supervised')
 for i, M in enumerate(M_list):
     q = (X_wt_train_list[i].shape[0]/n_samples_train)
     M_true_list.append(M_supervised * q)
@@ -463,7 +477,7 @@ for i in range(len(M_list)):
     M_estimated_list.append(M * q)
     print('q_{} weak = {:.3f}'.format(i, q))
 # Add true samples
-M_supervised = computeM(n_classes, method='supervised')
+M_supervised = generateM(n_classes, model_class='supervised')
 for i in range(len(M_list)):
     q = (X_wt_train_list[i].shape[0]/n_samples_train)
     M_estimated_list.append(M_supervised * q)
@@ -534,13 +548,20 @@ final_models['Weak'] = model
 for virtual_method in virtual_methods_list:
     model = make_model(log_loss, l2=l2)
 
-    history = model.fit(numpy.concatenate((*X_w_train_list, *X_wt_train_list)),
-                        numpy.concatenate((*V_w_train_dict[virtual_method], *Y_wt_train_list)),
+    try:
+        history = model.fit(numpy.concatenate((*X_w_train_list,
+                                               *X_wt_train_list)),
+                        numpy.concatenate((*V_w_train_dict[virtual_method],
+                                           *Y_wt_train_list)),
                         **fit_kwargs)
+    except TypeError as e:
+        print('TypeError exception raised for ')
+        print('Virtual method :' + virtual_method)
+        print(e)
 
     plot_history(history, model, X_test, y_test)
 
-    final_models[virtual_method] = model
+    final_models['Virtual ' + virtual_method] = model
 
 # # Optimistic Superset Loss
 
@@ -591,6 +612,7 @@ final_models['OSL'] = model
 # In[19]:
 
 
+print('Estimated test accuracies')
 plt.figure(figsize=(15, 4))
 lowest_acc = 1.0
 highest_acc = 0.0
@@ -598,7 +620,7 @@ test_acc_dict = {}
 for i, (key, model) in enumerate(sorted(final_models.items())):
     lw = (len(final_models)*2 - i)/5
     p = plt.plot(model.history.history['val_acc'], '-', lw=lw, label='Val. ' + key)
-    test_acc = numpy.mean(model.predict_classes(X_test) == y_test)
+    test_acc = numpy.mean(numpy.argmax(model.predict(X_test), axis=-1) == y_test)
     print('{} : {}'.format(key, test_acc))
     plt.axhline(y=test_acc, color=p[0].get_color(), lw=lw, linestyle='--')
     lowest_acc = test_acc if test_acc < lowest_acc else lowest_acc
@@ -660,3 +682,8 @@ with open(unique_file + "_summary.csv", "w") as file:
 
 
 generate_summary()
+
+
+
+
+
